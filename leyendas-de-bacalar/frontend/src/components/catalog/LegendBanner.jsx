@@ -1,3 +1,4 @@
+import React from 'react';
 function LegendBanner({ title, description }) {
   return (
     <section className="legend-banner">

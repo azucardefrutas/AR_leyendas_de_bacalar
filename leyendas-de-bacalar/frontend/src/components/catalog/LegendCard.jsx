@@ -1,3 +1,4 @@
+import React from 'react';
 import { Link } from 'react-router-dom';
 import Badge from '../ui/Badge.jsx';
 import Card from '../ui/Card.jsx';

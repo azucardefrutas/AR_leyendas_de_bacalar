@@ -1,3 +1,4 @@
+import React from 'react';
 import { Link, Outlet } from 'react-router-dom';
 import { appNavItems } from '../data/navigation.js';
 import { useAuth } from '../hooks/useAuth.js';

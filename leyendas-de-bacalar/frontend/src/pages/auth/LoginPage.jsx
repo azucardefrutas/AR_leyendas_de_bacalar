@@ -1,9 +1,11 @@
+import React from 'react';
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
 import Input from '../../components/ui/Input.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
+import { getCurrentUserRoles, hasAdminRole } from '../../services/roleService.js';
 
 function LoginPage() {
   const { signIn } = useAuth();
@@ -13,7 +15,20 @@ function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const from = location.state?.from?.pathname ?? '/reader/library';
+  const from = location.state?.from?.pathname;
+
+  async function getPostLoginPath() {
+    if (from && from !== '/login' && from !== '/register') {
+      return from;
+    }
+
+    const { data: roles, error: rolesError } = await getCurrentUserRoles();
+    if (rolesError) {
+      return '/reader/library';
+    }
+
+    return hasAdminRole(roles) ? '/admin' : '/reader/library';
+  }
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -28,7 +43,8 @@ function LoginPage() {
       return;
     }
 
-    navigate(from, { replace: true });
+    const postLoginPath = await getPostLoginPath();
+    navigate(postLoginPath, { replace: true });
   }
 
   return (

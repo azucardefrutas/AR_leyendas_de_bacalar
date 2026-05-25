@@ -1,3 +1,4 @@
+import React from 'react';
 import { useParams } from 'react-router-dom';
 import Card from '../../components/ui/Card.jsx';
 

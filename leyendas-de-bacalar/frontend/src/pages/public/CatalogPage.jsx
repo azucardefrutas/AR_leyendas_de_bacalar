@@ -1,3 +1,4 @@
+import React from 'react';
 import { useEffect, useState } from 'react';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';

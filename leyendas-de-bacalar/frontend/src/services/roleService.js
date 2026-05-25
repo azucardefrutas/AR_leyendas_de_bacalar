@@ -2,6 +2,7 @@ import { getCurrentUser } from './authService.js';
 import { getSupabaseConfigError, supabase } from '../lib/supabaseClient.js';
 
 const ACTIVE_ROLE_KEY = 'leyendas_active_role';
+export const adminRoles = ['admin', 'super_admin'];
 
 function getClient() {
   if (!supabase) {
@@ -36,6 +37,22 @@ export async function getCurrentUserRoles() {
 export async function hasRole(role) {
   const { data, error } = await getCurrentUserRoles();
   return { data: data.includes(role), error };
+}
+
+export async function hasAnyRole(allowedRoles = []) {
+  const { data, error } = await getCurrentUserRoles();
+  return {
+    data: allowedRoles.some((role) => data.includes(role)),
+    error,
+  };
+}
+
+export function isAdminRole(role) {
+  return adminRoles.includes(role);
+}
+
+export function hasAdminRole(roles = []) {
+  return roles.some(isAdminRole);
 }
 
 export async function getActiveRole() {

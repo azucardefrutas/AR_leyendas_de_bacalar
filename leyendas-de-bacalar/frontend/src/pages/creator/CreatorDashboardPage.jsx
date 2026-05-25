@@ -1,3 +1,4 @@
+import React from 'react';
 import Card from '../../components/ui/Card.jsx';
 import { useProfile } from '../../hooks/useProfile.js';
 

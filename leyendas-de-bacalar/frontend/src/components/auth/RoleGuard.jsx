@@ -1,12 +1,17 @@
+import React from 'react';
 import { Navigate, Outlet } from 'react-router-dom';
 import LoadingState from '../ui/LoadingState.jsx';
 import { useRoles } from '../../hooks/useRoles.js';
 
 function RoleGuard({ allowedRoles = [] }) {
-  const { roles, loading } = useRoles();
+  const { roles, loading, error } = useRoles();
 
   if (loading) {
     return <LoadingState message="Verificando permisos..." />;
+  }
+
+  if (error) {
+    return <Navigate to="/access-denied" replace />;
   }
 
   const canEnter = allowedRoles.some((role) => roles.includes(role));

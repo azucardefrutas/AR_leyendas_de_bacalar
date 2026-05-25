@@ -1,3 +1,4 @@
+import React from 'react';
 function Input({ label, id, className = '', ...props }) {
   return (
     <label className="field" htmlFor={id}>

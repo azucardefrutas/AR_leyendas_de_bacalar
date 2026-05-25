@@ -1,3 +1,4 @@
+import React from 'react';
 import DashboardShell from '../components/dashboard/DashboardShell.jsx';
 
 const adminItems = [

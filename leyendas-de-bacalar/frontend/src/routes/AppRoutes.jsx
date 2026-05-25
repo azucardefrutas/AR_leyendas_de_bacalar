@@ -1,3 +1,4 @@
+import React from 'react';
 import AuthLayout from '../layouts/AuthLayout.jsx';
 import MainLayout from '../layouts/MainLayout.jsx';
 import AccessDenied from '../pages/AccessDenied.jsx';

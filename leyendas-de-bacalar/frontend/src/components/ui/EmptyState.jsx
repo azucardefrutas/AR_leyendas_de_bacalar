@@ -1,3 +1,4 @@
+import React from 'react';
 function EmptyState({ title = 'Sin resultados', message = 'Todavia no hay contenido para mostrar.' }) {
   return (
     <section className="empty-state">

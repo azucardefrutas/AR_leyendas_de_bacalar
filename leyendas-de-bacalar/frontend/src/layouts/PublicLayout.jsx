@@ -1,3 +1,4 @@
+import React from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import Button from '../components/ui/Button.jsx';
 import { useAuth } from '../hooks/useAuth.js';
