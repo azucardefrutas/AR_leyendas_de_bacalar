@@ -3,9 +3,9 @@ export const paths = {
   login: '/login',
   register: '/register',
   catalog: '/catalog',
-  legendDetail: '/legends/:legendId',
-  readerDashboard: '/dashboard/reader',
-  creatorDashboard: '/dashboard/creator',
-  adminDashboard: '/dashboard/admin',
+  legendDetail: '/legend/:id',
+  reader: '/reader',
+  creator: '/creator',
+  admin: '/admin',
   accessDenied: '/access-denied',
 };

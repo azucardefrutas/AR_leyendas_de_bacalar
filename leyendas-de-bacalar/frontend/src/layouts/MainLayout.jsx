@@ -1,7 +1,10 @@
 import { Link, Outlet } from 'react-router-dom';
 import { appNavItems } from '../data/navigation.js';
+import { useAuth } from '../hooks/useAuth.js';
 
 function MainLayout() {
+  const { isAuthenticated, role, logout } = useAuth();
+
   return (
     <div className="app-shell">
       <header className="app-header">
@@ -12,6 +15,14 @@ function MainLayout() {
             </Link>
           ))}
         </nav>
+        <div className="auth-status">
+          <span>Rol actual: {role}</span>
+          {isAuthenticated && (
+            <button type="button" onClick={logout}>
+              Salir
+            </button>
+          )}
+        </div>
       </header>
       <main className="app-main">
         <Outlet />

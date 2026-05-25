@@ -41,6 +41,15 @@ select {
   gap: 12px;
 }
 
+.auth-status,
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 16px;
+}
+
 .app-main {
   width: min(960px, 100%);
   margin: 0 auto;
