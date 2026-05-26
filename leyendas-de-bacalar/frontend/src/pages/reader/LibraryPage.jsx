@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
+import CreatorApplicationCard from '../../components/ui/CreatorApplicationCard.jsx';
 import { useProfile } from '../../hooks/useProfile.js';
 import { useRoles } from '../../hooks/useRoles.js';
 
@@ -101,6 +102,7 @@ function LibraryPage() {
           <Link to="/reader/redeem"><Button variant="ghost">Canjear codigo</Button></Link>
         </div>
       </Card>
+      <CreatorApplicationCard />
     </section>
   );
 }

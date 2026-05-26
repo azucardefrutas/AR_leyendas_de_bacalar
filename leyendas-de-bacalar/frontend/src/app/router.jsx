@@ -1,5 +1,6 @@
 import React from "react";
 import { createBrowserRouter, Navigate } from 'react-router-dom';
+import CreatorAccessGuard from '../components/auth/CreatorAccessGuard.jsx';
 import ProtectedRoute from '../components/auth/ProtectedRoute.jsx';
 import RoleGuard from '../components/auth/RoleGuard.jsx';
 import AdminLayout from '../layouts/AdminLayout.jsx';
@@ -21,6 +22,7 @@ import CodeRequestsPage from '../pages/creator/CodeRequestsPage.jsx';
 import CreateLegendPage from '../pages/creator/CreateLegendPage.jsx';
 import CreatorDashboardPage from '../pages/creator/CreatorDashboardPage.jsx';
 import CreatorLegendsPage from '../pages/creator/CreatorLegendsPage.jsx';
+import CreatorProfilePage from '../pages/creator/CreatorProfilePage.jsx';
 import CreatorReviewsPage from '../pages/creator/CreatorReviewsPage.jsx';
 import EditLegendPage from '../pages/creator/EditLegendPage.jsx';
 import UploadAssetsPage from '../pages/creator/UploadAssetsPage.jsx';
@@ -70,7 +72,7 @@ export const router = createBrowserRouter([
         ],
       },
       {
-        element: <RoleGuard allowedRoles={['creator']} />,
+        element: <CreatorAccessGuard />,
         children: [
           {
             path: '/creator',
@@ -79,10 +81,12 @@ export const router = createBrowserRouter([
               { index: true, element: <CreatorDashboardPage /> },
               { path: 'legends', element: <CreatorLegendsPage /> },
               { path: 'legends/new', element: <CreateLegendPage /> },
-              { path: 'legends/:legendId/edit', element: <EditLegendPage /> },
+              { path: 'legends/:id/edit', element: <EditLegendPage /> },
+              { path: 'assets', element: <UploadAssetsPage /> },
               { path: 'legends/:legendId/assets', element: <UploadAssetsPage /> },
               { path: 'reviews', element: <CreatorReviewsPage /> },
               { path: 'code-requests', element: <CodeRequestsPage /> },
+              { path: 'profile', element: <CreatorProfilePage /> },
             ],
           },
         ],
