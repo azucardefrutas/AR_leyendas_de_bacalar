@@ -3,16 +3,31 @@ import Card from '../../components/ui/Card.jsx';
 import { useProfile } from '../../hooks/useProfile.js';
 import { useRoles } from '../../hooks/useRoles.js';
 
+function getDisplayName(profile) {
+  return profile?.full_name || profile?.name || profile?.display_name || profile?.username || 'Lector';
+}
+
 function ProfilePage() {
   const { profile, loading: profileLoading, error: profileError } = useProfile();
   const { roles, activeRole, loading: rolesLoading } = useRoles();
+  const displayName = getDisplayName(profile);
 
   return (
     <section className="page-stack">
       <h1>Perfil</h1>
       <Card>
         <h2>Datos de usuario</h2>
-        {profileLoading ? <p>Cargando perfil...</p> : <pre>{JSON.stringify(profile, null, 2)}</pre>}
+        {profileLoading ? (
+          <p>Cargando perfil...</p>
+        ) : (
+          <div className="profile-summary">
+            <span>{displayName.slice(0, 1).toUpperCase()}</span>
+            <div>
+              <strong>{displayName}</strong>
+              <p>{profile?.email || 'Correo no disponible'}</p>
+            </div>
+          </div>
+        )}
         {profileError && <p className="error-message">{profileError.message}</p>}
       </Card>
       <Card>

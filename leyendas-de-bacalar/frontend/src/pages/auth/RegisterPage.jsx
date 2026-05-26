@@ -33,7 +33,7 @@ function RegisterPage() {
     }
 
     if (result.data?.session) {
-      navigate('/reader/library', { replace: true });
+      navigate('/', { replace: true });
       return;
     }
 
@@ -41,19 +41,59 @@ function RegisterPage() {
   }
 
   return (
-    <Card className="auth-card">
-      <h1>Crear cuenta</h1>
-      <p>Registrate para empezar tu biblioteca cultural.</p>
-      <form className="form-stack" onSubmit={handleSubmit}>
-        <Input id="name" label="Nombre" value={form.name} onChange={(event) => updateField('name', event.target.value)} required />
-        <Input id="email" label="Correo" type="email" value={form.email} onChange={(event) => updateField('email', event.target.value)} required />
-        <Input id="password" label="Contrasena" type="password" value={form.password} onChange={(event) => updateField('password', event.target.value)} required />
-        {error && <p className="error-message">{error}</p>}
-        {message && <p className="success-message">{message}</p>}
-        <Button type="submit" disabled={loading}>{loading ? 'Creando...' : 'Registrarme'}</Button>
-      </form>
-      <p>¿Ya tienes cuenta? <Link to="/login">Iniciar sesion</Link></p>
-    </Card>
+    <section className="auth-experience register-experience">
+      <div className="auth-copy">
+        <Link className="auth-brand" to="/">
+          <img src="/assets/Logo de la Upb.png" alt="" />
+          <span>Leyendas<br />de Bacalar</span>
+        </Link>
+        <p className="eyebrow">Biblioteca cultural</p>
+        <h1>Crea tu cuenta y abre la puerta a las historias de <strong>Bacalar.</strong></h1>
+        <p>Tu perfil guardara accesos, codigos canjeados y progreso de lectura cuando el contenido este disponible.</p>
+      </div>
+
+      <Card className="auth-card cinematic-card">
+        <h2>Crear cuenta</h2>
+        <p>Registrate con correo y contrasena para empezar tu biblioteca cultural.</p>
+        <form className="form-stack" onSubmit={handleSubmit}>
+          <Input
+            id="name"
+            icon="+"
+            label="Nombre"
+            placeholder="Tu nombre"
+            value={form.name}
+            onChange={(event) => updateField('name', event.target.value)}
+            required
+          />
+          <Input
+            id="email"
+            icon="@"
+            label="Correo electronico"
+            type="email"
+            placeholder="tu@email.com"
+            value={form.email}
+            onChange={(event) => updateField('email', event.target.value)}
+            required
+          />
+          <Input
+            id="password"
+            icon="*"
+            label="Contrasena"
+            type="password"
+            placeholder="Minimo 6 caracteres"
+            value={form.password}
+            onChange={(event) => updateField('password', event.target.value)}
+            required
+          />
+          {error && <p className="error-message auth-alert">{error}</p>}
+          {message && <p className="success-message auth-alert">{message}</p>}
+          <Button className="btn-wide" type="submit" disabled={loading}>
+            {loading ? 'Creando...' : 'Crear cuenta'}
+          </Button>
+        </form>
+        <p className="auth-switch">Ya tienes cuenta? <Link to="/login">Iniciar sesion</Link></p>
+      </Card>
+    </section>
   );
 }
 

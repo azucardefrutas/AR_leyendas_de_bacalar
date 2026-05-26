@@ -1,34 +1,18 @@
 import React from 'react';
 import { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
 import Input from '../../components/ui/Input.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
-import { getCurrentUserRoles, hasAdminRole } from '../../services/roleService.js';
 
 function LoginPage() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const from = location.state?.from?.pathname;
-
-  async function getPostLoginPath() {
-    if (from && from !== '/login' && from !== '/register') {
-      return from;
-    }
-
-    const { data: roles, error: rolesError } = await getCurrentUserRoles();
-    if (rolesError) {
-      return '/reader/library';
-    }
-
-    return hasAdminRole(roles) ? '/admin' : '/reader/library';
-  }
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -43,22 +27,61 @@ function LoginPage() {
       return;
     }
 
-    const postLoginPath = await getPostLoginPath();
-    navigate(postLoginPath, { replace: true });
+    navigate('/', { replace: true });
   }
 
   return (
-    <Card className="auth-card">
-      <h1>Iniciar sesion</h1>
-      <p>Accede para leer, canjear codigos y gestionar tu biblioteca.</p>
-      <form className="form-stack" onSubmit={handleSubmit}>
-        <Input id="email" label="Correo" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
-        <Input id="password" label="Contrasena" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
-        {error && <p className="error-message">{error}</p>}
-        <Button type="submit" disabled={loading}>{loading ? 'Entrando...' : 'Entrar'}</Button>
-      </form>
-      <p>¿No tienes cuenta? <Link to="/register">Crear cuenta</Link></p>
-    </Card>
+    <section className="auth-experience">
+      <div className="auth-copy">
+        <Link className="auth-brand" to="/">
+          <img src="/assets/Logo de la Upb.png" alt="" />
+          <span>Leyendas<br />de Bacalar</span>
+        </Link>
+        <p className="eyebrow">Descubre nuestra cultura</p>
+        <h1>Explora las leyendas, mitos y relatos que dan vida a <strong>Bacalar.</strong></h1>
+        <p>Inicia sesion para continuar tu aventura o crea una cuenta para descubrir mas.</p>
+      </div>
+
+      <Card className="auth-card cinematic-card">
+        <h2>Iniciar sesion</h2>
+        <p>Accede con tu correo para leer, canjear codigos y gestionar tu biblioteca.</p>
+        <form className="form-stack" onSubmit={handleSubmit}>
+          <Input
+            id="email"
+            icon="@"
+            label="Correo electronico"
+            type="email"
+            placeholder="tu@email.com"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            required
+          />
+          <Input
+            id="password"
+            icon="*"
+            label="Contrasena"
+            type="password"
+            placeholder="********"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            required
+          />
+          {error && <p className="error-message auth-alert">{error}</p>}
+          <Button className="btn-wide" type="submit" disabled={loading}>
+            {loading ? 'Entrando...' : 'Iniciar sesion'}
+          </Button>
+        </form>
+
+        <div className="social-divider"><span>o continua con</span></div>
+        <div className="social-row">
+          <button type="button" disabled title="Proximamente">Google</button>
+          <button type="button" disabled title="Proximamente">Facebook</button>
+          <button type="button" disabled title="Proximamente">Apple</button>
+        </div>
+
+        <p className="auth-switch">No tienes cuenta? <Link to="/register">Registrate aqui</Link></p>
+      </Card>
+    </section>
   );
 }
 
