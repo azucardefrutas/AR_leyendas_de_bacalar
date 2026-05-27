@@ -11,9 +11,9 @@ export const adminNavItems = [
   { label: 'Leyendas', to: '/admin/legends', icon: 'book' },
   { label: 'Revisiones', to: '/admin/reviews', icon: 'review' },
   { label: 'Recursos', to: '/admin/assets', icon: 'asset' },
-  { label: 'Codigos', to: '/admin/code-requests', icon: 'request' },
+  { label: 'Codigos', to: '/admin/codes', icon: 'request' },
   { label: 'Lotes de codigos', to: '/admin/code-batches', icon: 'codes' },
-  { label: 'Compras', to: '/admin/orders', icon: 'orders' },
+  { label: 'Compras', to: '/admin/purchases', icon: 'orders' },
   { label: 'Suscripciones', to: '/admin/subscriptions', icon: 'subscription' },
   { label: 'Actividad', to: '/admin/activity', icon: 'activity' },
   { label: 'Configuracion', to: '/admin/settings', icon: 'settings' },
@@ -249,6 +249,7 @@ export function AdminConfirmModal({
   onCancel,
   onConfirm,
   loading,
+  confirmDisabled,
 }) {
   if (!open) return null;
   return (
@@ -258,8 +259,8 @@ export function AdminConfirmModal({
         {description && <p>{description}</p>}
         {children}
         <div className="admin-modal-actions">
-          <Button variant="ghost" onClick={onCancel}>Cancelar</Button>
-          <Button onClick={onConfirm} disabled={loading}>{loading ? 'Procesando...' : confirmLabel}</Button>
+          <Button variant="ghost" onClick={onCancel} disabled={loading}>Cancelar</Button>
+          <Button onClick={onConfirm} disabled={loading || confirmDisabled}>{loading ? 'Procesando...' : confirmLabel}</Button>
         </div>
       </div>
     </div>

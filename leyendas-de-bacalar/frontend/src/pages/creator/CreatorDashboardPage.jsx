@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
 import { DraftIcon, PublishedIcon, ReviewIcon } from '../../components/ui/CreatorIcons.jsx';
@@ -16,6 +16,7 @@ function countByStatus(legends, statuses) {
 }
 
 function CreatorDashboardPage() {
+  const navigate = useNavigate();
   const { profile } = useProfile();
   const [creatorProfile, setCreatorProfile] = useState(null);
   const [legends, setLegends] = useState([]);
@@ -43,6 +44,14 @@ function CreatorDashboardPage() {
   const publishedCount = countByStatus(legends, ['published']);
   const reviewCount = countByStatus(legends, ['in_review', 'review', 'pending_review']);
   const draftCount = countByStatus(legends, ['draft', 'rejected']);
+
+  function openEditor(legend) {
+    if (!legend?.id) {
+      setError(new Error('No pudimos abrir esta leyenda.'));
+      return;
+    }
+    navigate(`/creator/legends/${legend.id}/edit`);
+  }
 
   return (
     <section className="page-stack creator-panel">
@@ -96,7 +105,7 @@ function CreatorDashboardPage() {
               <span className="creator-status-pill">{legend.status || 'draft'}</span>
               <h3>{legend.title}</h3>
               <p>{legend.short_synopsis || legend.synopsis || 'Sin sinopsis breve.'}</p>
-              <Link to={`/creator/legends/${legend.id}/edit`}>Editar leyenda</Link>
+              <Button type="button" variant="ghost" onClick={() => openEditor(legend)}>Editar leyenda</Button>
             </Card>
           ))}
         </div>

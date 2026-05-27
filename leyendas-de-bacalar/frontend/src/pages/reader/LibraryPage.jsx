@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
-import CreatorApplicationCard from '../../components/ui/CreatorApplicationCard.jsx';
+import CreatorRequestCard from '../../components/reader/creator-request/CreatorRequestCard.jsx';
 import { useProfile } from '../../hooks/useProfile.js';
 import { useRoles } from '../../hooks/useRoles.js';
 
@@ -21,7 +21,7 @@ const libraryActions = [
   },
   {
     title: 'Compras',
-    text: 'Consulta tus compras simuladas y accesos registrados.',
+    text: 'Consulta tus compras y accesos registrados.',
     to: '/reader/purchases',
     marker: '$',
   },
@@ -102,7 +102,7 @@ function LibraryPage() {
           <Link to="/reader/redeem"><Button variant="ghost">Canjear codigo</Button></Link>
         </div>
       </Card>
-      <CreatorApplicationCard />
+      <CreatorRequestCard />
     </section>
   );
 }

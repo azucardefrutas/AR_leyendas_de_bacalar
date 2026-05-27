@@ -47,6 +47,7 @@ export function useRoles() {
     error,
     hasRole: (role) => roles.includes(role),
     refreshRoles,
+    refetchRoles: refreshRoles,
     setActiveRole,
   };
 }

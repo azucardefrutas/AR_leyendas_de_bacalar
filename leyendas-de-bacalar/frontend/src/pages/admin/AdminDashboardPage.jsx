@@ -176,8 +176,8 @@ function AdminDashboardPage() {
           <div className="admin-quick-actions">
             <Link to="/admin/creator-applications"><Button>Revisar autores</Button></Link>
             <Link to="/admin/reviews"><Button variant="ghost">Revisar leyendas</Button></Link>
-            <Link to="/admin/code-requests"><Button variant="ghost">Generar codigos</Button></Link>
-            <Link to="/admin/orders"><Button variant="ghost">Compras</Button></Link>
+            <Link to="/admin/codes"><Button variant="ghost">Generar codigos</Button></Link>
+            <Link to="/admin/purchases"><Button variant="ghost">Compras</Button></Link>
           </div>
         </article>
       </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import CreatorApplicationCard from '../../components/ui/CreatorApplicationCard.jsx';
+import CreatorRequestCard from '../../components/reader/creator-request/CreatorRequestCard.jsx';
 import Card from '../../components/ui/Card.jsx';
 import { useProfile } from '../../hooks/useProfile.js';
 import { useRoles } from '../../hooks/useRoles.js';
@@ -35,7 +35,7 @@ function ProfilePage() {
         <h2>Roles</h2>
         {rolesLoading ? <p>Cargando roles...</p> : <p>{roles.join(', ') || 'Sin roles'} | Activo: {activeRole ?? 'ninguno'}</p>}
       </Card>
-      <CreatorApplicationCard />
+      <CreatorRequestCard />
     </section>
   );
 }

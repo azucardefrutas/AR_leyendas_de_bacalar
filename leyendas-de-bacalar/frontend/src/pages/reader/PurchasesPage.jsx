@@ -32,7 +32,7 @@ function PurchasesPage() {
       <h1>Compras</h1>
       {error && <p className="error-message">{error.message}</p>}
       <Card><h2>Ordenes</h2><p>{orders.length} ordenes registradas.</p></Card>
-      <Card><h2>Pagos</h2><p>{payments.length} pagos simulados registrados.</p></Card>
+      <Card><h2>Pagos</h2><p>{payments.length} pagos registrados.</p></Card>
     </section>
   );
 }

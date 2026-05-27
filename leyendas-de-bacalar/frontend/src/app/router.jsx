@@ -91,6 +91,7 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <CreatorDashboardPage /> },
               { path: 'legends', element: <CreatorLegendsPage /> },
+              { path: 'drafts', element: <CreatorLegendsPage /> },
               { path: 'legends/new', element: <CreateLegendPage /> },
               { path: 'legends/:id/edit', element: <EditLegendPage /> },
               { path: 'assets', element: <UploadAssetsPage /> },
@@ -116,8 +117,10 @@ export const router = createBrowserRouter([
               { path: 'legends', element: <AdminLegendsPage /> },
               { path: 'reviews', element: <AdminReviewsPage /> },
               { path: 'assets', element: <AdminAssetsPage /> },
+              { path: 'codes', element: <AdminCodeRequestsPage /> },
               { path: 'code-requests', element: <AdminCodeRequestsPage /> },
               { path: 'code-batches', element: <AdminCodeBatchesPage /> },
+              { path: 'purchases', element: <AdminOrdersPage /> },
               { path: 'orders', element: <AdminOrdersPage /> },
               { path: 'subscriptions', element: <AdminSubscriptionsPage /> },
               { path: 'activity', element: <AdminActivityPage /> },
