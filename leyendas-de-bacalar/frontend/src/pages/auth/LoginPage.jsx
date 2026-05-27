@@ -5,6 +5,8 @@ import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
 import Input from '../../components/ui/Input.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
+import { getRoleHomePath } from '../../components/auth/RedirectAuthenticatedRoute.jsx';
+import { getActiveRole, getCurrentUserRoles } from '../../services/roleService.js';
 
 function LoginPage() {
   const { signIn } = useAuth();
@@ -27,7 +29,11 @@ function LoginPage() {
       return;
     }
 
-    navigate('/', { replace: true });
+    const [{ data: roles }, { data: activeRole }] = await Promise.all([
+      getCurrentUserRoles(),
+      getActiveRole(),
+    ]);
+    navigate(getRoleHomePath(roles ?? [], activeRole), { replace: true });
   }
 
   return (

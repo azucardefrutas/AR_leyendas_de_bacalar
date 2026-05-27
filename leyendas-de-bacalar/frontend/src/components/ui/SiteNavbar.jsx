@@ -7,7 +7,7 @@ import Button from './Button.jsx';
 function SiteNavbar() {
   const { isAuthenticated, signOut, user } = useAuth();
   const { roles } = useRoles();
-  const isAdmin = roles.includes('admin') || roles.includes('super_admin');
+  const isAdmin = roles.includes('admin');
   const isCreator = roles.includes('creator');
   const displayName = user?.user_metadata?.full_name || user?.email || 'Usuario';
   const initial = displayName.slice(0, 1).toUpperCase();

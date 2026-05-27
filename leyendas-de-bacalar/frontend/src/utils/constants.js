@@ -4,5 +4,4 @@ export const roleNames = {
   reader: 'reader',
   creator: 'creator',
   admin: 'admin',
-  superAdmin: 'super_admin',
 };

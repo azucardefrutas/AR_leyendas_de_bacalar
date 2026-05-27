@@ -2,7 +2,7 @@ import { getCurrentUser } from './authService.js';
 import { getSupabaseConfigError, supabase } from '../lib/supabaseClient.js';
 
 const ACTIVE_ROLE_KEY = 'leyendas_active_role';
-export const adminRoles = ['admin', 'super_admin'];
+export const adminRoles = ['admin'];
 
 function getClient() {
   if (!supabase) {

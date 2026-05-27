@@ -2,19 +2,26 @@ import React from "react";
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import CreatorAccessGuard from '../components/auth/CreatorAccessGuard.jsx';
 import ProtectedRoute from '../components/auth/ProtectedRoute.jsx';
+import RedirectAuthenticatedRoute from '../components/auth/RedirectAuthenticatedRoute.jsx';
 import RoleGuard from '../components/auth/RoleGuard.jsx';
+import RoleAwareHomeRoute from '../components/auth/RoleAwareHomeRoute.jsx';
 import AdminLayout from '../layouts/AdminLayout.jsx';
 import AuthLayout from '../layouts/AuthLayout.jsx';
 import CreatorLayout from '../layouts/CreatorLayout.jsx';
 import PublicLayout from '../layouts/PublicLayout.jsx';
 import ReaderLayout from '../layouts/ReaderLayout.jsx';
-import AdminAuditPage from '../pages/admin/AdminAuditPage.jsx';
-import AdminCodesPage from '../pages/admin/AdminCodesPage.jsx';
+import AdminActivityPage from '../pages/admin/AdminActivityPage.jsx';
+import AdminAssetsPage from '../pages/admin/AdminAssetsPage.jsx';
+import AdminAuthorsPage from '../pages/admin/AdminAuthorsPage.jsx';
+import AdminCodeBatchesPage from '../pages/admin/AdminCodeBatchesPage.jsx';
+import AdminCodeRequestsPage from '../pages/admin/AdminCodeRequestsPage.jsx';
 import AdminCreatorApplicationsPage from '../pages/admin/AdminCreatorApplicationsPage.jsx';
 import AdminDashboardPage from '../pages/admin/AdminDashboardPage.jsx';
-import AdminLegendsReviewPage from '../pages/admin/AdminLegendsReviewPage.jsx';
-import AdminPhysicalEditionsPage from '../pages/admin/AdminPhysicalEditionsPage.jsx';
-import AdminProductsPage from '../pages/admin/AdminProductsPage.jsx';
+import AdminLegendsPage from '../pages/admin/AdminLegendsPage.jsx';
+import AdminReviewsPage from '../pages/admin/AdminReviewsPage.jsx';
+import AdminSettingsPage from '../pages/admin/AdminSettingsPage.jsx';
+import AdminOrdersPage from '../pages/admin/AdminOrdersPage.jsx';
+import AdminSubscriptionsPage from '../pages/admin/AdminSubscriptionsPage.jsx';
 import AdminUsersPage from '../pages/admin/AdminUsersPage.jsx';
 import LoginPage from '../pages/auth/LoginPage.jsx';
 import RegisterPage from '../pages/auth/RegisterPage.jsx';
@@ -28,7 +35,6 @@ import EditLegendPage from '../pages/creator/EditLegendPage.jsx';
 import UploadAssetsPage from '../pages/creator/UploadAssetsPage.jsx';
 import AccessDeniedPage from '../pages/public/AccessDeniedPage.jsx';
 import CatalogPage from '../pages/public/CatalogPage.jsx';
-import HomePage from '../pages/public/HomePage.jsx';
 import LegendDetailPage from '../pages/public/LegendDetailPage.jsx';
 import NotFoundPage from '../pages/public/NotFoundPage.jsx';
 import LibraryPage from '../pages/reader/LibraryPage.jsx';
@@ -42,17 +48,22 @@ export const router = createBrowserRouter([
   {
     element: <PublicLayout />,
     children: [
-      { path: '/', element: <HomePage /> },
+      { path: '/', element: <RoleAwareHomeRoute /> },
       { path: '/catalog', element: <CatalogPage /> },
       { path: '/legend/:slug', element: <LegendDetailPage /> },
       { path: '/access-denied', element: <AccessDeniedPage /> },
     ],
   },
   {
-    element: <AuthLayout />,
+    element: <RedirectAuthenticatedRoute />,
     children: [
-      { path: '/login', element: <LoginPage /> },
-      { path: '/register', element: <RegisterPage /> },
+      {
+        element: <AuthLayout />,
+        children: [
+          { path: '/login', element: <LoginPage /> },
+          { path: '/register', element: <RegisterPage /> },
+        ],
+      },
     ],
   },
   {
@@ -92,7 +103,7 @@ export const router = createBrowserRouter([
         ],
       },
       {
-        element: <RoleGuard allowedRoles={['admin', 'super_admin']} />,
+        element: <RoleGuard allowedRoles={['admin']} />,
         children: [
           {
             path: '/admin',
@@ -101,11 +112,16 @@ export const router = createBrowserRouter([
               { index: true, element: <AdminDashboardPage /> },
               { path: 'users', element: <AdminUsersPage /> },
               { path: 'creator-applications', element: <AdminCreatorApplicationsPage /> },
-              { path: 'legends-review', element: <AdminLegendsReviewPage /> },
-              { path: 'codes', element: <AdminCodesPage /> },
-              { path: 'physical-editions', element: <AdminPhysicalEditionsPage /> },
-              { path: 'products', element: <AdminProductsPage /> },
-              { path: 'audit', element: <AdminAuditPage /> },
+              { path: 'authors', element: <AdminAuthorsPage /> },
+              { path: 'legends', element: <AdminLegendsPage /> },
+              { path: 'reviews', element: <AdminReviewsPage /> },
+              { path: 'assets', element: <AdminAssetsPage /> },
+              { path: 'code-requests', element: <AdminCodeRequestsPage /> },
+              { path: 'code-batches', element: <AdminCodeBatchesPage /> },
+              { path: 'orders', element: <AdminOrdersPage /> },
+              { path: 'subscriptions', element: <AdminSubscriptionsPage /> },
+              { path: 'activity', element: <AdminActivityPage /> },
+              { path: 'settings', element: <AdminSettingsPage /> },
             ],
           },
         ],
