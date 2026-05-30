@@ -29,6 +29,10 @@ function getDisplayValue(value) {
   return value && value !== 'No especificado' ? value : 'No disponible';
 }
 
+function getEmail(row) {
+  return getProfile(row).email || row?.email || 'No disponible';
+}
+
 function getApplicantName(row) {
   const profile = getProfile(row);
   const details = getDetails(row);
@@ -56,8 +60,24 @@ function hasCreatorLegalAcceptance(application) {
   );
 }
 
+function getApplicationSummary(applications = []) {
+  return applications.reduce((summary, application) => {
+    const status = application.status || 'pending';
+    summary.total += 1;
+    summary[status] = (summary[status] || 0) + 1;
+    return summary;
+  }, { total: 0, pending: 0, approved: 0, rejected: 0 });
+}
+
+function getEmptyTitle(status) {
+  if (status === 'approved') return 'No hay solicitudes aprobadas';
+  if (status === 'rejected') return 'No hay solicitudes rechazadas';
+  return 'No hay solicitudes de creador por revisar';
+}
+
 function AdminCreatorApplicationsPage() {
   const [applications, setApplications] = useState([]);
+  const [summary, setSummary] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
   const [filters, setFilters] = useState({ status: 'all', search: '' });
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
@@ -71,7 +91,11 @@ function AdminCreatorApplicationsPage() {
   async function loadApplications(nextFilters = filters) {
     setLoading(true);
     const { data, error: applicationsError } = await getCreatorApplications(nextFilters);
+    const { data: allApplications } = nextFilters.status === 'all' && !nextFilters.search
+      ? { data }
+      : await getCreatorApplications({ status: 'all', search: '' });
     setApplications(data ?? []);
+    setSummary(getApplicationSummary(allApplications ?? data ?? []));
     setError(applicationsError);
     setLoading(false);
   }
@@ -188,6 +212,21 @@ function AdminCreatorApplicationsPage() {
       <AdminToast type={toast?.type} message={toast?.message} />
       {error && <p className="admin-error">{error.message}</p>}
 
+      <div className="admin-application-summary">
+        {[
+          ['Total', summary.total, 'Solicitudes recibidas'],
+          ['Pendientes', summary.pending, 'Por revisar'],
+          ['Aprobadas', summary.approved, 'Con acceso creador'],
+          ['Rechazadas', summary.rejected, 'No aprobadas'],
+        ].map(([label, value, description]) => (
+          <article key={label}>
+            <strong>{value}</strong>
+            <span>{label}</span>
+            <small>{description}</small>
+          </article>
+        ))}
+      </div>
+
       <div className="admin-filters">
         <input
           type="search"
@@ -206,7 +245,7 @@ function AdminCreatorApplicationsPage() {
       <AdminDataTable
         loading={loading}
         rows={applications}
-        emptyTitle="No hay solicitudes pendientes por revisar"
+        emptyTitle={getEmptyTitle(filters.status)}
         emptyMessage="Cuando un usuario envie su solicitud editorial aparecera aqui."
         columns={[
           {
@@ -214,6 +253,7 @@ function AdminCreatorApplicationsPage() {
             header: 'Solicitante',
             render: (row) => getApplicantName(row),
           },
+          { key: 'email', header: 'Correo', render: (row) => getEmail(row) },
           { key: 'pen_name', header: 'Seudonimo', render: (row) => getDisplayValue(getDetails(row).penName) },
           { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status} /> },
           { key: 'created_at', header: 'Fecha', render: (row) => formatDate(row.created_at) },
@@ -257,10 +297,27 @@ function AdminCreatorApplicationsPage() {
             </div>
 
             <section className="admin-review-section">
-              <h3>Datos de solicitud</h3>
+              <h3>Datos de cuenta</h3>
               <div className="admin-inspection-grid">
                 {[
-                  ['Correo', getProfile(modal.application).email],
+                  ['Usuario relacionado', getApplicantName(modal.application)],
+                  ['Correo', getEmail(modal.application)],
+                  ['ID de usuario', shortId(modal.application.user_id)],
+                  ['Fecha de solicitud', formatDate(modal.application.created_at)],
+                  ['Estado actual', modal.application.status],
+                ].map(([label, value]) => (
+                  <div key={label}>
+                    <strong>{label}</strong>
+                    <p>{getDisplayValue(value)}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            <section className="admin-review-section">
+              <h3>Datos editoriales</h3>
+              <div className="admin-inspection-grid">
+                {[
                   ['Seudonimo', getDetails(modal.application).penName],
                   ['Institucion o afiliacion', getDetails(modal.application).affiliation],
                   ['Ciudad', getDetails(modal.application).city],
@@ -268,8 +325,6 @@ function AdminCreatorApplicationsPage() {
                   ['Pais', getDetails(modal.application).country],
                   ['Biografia', getDetails(modal.application).biography],
                   ['Motivo para ser creador', getDetails(modal.application).motivation],
-                  ['Fecha de solicitud', formatDate(modal.application.created_at)],
-                  ['Estado actual', modal.application.status],
                 ].map(([label, value]) => (
                   <div key={label}>
                     <strong>{label}</strong>
