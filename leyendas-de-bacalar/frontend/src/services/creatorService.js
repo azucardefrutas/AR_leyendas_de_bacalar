@@ -5,7 +5,10 @@ import {
   getCreatorIdCandidates,
   getCurrentCreatorProfile,
 } from './creatorAccessService.js';
-import { getMyLegends as getEditorMyLegends } from './creatorLegendService.js';
+import {
+  createLegendDraft,
+  getMyLegends as getEditorMyLegends,
+} from './creatorLegendService.js';
 
 function getClient() {
   if (!supabase) return { data: null, error: getSupabaseConfigError() };
@@ -58,25 +61,7 @@ export async function getMyLegends() {
 }
 
 export async function createLegend(payload) {
-  const { data: client, error: clientError } = getClient();
-  if (clientError) return { data: null, error: clientError };
-
-  const { data: accessStatus, error: accessError } = await ensureCreatorCanCreate();
-  if (accessError) return { data: null, error: accessError };
-  const creatorCandidates = getCreatorIdCandidates(accessStatus);
-  if (!creatorCandidates.length) return { data: null, error: new Error('Tu perfil de creador no se encontro. Vuelve a iniciar sesion o contacta al administrador.') };
-
-  let lastError = null;
-  for (const creatorId of creatorCandidates) {
-    const { data, error } = await client
-      .from('legends')
-      .insert({ ...payload, creator_id: creatorId })
-      .select()
-      .single();
-    if (!error) return { data, error: null };
-    lastError = error;
-  }
-  return { data: null, error: lastError };
+  return createLegendDraft(payload);
 }
 
 export async function updateLegend(legendId, payload) {
@@ -121,11 +106,44 @@ export async function createLegendVersion(legendId, versionNumber = 1) {
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: null, error: clientError };
 
-  return client
+  const { data: accessStatus, error: accessError } = await ensureCreatorCanCreate();
+  if (accessError) return { data: null, error: accessError };
+  const userId = accessStatus?.userId;
+  if (!userId) return { data: null, error: new Error('Debes iniciar sesion para continuar.') };
+  if (!legendId || legendId === 'undefined') return { data: null, error: new Error('No pudimos crear la version inicial.') };
+
+  const existing = await client
     .from('legend_versions')
-    .insert({ legend_id: legendId, version_number: versionNumber, status: 'draft' })
+    .select('*')
+    .eq('legend_id', legendId)
+    .eq('version_number', Number(versionNumber || 1))
+    .limit(1)
+    .maybeSingle();
+
+  if (existing.error) {
+    console.error('create initial version error', existing.error);
+    return { data: null, error: existing.error };
+  }
+
+  if (existing.data?.id) return { data: existing.data, error: null };
+
+  const result = await client
+    .from('legend_versions')
+    .insert({
+      legend_id: legendId,
+      version_number: Number(versionNumber || 1),
+      status: 'draft',
+      created_by: userId,
+    })
     .select()
     .single();
+  if (result.error) {
+    console.error('create initial version error', result.error);
+    console.error('create initial legend version error', result.error);
+    console.error('createLegendDraft versionError', result.error);
+    console.error('create legend version error', result.error);
+  }
+  return result;
 }
 
 export async function getLegendVersions(legendId) {
@@ -144,12 +162,16 @@ export async function getLegendVersions(legendId) {
 export async function getLegendPagesByVersion(versionId) {
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: [], error: clientError };
+  if (!versionId || versionId === 'undefined') return { data: [], error: new Error('No pudimos cargar las paginas.') };
 
+  if (import.meta.env.DEV) console.log('versionId', versionId);
   const { data, error } = await client
     .from('legend_pages')
     .select('*')
     .eq('version_id', versionId)
     .order('page_number', { ascending: true });
+  if (import.meta.env.DEV) console.log('pages loaded', data ?? []);
+  if (error) console.error('getLegendPagesByVersion error', error);
 
   return { data: data ?? [], error };
 }
@@ -158,7 +180,20 @@ export async function createLegendPage(payload) {
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: null, error: clientError };
 
-  return client.from('legend_pages').insert(payload).select().single();
+  const { version_id, page_number, title, text_content, background_asset_id } = payload ?? {};
+  if (!version_id || version_id === 'undefined') return { data: null, error: new Error('No pudimos guardar la pagina.') };
+  const cleanPayload = {
+    version_id,
+    page_number,
+    title: title ?? null,
+    text_content: text_content ?? '',
+    background_asset_id: background_asset_id ?? null,
+  };
+
+  if (import.meta.env.DEV) console.log('versionId', cleanPayload.version_id);
+  const result = await client.from('legend_pages').insert(cleanPayload).select().single();
+  if (result.error) console.error('createLegendPage error', result.error);
+  return result;
 }
 
 export async function createCodeRequest(legendId, quantity, reason) {

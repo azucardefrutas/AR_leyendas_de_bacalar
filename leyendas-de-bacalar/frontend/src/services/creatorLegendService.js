@@ -81,36 +81,16 @@ function normalizePages(pages = []) {
     .sort((a, b) => a.page_number - b.page_number);
 }
 
-function slugify(value) {
-  return String(value ?? '')
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
 function normalizeGenres(genres = []) {
   return [...new Set(genres.map((genre) => genre?.trim()).filter(Boolean))];
 }
 
 async function tryInsertGenre(client, name) {
-  const slug = slugify(name);
-  const payloads = [
-    { name, slug, is_active: true },
-    { name, slug },
-    { name },
-  ];
+  const { data, error } = await client.from('genres').insert({ name }).select().single();
+  if (!error) return { data, error: null };
 
-  let lastError = null;
-  for (const payload of payloads) {
-    const { data, error } = await client.from('genres').insert(payload).select().single();
-    if (!error) return { data, error: null };
-    lastError = error;
-  }
-
-  console.error('createLegendDraft error', lastError);
-  return { data: null, error: lastError };
+  console.error('createLegendDraft error', error);
+  return { data: null, error };
 }
 
 async function saveLegendGenres(client, legendId, genres = []) {
@@ -120,7 +100,7 @@ async function saveLegendGenres(client, legendId, genres = []) {
   try {
     const { data: existingGenres, error: existingError } = await client
       .from('genres')
-      .select('id, name, slug')
+      .select('id, name')
       .in('name', cleanedGenres);
 
     if (existingError) {
@@ -185,15 +165,60 @@ async function getLatestEditableVersion(client, legendId) {
   return { data, error: null };
 }
 
-async function createDraftVersion(client, legendId, latestVersion = null) {
-  const nextVersionNumber = Number(latestVersion?.version_number || 0) + 1;
+async function getVersionByNumber(client, legendId, versionNumber) {
   const { data, error } = await client
     .from('legend_versions')
-    .insert({ legend_id: legendId, version_number: nextVersionNumber || 1, status: 'draft' })
+    .select('*')
+    .eq('legend_id', legendId)
+    .eq('version_number', versionNumber)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) return { data: null, error };
+  return { data, error: null };
+}
+
+async function createDraftVersion(client, legendId, latestVersion = null, createdBy) {
+  if (isInvalidId(legendId)) return { data: null, error: friendlyLegendError('No pudimos crear la version inicial.') };
+  if (isInvalidId(createdBy)) return { data: null, error: friendlyLegendError('No pudimos crear la version inicial.') };
+
+  const nextVersionNumber = Number(latestVersion?.version_number || 0) + 1;
+  const versionNumber = nextVersionNumber || 1;
+  const existingResult = await getVersionByNumber(client, legendId, versionNumber);
+
+  if (existingResult.error) {
+    console.error('create initial version error', existingResult.error);
+    return { data: null, error: existingResult.error };
+  }
+
+  if (existingResult.data?.id) return { data: existingResult.data, error: null };
+
+  const versionPayload = {
+    legend_id: legendId,
+    version_number: versionNumber,
+    status: 'draft',
+    created_by: createdBy,
+  };
+  debugEditor('creating initial version', versionPayload);
+
+  const { data, error } = await client
+    .from('legend_versions')
+    .insert(versionPayload)
     .select()
     .single();
 
-  if (error) return { data: null, error };
+  if (error) {
+    console.error('create initial version error', error);
+    console.error('create initial legend version error', error);
+    console.error('create legend version error', error);
+
+    const retryExistingResult = await getVersionByNumber(client, legendId, versionNumber);
+    if (!retryExistingResult.error && retryExistingResult.data?.id) {
+      return { data: retryExistingResult.data, error: null };
+    }
+
+    return { data: null, error };
+  }
   return { data, error: null };
 }
 
@@ -272,12 +297,6 @@ async function validateLegendOwnership(client, legend, accessStatus, creatorCand
     client
       .from('creator_profiles')
       .select('*')
-      .eq('id', creatorId)
-      .limit(1)
-      .maybeSingle(),
-    client
-      .from('creator_profiles')
-      .select('*')
       .eq('user_id', creatorId)
       .limit(1)
       .maybeSingle(),
@@ -294,7 +313,6 @@ async function validateLegendOwnership(client, legend, accessStatus, creatorCand
       data
       && (
         String(data.user_id) === String(accessStatus?.userId)
-        || creatorCandidates.map(String).includes(String(data.id))
         || creatorCandidates.map(String).includes(String(data.user_id))
       )
     ) {
@@ -340,6 +358,10 @@ export async function createLegendDraft(payload, pages = []) {
   try {
     const { data: accessStatus, error: accessError } = await ensureCreatorCanCreate();
     if (accessError) return { data: null, error: accessError };
+    const userId = accessStatus?.userId;
+    debugEditor('createLegendDraft userId', userId);
+    if (isInvalidId(userId)) return { data: null, error: friendlyLegendError('Debes iniciar sesion para continuar.') };
+
     const creatorCandidates = getCreatorIdCandidates(accessStatus);
     if (!creatorCandidates.length) {
       return { data: null, error: friendlyLegendError('Tu perfil de creador no se encontro. Vuelve a iniciar sesion o contacta al administrador.') };
@@ -352,14 +374,11 @@ export async function createLegendDraft(payload, pages = []) {
       return { data: null, error: friendlyLegendError('No pudimos guardar la leyenda.') };
     }
 
-    const { data: version, error: versionError } = await client
-      .from('legend_versions')
-      .insert({ legend_id: legend.id, version_number: 1, status: 'draft' })
-      .select()
-      .single();
+    debugEditor('created legend', legend);
+    const { data: version, error: versionError } = await createDraftVersion(client, legend.id, null, userId);
 
     if (versionError || !version?.id) {
-      console.error('createLegendDraft error', versionError);
+      console.error('createLegendDraft versionError', versionError);
       return { data: { legend, version: null, pages: [] }, error: friendlyLegendError('No pudimos crear la version inicial.') };
     }
 
@@ -504,10 +523,13 @@ export async function getLegendEditorData(legendId) {
   if (clientError) return { data: null, error: clientError };
 
   try {
-    debugEditor('editing legend id', legendId);
+    debugEditor('editor legendId', legendId);
     const { data: accessStatus, error: accessError } = await ensureCreatorCanCreate();
     if (accessError) return { data: null, error: accessError };
     debugEditor('current creator profile', accessStatus?.creatorProfile);
+    const userId = accessStatus?.userId;
+    if (isInvalidId(userId)) return { data: null, error: friendlyLegendError('Debes iniciar sesion para continuar.') };
+
     const creatorCandidates = getCreatorIdCandidates(accessStatus);
     if (!creatorCandidates.length) {
       return { data: null, error: friendlyLegendError('Tu perfil de creador no se encontro. Vuelve a iniciar sesion o contacta al administrador.') };
@@ -548,9 +570,12 @@ export async function getLegendEditorData(legendId) {
       const latestVersion = latestVersionResult.data;
 
       if (!latestVersion) {
-        const { data: createdVersion, error: createVersionError } = await createDraftVersion(client, legend.id, latestVersion);
+        debugEditor('missing legend version', 'Esta leyenda no tenia version inicial. Preparando version draft.');
+        const { data: createdVersion, error: createVersionError } = await createDraftVersion(client, legend.id, latestVersion, userId);
 
         if (createVersionError) {
+          console.error('createLegendDraft versionError', createVersionError);
+          console.error('recover version error', createVersionError);
           console.error('getLegendEditorData error', createVersionError);
           return { data: null, error: friendlyLegendError('No pudimos crear la version inicial.') };
         }
@@ -564,11 +589,14 @@ export async function getLegendEditorData(legendId) {
       return { data: null, error: friendlyLegendError('No pudimos cargar la version de trabajo.') };
     }
 
+    debugEditor('loaded version', version);
+    debugEditor('versionId', version.id);
     const { data: pages, error: pagesError } = await client
       .from('legend_pages')
       .select('*')
       .eq('version_id', version.id)
       .order('page_number', { ascending: true });
+    debugEditor('pages loaded', pages ?? []);
 
     if (pagesError) {
       console.error('getLegendEditorData error', pagesError);
@@ -602,6 +630,7 @@ export async function saveLegendPages({ versionId, pages = [] }) {
   if (clientError) return { data: [], error: clientError };
 
   try {
+    debugEditor('versionId', versionId);
     const deletedIds = pages.filter((page) => page._delete && page.id).map((page) => page.id);
     if (deletedIds.length) {
       const { error: deleteError } = await client.from('legend_pages').delete().in('id', deletedIds);

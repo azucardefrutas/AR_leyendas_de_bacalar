@@ -30,11 +30,51 @@ export async function getLegendPages(legendId) {
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: [], error: clientError };
 
+  const byLegend = await client
+    .from('legend_versions')
+    .select('id, status, version_number')
+    .eq('legend_id', legendId)
+    .order('version_number', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let versionId = byLegend.data?.id ?? null;
+
+  if (byLegend.error) {
+    console.error('getLegendPages version lookup error', byLegend.error);
+  }
+
+  if (!versionId) {
+    const byVersion = await client
+      .from('legend_versions')
+      .select('id')
+      .eq('id', legendId)
+      .limit(1)
+      .maybeSingle();
+
+    if (byVersion.error) {
+      console.error('getLegendPages version fallback error', byVersion.error);
+      return { data: [], error: byVersion.error };
+    }
+
+    versionId = byVersion.data?.id ?? null;
+  }
+
+  console.log('versionId', versionId);
+
+  if (!versionId) return { data: [], error: null };
+
   const { data, error } = await client
     .from('legend_pages')
     .select('*')
-    .eq('legend_id', legendId)
+    .eq('version_id', versionId)
     .order('page_number', { ascending: true });
+
+  console.log('pages loaded', data ?? []);
+
+  if (error) {
+    console.error('getLegendPages error', error);
+  }
 
   return { data: data ?? [], error };
 }

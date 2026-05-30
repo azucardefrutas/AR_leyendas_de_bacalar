@@ -28,32 +28,19 @@ async function getCurrentUserId() {
 async function findCreatorProfile(client, userId) {
   if (isInvalidId(userId)) return { data: null, error: null };
 
-  const byUserId = await client
+  const { data, error } = await client
     .from('creator_profiles')
     .select('*')
     .eq('user_id', userId)
     .limit(1)
     .maybeSingle();
 
-  if (!byUserId.error && byUserId.data) return { data: byUserId.data, error: null };
-
-  if (byUserId.error) {
-    console.error(byUserId.error);
+  if (error) {
+    console.error('getCurrentCreatorProfile error', error);
+    return { data: null, error };
   }
 
-  const byId = await client
-    .from('creator_profiles')
-    .select('*')
-    .eq('id', userId)
-    .limit(1)
-    .maybeSingle();
-
-  if (byId.error) {
-    console.error(byId.error);
-    return { data: null, error: byId.error };
-  }
-
-  return { data: byId.data ?? null, error: null };
+  return { data: data ?? null, error: null };
 }
 
 export async function getCurrentCreatorProfile(providedClient = null) {
@@ -96,7 +83,7 @@ export async function getCreatorAccessStatus() {
     const { data: creatorProfile, error: profileError } = hasCreatorRole
       ? await findCreatorProfile(client, userId)
       : { data: null, error: null };
-    const hasCreatorProfile = Boolean(creatorProfile?.id || creatorProfile?.user_id);
+    const hasCreatorProfile = Boolean(creatorProfile?.user_id);
 
     return {
       data: {
@@ -147,8 +134,7 @@ export async function refreshCreatorAccess() {
 
 export function getCreatorIdCandidates(status) {
   return [
-    status?.creatorProfile?.id,
-    status?.creatorProfile?.user_id,
     status?.userId,
+    status?.creatorProfile?.user_id,
   ].filter((value, index, arr) => !isInvalidId(value) && arr.indexOf(value) === index);
 }

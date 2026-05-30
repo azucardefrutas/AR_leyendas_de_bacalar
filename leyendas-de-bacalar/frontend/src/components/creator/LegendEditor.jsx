@@ -412,10 +412,16 @@ function LegendEditor({ legendId }) {
   if (loading) return <LoadingState message="Cargando editor de leyenda..." />;
 
   if (!legend || !version) {
+    const isVersionProblem = error?.message?.includes('version inicial') || error?.message?.includes('version de trabajo');
     return (
       <Card className="creator-empty-card">
-        <h1>Leyenda no encontrada</h1>
-        <p>No pudimos cargar esta obra para tu perfil de creador.</p>
+        <h1>{isVersionProblem ? 'No pudimos preparar esta leyenda' : 'Leyenda no encontrada'}</h1>
+        <p>
+          {isVersionProblem
+            ? 'Esta leyenda no tenia version inicial y no pudimos crearla automaticamente. Revisa el error real de Supabase en consola.'
+            : 'No pudimos cargar esta obra para tu perfil de creador.'}
+        </p>
+        {error && <p className="error-message">{error.message}</p>}
       </Card>
     );
   }
