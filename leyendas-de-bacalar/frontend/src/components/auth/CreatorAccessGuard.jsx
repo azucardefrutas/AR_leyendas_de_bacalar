@@ -43,7 +43,7 @@ function CreatorAccessGuard() {
                 : 'Envia una solicitud para publicar leyendas y recursos culturales.'}
             </p>
           </div>
-          <Link to="/reader/profile"><Button>Solicitar ser creador</Button></Link>
+          <Link to="/creator/apply"><Button>Solicitar ser creador</Button></Link>
         </Card>
       </section>
     );

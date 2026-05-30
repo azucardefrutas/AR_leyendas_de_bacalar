@@ -12,12 +12,44 @@ function friendlyCreatorApplicationError(error) {
   return new Error('No pudimos completar la accion. Verifica tu sesion e intenta nuevamente.');
 }
 
-function validatePayload({ reason }) {
+function validatePayload({ reason, penName, acceptedCreatorTerms }) {
   if (!reason || reason.trim().length < 10) {
     return new Error('Escribe un motivo de al menos 10 caracteres.');
   }
+  if (!penName || !penName.trim()) {
+    return new Error('Escribe tu nombre de autor o seudonimo.');
+  }
+  if (!acceptedCreatorTerms) {
+    return new Error('Debes aceptar los terminos para creadores y el aviso de privacidad para continuar.');
+  }
 
   return null;
+}
+
+export function buildCreatorApplicationReason(payload = {}) {
+  const clean = (value) => String(value ?? '').trim() || 'No especificado';
+  const lines = [
+    'SOLICITUD FORMAL DE CREADOR',
+    `Nombre legal: ${clean(payload.legalFirstName)}`,
+    `Apellidos: ${clean(payload.legalLastName)}`,
+    `Nombre de autor / seudonimo: ${clean(payload.penName)}`,
+    `Institucion o afiliacion: ${clean(payload.affiliation)}`,
+    `Ciudad: ${clean(payload.city)}`,
+    `Estado: ${clean(payload.stateRegion)}`,
+    `Pais: ${clean(payload.country)}`,
+    `Telefono: ${clean(payload.phone)}`,
+    `Biografia breve: ${clean(payload.biography)}`,
+    '',
+    'Motivo para ser creador:',
+    clean(payload.reason),
+    '',
+    'Declaraciones:',
+    '- Declara que la informacion proporcionada es veraz.',
+    '- Declara que cuenta o contara con los derechos necesarios sobre las obras y recursos que publique.',
+    '- Acepta los Terminos para Creadores y el Aviso de Privacidad para Creadores.',
+  ];
+
+  return lines.join('\n');
 }
 
 export async function getMyCreatorApplication() {
@@ -45,8 +77,8 @@ export async function getMyCreatorApplication() {
   }
 }
 
-export async function submitCreatorApplication({ reason, portfolioUrl }) {
-  const validationError = validatePayload({ reason });
+export async function submitCreatorApplication(payload = {}) {
+  const validationError = validatePayload(payload);
   if (validationError) return { data: null, error: validationError };
 
   const { data: client, error: clientError } = getClient();
@@ -72,8 +104,8 @@ export async function submitCreatorApplication({ reason, portfolioUrl }) {
       .from('creator_applications')
       .insert({
         user_id: userId,
-        reason: reason.trim(),
-        portfolio_url: portfolioUrl?.trim() || null,
+        reason: buildCreatorApplicationReason(payload),
+        portfolio_url: payload.portfolioUrl?.trim() || null,
         status: 'pending',
       })
       .select()

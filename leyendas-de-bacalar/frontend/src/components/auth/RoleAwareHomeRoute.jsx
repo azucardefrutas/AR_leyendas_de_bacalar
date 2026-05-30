@@ -13,7 +13,7 @@ function RoleAwareHomeRoute() {
     return <LoadingState message="Cargando inicio..." />;
   }
 
-  if (isAuthenticated && (activeRole === 'admin' || (!activeRole && roles.includes('admin')))) {
+  if (isAuthenticated && roles.includes('admin')) {
     return <Navigate to="/admin" replace />;
   }
 

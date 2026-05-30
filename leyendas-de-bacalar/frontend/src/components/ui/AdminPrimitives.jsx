@@ -6,7 +6,7 @@ import Button from './Button.jsx';
 export const adminNavItems = [
   { label: 'Dashboard', to: '/admin', icon: 'dashboard', end: true },
   { label: 'Usuarios', to: '/admin/users', icon: 'users' },
-  { label: 'Solicitudes de autor', to: '/admin/creator-applications', icon: 'application' },
+  { label: 'Solicitudes de creador', to: '/admin/creator-applications', icon: 'application' },
   { label: 'Autores', to: '/admin/authors', icon: 'author' },
   { label: 'Leyendas', to: '/admin/legends', icon: 'book' },
   { label: 'Revisiones', to: '/admin/reviews', icon: 'review' },
@@ -194,9 +194,27 @@ const statusClassMap = {
   unused: 'info',
 };
 
+const statusLabelMap = {
+  active: 'Activo',
+  approved: 'Aprobada',
+  published: 'Publicada',
+  redeemed: 'Canjeado',
+  paid: 'Pagado',
+  completed: 'Completado',
+  pending: 'Pendiente',
+  draft: 'Borrador',
+  in_review: 'En revision',
+  review: 'En revision',
+  rejected: 'Rechazada',
+  suspended: 'Suspendido',
+  disabled: 'Deshabilitado',
+  canceled: 'Cancelado',
+  unused: 'Disponible',
+};
+
 export function AdminStatusBadge({ status = 'pending' }) {
   const tone = statusClassMap[status] || 'info';
-  return <span className={`admin-status admin-status-${tone}`}>{status}</span>;
+  return <span className={`admin-status admin-status-${tone}`}>{statusLabelMap[status] || status}</span>;
 }
 
 export function AdminEmptyState({ title = 'Sin datos', message = 'No hay registros para mostrar.' }) {
@@ -245,6 +263,9 @@ export function AdminConfirmModal({
   title,
   description,
   confirmLabel = 'Confirmar',
+  cancelLabel = 'Cancelar',
+  showCancel = true,
+  modalClassName = '',
   children,
   onCancel,
   onConfirm,
@@ -254,12 +275,12 @@ export function AdminConfirmModal({
   if (!open) return null;
   return (
     <div className="admin-modal-backdrop">
-      <div className="admin-modal">
+      <div className={`admin-modal ${modalClassName}`}>
         <h2>{title}</h2>
         {description && <p>{description}</p>}
         {children}
         <div className="admin-modal-actions">
-          <Button variant="ghost" onClick={onCancel} disabled={loading}>Cancelar</Button>
+          {showCancel && <Button variant="ghost" onClick={onCancel} disabled={loading}>{cancelLabel}</Button>}
           <Button onClick={onConfirm} disabled={loading || confirmDisabled}>{loading ? 'Procesando...' : confirmLabel}</Button>
         </div>
       </div>

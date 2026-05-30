@@ -30,7 +30,53 @@ function attachProfiles(applications = [], profiles = []) {
   return applications.map((application) => ({
     ...application,
     users_profile: profilesById.get(application.user_id) || null,
+    application_details: parseCreatorApplicationDetails(application.reason),
   }));
+}
+
+export function parseCreatorApplicationDetails(reason = '') {
+  const details = {};
+  const lines = String(reason || '').split('\n');
+  const labelMap = {
+    'Nombre legal': 'legalFirstName',
+    Apellidos: 'legalLastName',
+    'Nombre de autor / seudonimo': 'penName',
+    'Institucion o afiliacion': 'affiliation',
+    Ciudad: 'city',
+    Estado: 'stateRegion',
+    Pais: 'country',
+    Telefono: 'phone',
+    'Biografia breve': 'biography',
+  };
+  let captureMotivation = false;
+  const motivation = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      if (captureMotivation) motivation.push('');
+      continue;
+    }
+    if (trimmed === 'Motivo para ser creador:') {
+      captureMotivation = true;
+      continue;
+    }
+    if (trimmed === 'Declaraciones:') {
+      captureMotivation = false;
+      break;
+    }
+    if (captureMotivation) {
+      motivation.push(trimmed);
+      continue;
+    }
+
+    const [label, ...rest] = trimmed.split(':');
+    const key = labelMap[label];
+    if (key) details[key] = rest.join(':').trim();
+  }
+
+  details.motivation = motivation.join('\n').trim() || reason;
+  return details;
 }
 
 function applyApplicationFilters(rows = [], { status = 'all', search = '' } = {}) {
@@ -42,10 +88,16 @@ function applyApplicationFilters(rows = [], { status = 'all', search = '' } = {}
     if (!query) return true;
 
     const profile = row.users_profile || {};
+    const details = row.application_details || {};
     return [
       profile.full_name,
       profile.username,
       profile.email,
+      details.penName,
+      details.affiliation,
+      details.city,
+      details.country,
+      details.biography,
       row.reason,
       row.portfolio_url,
       row.user_id,
@@ -60,11 +112,11 @@ export async function getCreatorApplications(filters = {}) {
   try {
     const { data: applications, error: applicationsError } = await client
       .from('creator_applications')
-      .select('id, user_id, reason, portfolio_url, status, admin_feedback, created_at, updated_at')
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (applicationsError) {
-      console.error(applicationsError);
+      if (import.meta.env.DEV) console.error('getCreatorApplications error', applicationsError);
       return { data: [], error: loadApplicationsError() };
     }
 
@@ -74,11 +126,11 @@ export async function getCreatorApplications(filters = {}) {
     if (userIds.length) {
       const { data: profileData, error: profileError } = await client
         .from('users_profile')
-        .select('id, full_name, username, status, active_role, created_at')
+        .select('*')
         .in('id', userIds);
 
       if (profileError) {
-        console.error(profileError);
+        if (import.meta.env.DEV) console.error('getCreatorApplications profiles error', profileError);
       } else {
         profiles = profileData ?? [];
       }
@@ -88,7 +140,7 @@ export async function getCreatorApplications(filters = {}) {
 
     return { data: applyApplicationFilters(mergedRows, filters), error: null };
   } catch (error) {
-    console.error(error);
+    if (import.meta.env.DEV) console.error('getCreatorApplications unexpected error', error);
     return { data: [], error: loadApplicationsError() };
   }
 }
@@ -112,13 +164,13 @@ export async function approveCreatorApplication({ applicationId, penName, feedba
     });
 
     if (error) {
-      console.error(error);
+      if (import.meta.env.DEV) console.error('approveCreatorApplication error', error);
       return { data: null, error: approveError() };
     }
 
     return { data, error: null };
   } catch (error) {
-    console.error(error);
+    if (import.meta.env.DEV) console.error('approveCreatorApplication unexpected error', error);
     return { data: null, error: approveError() };
   }
 }
@@ -138,13 +190,13 @@ export async function rejectCreatorApplication({ applicationId, feedback = '' })
     });
 
     if (error) {
-      console.error(error);
+      if (import.meta.env.DEV) console.error('rejectCreatorApplication error', error);
       return { data: null, error: rejectError() };
     }
 
     return { data, error: null };
   } catch (error) {
-    console.error(error);
+    if (import.meta.env.DEV) console.error('rejectCreatorApplication unexpected error', error);
     return { data: null, error: rejectError() };
   }
 }

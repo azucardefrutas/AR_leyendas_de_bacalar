@@ -1,17 +1,17 @@
 import React from 'react';
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
 import Input from '../../components/ui/Input.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
-import { getRoleHomePath } from '../../components/auth/RedirectAuthenticatedRoute.jsx';
-import { getActiveRole, getCurrentUserRoles } from '../../services/roleService.js';
 
 function RegisterPage() {
   const { signUp } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ name: '', email: '', password: '' });
+  const [searchParams] = useSearchParams();
+  const [form, setForm] = useState({ email: '', password: '' });
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState(null);
@@ -22,11 +22,17 @@ function RegisterPage() {
 
   async function handleSubmit(event) {
     event.preventDefault();
-    setLoading(true);
     setError(null);
     setMessage(null);
 
-    const result = await signUp(form.email, form.password, { full_name: form.name });
+    if (!acceptedTerms) {
+      setError('Debes aceptar los terminos y el aviso de privacidad para continuar.');
+      return;
+    }
+
+    // TODO: guardar aceptacion de terminos cuando exista la tabla legal_acceptances.
+    setLoading(true);
+    const result = await signUp(form.email, form.password);
     setLoading(false);
 
     if (result.error) {
@@ -34,17 +40,10 @@ function RegisterPage() {
       return;
     }
 
-    if (result.data?.session) {
-      const [{ data: roles }, { data: activeRole }] = await Promise.all([
-        getCurrentUserRoles(),
-        getActiveRole(),
-      ]);
-      navigate(getRoleHomePath(roles ?? [], activeRole), { replace: true });
-      return;
-    }
-
-    setMessage('Cuenta creada. Revisa tu correo si Supabase requiere confirmacion.');
+    navigate('/auth/check-email', { replace: true, state: { email: form.email } });
   }
+
+  const loginPath = searchParams.toString() ? `/login?${searchParams.toString()}` : '/login';
 
   return (
     <section className="auth-experience register-experience">
@@ -55,22 +54,13 @@ function RegisterPage() {
         </Link>
         <p className="eyebrow">Biblioteca cultural</p>
         <h1>Crea tu cuenta y abre la puerta a las historias de <strong>Bacalar.</strong></h1>
-        <p>Tu perfil guardara accesos, codigos canjeados y progreso de lectura cuando el contenido este disponible.</p>
+        <p>Crea tu cuenta con tu correo electronico para guardar tu biblioteca, canjear codigos y acceder a funciones personalizadas.</p>
       </div>
 
       <Card className="auth-card cinematic-card">
         <h2>Crear cuenta</h2>
-        <p>Registrate con correo y contrasena para empezar tu biblioteca cultural.</p>
+        <p>Registrate solo con correo y contrasena. Los datos editoriales se solicitan aparte si decides convertirte en creador.</p>
         <form className="form-stack" onSubmit={handleSubmit}>
-          <Input
-            id="name"
-            icon="+"
-            label="Nombre"
-            placeholder="Tu nombre"
-            value={form.name}
-            onChange={(event) => updateField('name', event.target.value)}
-            required
-          />
           <Input
             id="email"
             icon="@"
@@ -91,13 +81,28 @@ function RegisterPage() {
             onChange={(event) => updateField('password', event.target.value)}
             required
           />
+          <label className="legal-checkbox auth-legal-checkbox">
+            <input
+              type="checkbox"
+              checked={acceptedTerms}
+              onChange={(event) => {
+                setAcceptedTerms(event.target.checked);
+                if (event.target.checked && error === 'Debes aceptar los terminos y el aviso de privacidad para continuar.') {
+                  setError(null);
+                }
+              }}
+            />
+            <span>
+              He leido y acepto los <Link to="/terms/readers">Terminos para Lectores</Link> y el <Link to="/privacy/readers">Aviso de Privacidad</Link>.
+            </span>
+          </label>
           {error && <p className="error-message auth-alert">{error}</p>}
           {message && <p className="success-message auth-alert">{message}</p>}
           <Button className="btn-wide" type="submit" disabled={loading}>
             {loading ? 'Creando...' : 'Crear cuenta'}
           </Button>
         </form>
-        <p className="auth-switch">Ya tienes cuenta? <Link to="/login">Iniciar sesion</Link></p>
+        <p className="auth-switch">Ya tienes cuenta? <Link to={loginPath}>Iniciar sesion</Link></p>
       </Card>
     </section>
   );

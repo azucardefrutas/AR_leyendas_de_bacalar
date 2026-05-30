@@ -23,6 +23,8 @@ import AdminSettingsPage from '../pages/admin/AdminSettingsPage.jsx';
 import AdminOrdersPage from '../pages/admin/AdminOrdersPage.jsx';
 import AdminSubscriptionsPage from '../pages/admin/AdminSubscriptionsPage.jsx';
 import AdminUsersPage from '../pages/admin/AdminUsersPage.jsx';
+import AuthCallbackPage from '../pages/auth/AuthCallbackPage.jsx';
+import CheckEmailPage from '../pages/auth/CheckEmailPage.jsx';
 import LoginPage from '../pages/auth/LoginPage.jsx';
 import RegisterPage from '../pages/auth/RegisterPage.jsx';
 import CodeRequestsPage from '../pages/creator/CodeRequestsPage.jsx';
@@ -35,8 +37,13 @@ import EditLegendPage from '../pages/creator/EditLegendPage.jsx';
 import UploadAssetsPage from '../pages/creator/UploadAssetsPage.jsx';
 import AccessDeniedPage from '../pages/public/AccessDeniedPage.jsx';
 import CatalogPage from '../pages/public/CatalogPage.jsx';
+import CreatorApplyPage from '../pages/public/CreatorApplyPage.jsx';
+import CreatorPrivacyPage from '../pages/public/CreatorPrivacyPage.jsx';
+import CreatorTermsPage from '../pages/public/CreatorTermsPage.jsx';
 import LegendDetailPage from '../pages/public/LegendDetailPage.jsx';
 import NotFoundPage from '../pages/public/NotFoundPage.jsx';
+import PrivacyPage from '../pages/public/PrivacyPage.jsx';
+import TermsPage from '../pages/public/TermsPage.jsx';
 import LibraryPage from '../pages/reader/LibraryPage.jsx';
 import ProfilePage from '../pages/reader/ProfilePage.jsx';
 import PurchasesPage from '../pages/reader/PurchasesPage.jsx';
@@ -50,7 +57,19 @@ export const router = createBrowserRouter([
     children: [
       { path: '/', element: <RoleAwareHomeRoute /> },
       { path: '/catalog', element: <CatalogPage /> },
+      { path: '/library', element: <LibraryPage /> },
+      { path: '/reader/library', element: <LibraryPage /> },
       { path: '/legend/:slug', element: <LegendDetailPage /> },
+      { path: '/legend/:slug/read', element: <ReadingPage /> },
+      { path: '/about', element: <Navigate to="/#acerca" replace /> },
+      { path: '/terms', element: <Navigate to="/terms/readers" replace /> },
+      { path: '/privacy', element: <Navigate to="/privacy/readers" replace /> },
+      { path: '/creator-terms', element: <Navigate to="/terms/creators" replace /> },
+      { path: '/terms/readers', element: <TermsPage /> },
+      { path: '/privacy/readers', element: <PrivacyPage /> },
+      { path: '/terms/creators', element: <CreatorTermsPage /> },
+      { path: '/privacy/creators', element: <CreatorPrivacyPage /> },
+      { path: '/creator/apply', element: <CreatorApplyPage /> },
       { path: '/access-denied', element: <AccessDeniedPage /> },
     ],
   },
@@ -67,6 +86,13 @@ export const router = createBrowserRouter([
     ],
   },
   {
+    element: <AuthLayout />,
+    children: [
+      { path: '/auth/check-email', element: <CheckEmailPage /> },
+      { path: '/auth/callback', element: <AuthCallbackPage /> },
+    ],
+  },
+  {
     element: <ProtectedRoute />,
     children: [
       {
@@ -74,7 +100,6 @@ export const router = createBrowserRouter([
         element: <ReaderLayout />,
         children: [
           { index: true, element: <Navigate to="/reader/library" replace /> },
-          { path: 'library', element: <LibraryPage /> },
           { path: 'redeem', element: <RedeemCodePage /> },
           { path: 'purchases', element: <PurchasesPage /> },
           { path: 'subscription', element: <SubscriptionPage /> },

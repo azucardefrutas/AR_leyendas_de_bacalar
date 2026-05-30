@@ -44,8 +44,8 @@ export function AuthProvider({ children }) {
     return result;
   }
 
-  async function signUp(email, password, metadata) {
-    const result = await authService.signUp(email, password, metadata);
+  async function signUp(email, password) {
+    const result = await authService.signUp(email, password);
     if (result.error) {
       setError(result.error);
       return result;

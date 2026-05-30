@@ -1,20 +1,30 @@
 import React from 'react';
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
 import Input from '../../components/ui/Input.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
-import { getRoleHomePath } from '../../components/auth/RedirectAuthenticatedRoute.jsx';
+import { getPostLoginPath } from '../../components/auth/RedirectAuthenticatedRoute.jsx';
 import { getActiveRole, getCurrentUserRoles } from '../../services/roleService.js';
+import { getSafeRedirect } from '../../utils/authRedirect.js';
 
 function LoginPage() {
   const { signIn } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+
+  function getFriendlyLoginError(authError) {
+    const message = String(authError?.message || '').toLowerCase();
+    if (message.includes('email not confirmed') || message.includes('not confirmed') || message.includes('confirm')) {
+      return 'Debes confirmar tu correo antes de iniciar sesion. Revisa tu bandeja de entrada.';
+    }
+    return authError?.message || 'No pudimos iniciar sesion. Intenta nuevamente.';
+  }
 
   async function handleSubmit(event) {
     event.preventDefault();
@@ -25,7 +35,7 @@ function LoginPage() {
     setLoading(false);
 
     if (result.error) {
-      setError(result.error.message);
+      setError(getFriendlyLoginError(result.error));
       return;
     }
 
@@ -33,8 +43,10 @@ function LoginPage() {
       getCurrentUserRoles(),
       getActiveRole(),
     ]);
-    navigate(getRoleHomePath(roles ?? [], activeRole), { replace: true });
+    navigate(getPostLoginPath(roles ?? [], activeRole, getSafeRedirect(searchParams)), { replace: true });
   }
+
+  const registerPath = searchParams.toString() ? `/register?${searchParams.toString()}` : '/register';
 
   return (
     <section className="auth-experience">
@@ -85,7 +97,7 @@ function LoginPage() {
           <button type="button" disabled title="Proximamente">Apple</button>
         </div>
 
-        <p className="auth-switch">No tienes cuenta? <Link to="/register">Registrate aqui</Link></p>
+        <p className="auth-switch">No tienes cuenta? <Link to={registerPath}>Registrate aqui</Link></p>
       </Card>
     </section>
   );

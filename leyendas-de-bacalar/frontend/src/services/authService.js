@@ -1,4 +1,5 @@
 import { getSupabaseConfigError, supabase } from '../lib/supabaseClient.js';
+import { getSiteUrl } from '../utils/siteUrl.js';
 
 function getClient() {
   if (!supabase) {
@@ -15,7 +16,7 @@ export async function signIn(email, password) {
   return client.auth.signInWithPassword({ email, password });
 }
 
-export async function signUp(email, password, metadata = {}) {
+export async function signUp(email, password) {
   const { data: client, error } = getClient();
   if (error) return { data: null, error };
 
@@ -23,9 +24,17 @@ export async function signUp(email, password, metadata = {}) {
     email,
     password,
     options: {
-      data: metadata,
+      emailRedirectTo: `${getSiteUrl()}/auth/callback`,
     },
   });
+}
+
+export async function exchangeCodeForSession(code) {
+  const { data: client, error } = getClient();
+  if (error) return { data: null, error };
+  if (!code) return { data: null, error: new Error('No pudimos confirmar tu sesion.') };
+
+  return client.auth.exchangeCodeForSession(code);
 }
 
 export async function signOut() {
