@@ -30,8 +30,28 @@ function attachProfiles(applications = [], profiles = []) {
   return applications.map((application) => ({
     ...application,
     users_profile: profilesById.get(application.user_id) || null,
-    application_details: parseCreatorApplicationDetails(application.reason),
+    application_details: getCreatorApplicationDetails(application),
   }));
+}
+
+function getCreatorApplicationDetails(application = {}) {
+  const parsed = parseCreatorApplicationDetails(application.reason);
+
+  return {
+    ...parsed,
+    legalFirstName: application.legal_first_name || parsed.legalFirstName,
+    legalLastName: application.legal_last_name || parsed.legalLastName,
+    penName: application.pen_name || parsed.penName,
+    affiliation: application.affiliation || parsed.affiliation,
+    city: application.city || parsed.city,
+    stateRegion: application.state_region || parsed.stateRegion,
+    country: application.country || parsed.country,
+    phone: application.phone || parsed.phone,
+    biography: application.biography || parsed.biography,
+    motivation: parsed.motivation || application.reason,
+    termsVersion: application.terms_version,
+    privacyVersion: application.privacy_version,
+  };
 }
 
 export function parseCreatorApplicationDetails(reason = '') {

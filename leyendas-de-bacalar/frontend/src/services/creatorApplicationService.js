@@ -9,18 +9,49 @@ function getClient() {
 
 function friendlyCreatorApplicationError(error) {
   if (!error) return null;
+  const message = String(error.message || '');
+
+  if (message.includes('confirmar tu correo')) {
+    return new Error('Debes confirmar tu correo antes de continuar como creador.');
+  }
+  if (message.includes('terminos') || message.includes('privacidad') || message.includes('autoria')) {
+    return new Error('Debes aceptar los terminos, el aviso de privacidad y la declaracion de autoria.');
+  }
+  if (message.includes('nombre de autor')) {
+    return new Error('Escribe tu nombre de autor o seudonimo.');
+  }
+
   return new Error('No pudimos completar la accion. Verifica tu sesion e intenta nuevamente.');
 }
 
-function validatePayload({ reason, penName, acceptedCreatorTerms }) {
+function validatePayload({
+  legalFirstName,
+  legalLastName,
+  country,
+  biography,
+  reason,
+  penName,
+  acceptedCreatorTerms,
+  acceptedCreatorPrivacy,
+  acceptedAuthorshipDeclaration,
+}) {
+  if (!legalFirstName || !legalFirstName.trim() || !legalLastName || !legalLastName.trim()) {
+    return new Error('Escribe tu nombre legal y apellidos.');
+  }
+  if (!country || !country.trim()) {
+    return new Error('Escribe tu pais.');
+  }
+  if (!biography || biography.trim().length < 20) {
+    return new Error('Escribe una biografia breve de al menos 20 caracteres.');
+  }
   if (!reason || reason.trim().length < 10) {
     return new Error('Escribe un motivo de al menos 10 caracteres.');
   }
   if (!penName || !penName.trim()) {
     return new Error('Escribe tu nombre de autor o seudonimo.');
   }
-  if (!acceptedCreatorTerms) {
-    return new Error('Debes aceptar los terminos para creadores y el aviso de privacidad para continuar.');
+  if (!acceptedCreatorTerms || !acceptedCreatorPrivacy || !acceptedAuthorshipDeclaration) {
+    return new Error('Debes aceptar los terminos, el aviso de privacidad y la declaracion de autoria.');
   }
 
   return null;
@@ -91,27 +122,40 @@ export async function submitCreatorApplication(payload = {}) {
     const userId = userData?.user?.id;
     if (!userId) return { data: null, error: new Error('Debes iniciar sesion para continuar.') };
 
-    const { data: existing, error: existingError } = await getMyCreatorApplication();
-    if (existingError) return { data: null, error: existingError };
-    if (existing?.status === 'pending') {
-      return { data: existing, error: new Error('Ya tienes una solicitud en revision.') };
-    }
-    if (existing?.status === 'approved') {
-      return { data: existing, error: new Error('Tu solicitud ya fue aprobada.') };
+    const { data, error } = await client.rpc('complete_creator_onboarding', {
+      p_pen_name: payload.penName.trim(),
+      p_legal_first_name: payload.legalFirstName.trim(),
+      p_legal_last_name: payload.legalLastName.trim(),
+      p_affiliation: payload.affiliation?.trim() || null,
+      p_city: payload.city?.trim() || null,
+      p_state_region: payload.stateRegion?.trim() || null,
+      p_country: payload.country.trim(),
+      p_phone: payload.phone?.trim() || null,
+      p_biography: payload.biography.trim(),
+      p_reason: payload.reason.trim(),
+      p_portfolio_url: payload.portfolioUrl?.trim() || null,
+      p_accept_creator_terms: Boolean(payload.acceptedCreatorTerms),
+      p_accept_creator_privacy: Boolean(payload.acceptedCreatorPrivacy),
+      p_accept_authorship_declaration: Boolean(payload.acceptedAuthorshipDeclaration),
+      p_terms_version: payload.termsVersion || 'creator-terms-2026-05',
+      p_privacy_version: payload.privacyVersion || 'creator-privacy-2026-05',
+    });
+
+    if (error) {
+      if (import.meta.env.DEV) console.error('completeCreatorOnboarding error', error);
+      return { data: null, error: friendlyCreatorApplicationError(error) };
     }
 
-    const { data, error } = await client
-      .from('creator_applications')
-      .insert({
-        user_id: userId,
-        reason: buildCreatorApplicationReason(payload),
-        portfolio_url: payload.portfolioUrl?.trim() || null,
-        status: 'pending',
-      })
-      .select()
-      .single();
+    const { data: activatedApplication } = await getMyCreatorApplication();
 
-    return { data, error: error ? friendlyCreatorApplicationError(error) : null };
+    return {
+      data: {
+        ...(activatedApplication ?? {}),
+        activated_user_id: data ?? userId,
+        activation_status: 'activated',
+      },
+      error: null,
+    };
   } catch (error) {
     return { data: null, error: friendlyCreatorApplicationError(error) };
   }

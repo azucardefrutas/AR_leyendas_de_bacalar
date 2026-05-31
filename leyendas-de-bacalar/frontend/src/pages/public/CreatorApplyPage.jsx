@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
@@ -24,15 +24,22 @@ const initialForm = {
   portfolioUrl: '',
   reason: '',
   acceptedCreatorTerms: false,
+  acceptedCreatorPrivacy: false,
+  acceptedAuthorshipDeclaration: false,
 };
 
 function getFeedback(application) {
   return application?.admin_feedback || application?.feedback || application?.review_feedback || '';
 }
 
+function hasVerifiedEmail(user) {
+  return Boolean(user?.email_confirmed_at || user?.confirmed_at);
+}
+
 function CreatorApplyPage() {
-  const { isAuthenticated } = useAuth();
-  const { roles, loading: rolesLoading } = useRoles();
+  const { isAuthenticated, user } = useAuth();
+  const { roles, loading: rolesLoading, refetchRoles } = useRoles();
+  const navigate = useNavigate();
   const [statusState, setStatusState] = useState({
     application: null,
     isCreator: false,
@@ -90,8 +97,8 @@ function CreatorApplyPage() {
     if (!form.reason.trim() || form.reason.trim().length < 10) {
       return 'Escribe un motivo de al menos 10 caracteres.';
     }
-    if (!form.acceptedCreatorTerms) {
-      return 'Debes aceptar los terminos para creadores y el aviso de privacidad para continuar.';
+    if (!form.acceptedCreatorTerms || !form.acceptedCreatorPrivacy || !form.acceptedAuthorshipDeclaration) {
+      return 'Debes aceptar los terminos, el aviso de privacidad y la declaracion de autoria.';
     }
 
     return null;
@@ -110,12 +117,25 @@ function CreatorApplyPage() {
     setSubmitting(true);
     setError(null);
 
-    // TODO: guardar campos formales en columnas dedicadas cuando creator_applications las tenga.
     const { data, error: submitError } = await submitCreatorApplication(form);
     setSubmitting(false);
 
     if (submitError) {
       setError(submitError.message);
+      if (data) {
+        setStatusState((current) => ({
+          ...current,
+          application: data,
+          status: data?.status ?? 'pending',
+        }));
+      }
+      return;
+    }
+
+    if (data?.activation_status === 'activated') {
+      await refetchRoles();
+      setMessage('Tu perfil de creador fue activado correctamente.');
+      navigate('/creator', { replace: true });
       return;
     }
 
@@ -125,7 +145,7 @@ function CreatorApplyPage() {
       status: data?.status ?? 'pending',
     }));
     setForm(initialForm);
-    setMessage('Tu solicitud de creador fue recibida. La revisaremos y te avisaremos cuando cambie de estado.');
+    setMessage('Tu perfil de creador fue activado correctamente.');
   }
 
   if (!isAuthenticated) {
@@ -136,7 +156,7 @@ function CreatorApplyPage() {
           <h1>Conviertete en creador</h1>
           <p>
             Publica leyendas, relatos y experiencias culturales de Bacalar. El
-            proceso requiere cuenta, declaracion de derechos y revision administrativa.
+            proceso requiere cuenta, correo confirmado, declaracion de derechos y terminos estrictos.
           </p>
         </div>
 
@@ -144,8 +164,8 @@ function CreatorApplyPage() {
           <div className="legal-section">
             <h2>Antes de continuar</h2>
             <p>1. Inicia sesion o crea una cuenta de lector.</p>
-            <p>2. Acepta los terminos y aviso de privacidad para creadores.</p>
-            <p>3. Envia tu solicitud formal para revision del administrador.</p>
+            <p>2. Confirma tu correo electronico.</p>
+            <p>3. Completa el formulario editorial y acepta los terminos para creadores.</p>
           </div>
           <div className="actions-row">
             <Link to={getLoginPathForRedirect('/creator/apply')}>
@@ -183,12 +203,32 @@ function CreatorApplyPage() {
     );
   }
 
+  if (!hasVerifiedEmail(user)) {
+    return (
+      <section className="legal-page creator-apply-page">
+        <Card className="creator-apply-card">
+          <p className="eyebrow">Correo pendiente</p>
+          <h1>Confirma tu correo antes de continuar como creador.</h1>
+          <p>Para activar el panel de autor necesitamos una cuenta con correo verificado. Revisa tu bandeja de entrada o spam.</p>
+          <div className="actions-row">
+            <Link to="/auth/check-email">
+              <Button>Ver instrucciones</Button>
+            </Link>
+            <Link to={getLoginPathForRedirect('/creator/apply')}>
+              <Button variant="ghost">Volver a iniciar sesion</Button>
+            </Link>
+          </div>
+        </Card>
+      </section>
+    );
+  }
+
   if (statusState.status === 'approved') {
     return (
       <section className="legal-page creator-apply-page">
         <Card className="creator-apply-card">
-          <p className="eyebrow">Solicitud aprobada</p>
-          <h1>Tu perfil de creador ya fue aprobado.</h1>
+          <p className="eyebrow">Perfil activo</p>
+          <h1>Tu perfil de creador ya esta activo.</h1>
           <p>Si el panel no se abre automaticamente, vuelve a iniciar sesion para refrescar tus permisos.</p>
           <div className="actions-row">
             <Link to="/creator">
@@ -203,16 +243,16 @@ function CreatorApplyPage() {
     );
   }
 
-  if (statusState.status === 'pending' || message) {
+  if (message) {
     return (
       <section className="legal-page creator-apply-page">
         <Card className="creator-apply-card">
-          <p className="eyebrow">Solicitud enviada</p>
-          <h1>Tu solicitud de creador esta en revision.</h1>
-          <p>{message || 'Ya tienes una solicitud de creador en revision. El administrador la evaluara antes de activar el panel editorial.'}</p>
+          <p className="eyebrow">Perfil activado</p>
+          <h1>Tu perfil de creador fue activado correctamente.</h1>
+          <p>{message}</p>
           <div className="actions-row">
-            <Link to="/reader/library">
-              <Button>Volver a biblioteca</Button>
+            <Link to="/creator">
+              <Button>Ir al panel de creador</Button>
             </Link>
             <Link to="/terms/creators">
               <Button variant="ghost">Ver terminos</Button>
@@ -231,8 +271,8 @@ function CreatorApplyPage() {
         <p className="eyebrow">Solicitud editorial</p>
         <h1>Conviertete en creador</h1>
         <p>
-          Completa tu perfil de solicitud. El panel de autor se desbloquea solo si
-          el administrador aprueba tu solicitud.
+          Completa tu perfil editorial. El acceso de creador se activa con correo verificado,
+          formulario completo y aceptacion de terminos; tus obras seguiran pasando por revision antes de publicarse.
         </p>
       </div>
 
@@ -249,7 +289,7 @@ function CreatorApplyPage() {
           <div className="legal-section">
             <p className="eyebrow">Paso 1</p>
             <h2>Datos personales y editoriales</h2>
-            <p>Estos datos ayudan al administrador a evaluar tu solicitud. No se solicitan credenciales ni documentos en esta etapa.</p>
+            <p>Estos datos formalizan tu alta como creador. No se solicitan credenciales ni documentos en esta etapa.</p>
           </div>
 
           <div className="form-grid">
@@ -388,13 +428,33 @@ function CreatorApplyPage() {
               onChange={(event) => updateField('acceptedCreatorTerms', event.target.checked)}
             />
             <span>
-              Declaro que la informacion proporcionada es veraz, que cuento o contare con los derechos necesarios sobre las obras y recursos que publique, y que acepto los <Link to="/terms/creators">Terminos para Creadores</Link> y el <Link to="/privacy/creators">Aviso de Privacidad para Creadores</Link>.
+              Acepto los <Link to="/terms/creators">Terminos para Creadores</Link>.
+            </span>
+          </label>
+          <label className="legal-checkbox">
+            <input
+              type="checkbox"
+              checked={form.acceptedCreatorPrivacy}
+              onChange={(event) => updateField('acceptedCreatorPrivacy', event.target.checked)}
+            />
+            <span>
+              Acepto el <Link to="/privacy/creators">Aviso de Privacidad para Creadores</Link>.
+            </span>
+          </label>
+          <label className="legal-checkbox">
+            <input
+              type="checkbox"
+              checked={form.acceptedAuthorshipDeclaration}
+              onChange={(event) => updateField('acceptedAuthorshipDeclaration', event.target.checked)}
+            />
+            <span>
+              Declaro que la informacion proporcionada es veraz y que cuento o contare con los derechos necesarios sobre las obras, textos, imagenes, modelos 3D, PDFs, marcadores y recursos que publique.
             </span>
           </label>
           {error && <p className="error-message">{error}</p>}
           <div className="actions-row">
             <Button type="submit" disabled={submitting}>
-              {submitting ? 'Enviando solicitud...' : 'Enviar solicitud'}
+              {submitting ? 'Activando perfil...' : 'Activar perfil de creador'}
             </Button>
             <Link to="/terms/creators">
               <Button variant="ghost">Revisar terminos</Button>
