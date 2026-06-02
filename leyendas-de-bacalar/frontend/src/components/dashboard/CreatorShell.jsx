@@ -97,15 +97,18 @@ function CreatorShell({ items }) {
 
       <aside className="creator-sidebar">
         <div className="creator-sidebar-brand">
-          <strong>Leyendas de Bacalar</strong>
-          <span>Estudio de publicacion</span>
+          <span className="creator-sidebar-mark" aria-hidden="true">LB</span>
+          <span className="creator-sidebar-brand-copy">
+            <strong>Leyendas de Bacalar</strong>
+            <span>Estudio de publicacion</span>
+          </span>
         </div>
 
         <nav aria-label="Navegacion de creador">
           {items.map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.end}>
+            <NavLink key={item.to} to={item.to} end={item.end} aria-label={item.label} title={item.label}>
               <span className="creator-nav-icon" aria-hidden="true">{item.icon}</span>
-              {item.label}
+              <span className="creator-nav-label">{item.label}</span>
             </NavLink>
           ))}
         </nav>

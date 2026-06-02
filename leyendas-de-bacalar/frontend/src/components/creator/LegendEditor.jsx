@@ -6,6 +6,7 @@ import LoadingState from '../ui/LoadingState.jsx';
 import {
   canEditVersion,
   deleteLegendPage,
+  getAvailableGenres,
   getLegendEditorData,
   saveLegendPages,
   submitLegendForReview,
@@ -22,6 +23,7 @@ const tabs = [
   { key: 'content', label: 'Contenido', icon: 'article' },
   { key: 'resources', label: 'Recursos', icon: 'photo_library' },
   { key: 'ar', label: '3D / AR', icon: 'view_in_ar' },
+  { key: 'declarations', label: 'Declaraciones', icon: 'gavel' },
   { key: 'review', label: 'Revision', icon: 'task_alt' },
 ];
 
@@ -126,6 +128,15 @@ function getInitialForm() {
   };
 }
 
+function getInitialDeclarations() {
+  return {
+    authorship: false,
+    rights: false,
+    culturalRespect: false,
+    review: false,
+  };
+}
+
 function MaterialIcon({ name }) {
   return <span className="material-symbols-rounded creator-editor-icon" aria-hidden="true">{name}</span>;
 }
@@ -216,6 +227,9 @@ function LegendEditor({ legendId }) {
   const [legend, setLegend] = useState(null);
   const [version, setVersion] = useState(null);
   const [form, setForm] = useState(getInitialForm);
+  const [genres, setGenres] = useState([]);
+  const [availableGenres, setAvailableGenres] = useState([]);
+  const [genresLoading, setGenresLoading] = useState(false);
   const [pages, setPages] = useState([createPage(1)]);
   const [selectedPageKey, setSelectedPageKey] = useState(null);
   const [resources, setResources] = useState(defaultResources);
@@ -227,11 +241,20 @@ function LegendEditor({ legendId }) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
+  // TODO: Persist editorial declarations when the schema exposes per-legend acceptance columns.
+  const [declarations, setDeclarations] = useState(getInitialDeclarations);
 
   async function loadEditor() {
     setLoading(true);
-    const { data, error: editorError } = await getLegendEditorData(legendId);
+    setGenresLoading(true);
+    const [{ data, error: editorError }, genresResult] = await Promise.all([
+      getLegendEditorData(legendId),
+      getAvailableGenres(),
+    ]);
     if (editorError) setError(editorError);
+    if (genresResult.error) console.error('getAvailableGenres error', genresResult.error);
+    setAvailableGenres(genresResult.data ?? []);
+    setGenresLoading(false);
     if (data) {
       setLegend(data.legend);
       setVersion(data.version);
@@ -249,6 +272,7 @@ function LegendEditor({ legendId }) {
       const loadedPages = data.pages.length
         ? data.pages.map((page) => ({ ...page, client_id: page.id }))
         : [];
+      setGenres((data.genres ?? []).map((genre) => genre.name).filter(Boolean));
       setPages(loadedPages);
       setSelectedPageKey(loadedPages[0]?.client_id ?? null);
       setExistingResources({
@@ -270,7 +294,9 @@ function LegendEditor({ legendId }) {
   const selectedPageIndex = pages.findIndex((page) => page.client_id === selectedPage?.client_id);
   const canEdit = canEditVersion(version);
   const isReviewLocked = !canEdit;
-  const reviewError = validateReadyForReview({ legend: form, pages });
+  const declarationsAccepted = Object.values(declarations).every(Boolean);
+  const declarationError = declarationsAccepted ? null : new Error('Acepta las declaraciones editoriales antes de enviar a revision.');
+  const reviewError = validateReadyForReview({ legend: form, pages }) || declarationError;
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -280,6 +306,18 @@ function LegendEditor({ legendId }) {
     setPages((current) => current.map((page, index) => (
       index === selectedPageIndex ? { ...page, [field]: value } : page
     )));
+  }
+
+  function toggleGenre(genreName) {
+    setGenres((current) => (
+      current.includes(genreName)
+        ? current.filter((item) => item !== genreName)
+        : [...current, genreName]
+    ));
+  }
+
+  function updateDeclaration(field, checked) {
+    setDeclarations((current) => ({ ...current, [field]: checked }));
   }
 
   function addPage() {
@@ -308,7 +346,7 @@ function LegendEditor({ legendId }) {
     setError(null);
     setMessage(null);
 
-    const { data, error: saveError } = await updateLegendGeneralData(legend.id, form);
+    const { data, error: saveError } = await updateLegendGeneralData(legend.id, { ...form, genres });
     setSaving(false);
 
     if (saveError) {
@@ -378,6 +416,12 @@ function LegendEditor({ legendId }) {
     if (validationError) {
       setError(validationError);
       setActiveTab('review');
+      return;
+    }
+
+    if (!declarationsAccepted) {
+      setError(declarationError);
+      setActiveTab('declarations');
       return;
     }
 
@@ -515,6 +559,28 @@ function LegendEditor({ legendId }) {
                 {accessTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </label>
+            <div className="creator-section-block form-span-2">
+              <h3>Generos editoriales</h3>
+              {genresLoading ? (
+                <p className="creator-muted">Cargando generos...</p>
+              ) : availableGenres.length ? (
+                <div className="creator-genre-options">
+                  {availableGenres.map((genre) => (
+                    <button
+                      key={genre.id || genre.name}
+                      type="button"
+                      className={`creator-genre-option ${genres.includes(genre.name) ? 'active' : ''}`}
+                      onClick={() => toggleGenre(genre.name)}
+                      disabled={isReviewLocked}
+                    >
+                      {genre.name}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="creator-muted">No hay generos disponibles.</p>
+              )}
+            </div>
             <div className="creator-review-actions form-span-2">
               <Button type="submit" disabled={saving || isReviewLocked}>{saving ? 'Guardando...' : 'Guardar datos'}</Button>
             </div>
@@ -582,6 +648,11 @@ function LegendEditor({ legendId }) {
                     placeholder="Erase una vez en Bacalar..."
                   />
                 </label>
+                <div className="creator-page-stats">
+                  <span>{(selectedPage?.text_content || '').trim().split(/\s+/).filter(Boolean).length} palabras</span>
+                  <span>{(selectedPage?.text_content || '').length} caracteres</span>
+                  <span>Version {version.version_number || 1}</span>
+                </div>
                 <div className="creator-review-actions">
                   <Button type="button" onClick={handleSavePages} disabled={saving || isReviewLocked}>{saving ? 'Guardando...' : 'Guardar paginas'}</Button>
                 </div>
@@ -648,10 +719,70 @@ function LegendEditor({ legendId }) {
         </div>
       )}
 
+      {activeTab === 'declarations' && (
+        <Card className="creator-editor-card">
+          <div className="creator-editor-card-title">
+            <span>5</span>
+            <div>
+              <h2>Declaraciones editoriales</h2>
+              <p>Confirma responsabilidad autoral antes de enviar la obra a revision.</p>
+            </div>
+          </div>
+
+          <div className="creator-declaration-list">
+            <label className="creator-declaration-item">
+              <input
+                type="checkbox"
+                checked={declarations.authorship}
+                onChange={(event) => updateDeclaration('authorship', event.target.checked)}
+                disabled={isReviewLocked}
+              />
+              <span>Declaro que la historia fue creada por mi o que cuento con autorizacion para publicarla.</span>
+            </label>
+            <label className="creator-declaration-item">
+              <input
+                type="checkbox"
+                checked={declarations.rights}
+                onChange={(event) => updateDeclaration('rights', event.target.checked)}
+                disabled={isReviewLocked}
+              />
+              <span>Declaro que los recursos visuales, PDF, modelos 3D y marcadores AR son propios o autorizados.</span>
+            </label>
+            <label className="creator-declaration-item">
+              <input
+                type="checkbox"
+                checked={declarations.culturalRespect}
+                onChange={(event) => updateDeclaration('culturalRespect', event.target.checked)}
+                disabled={isReviewLocked}
+              />
+              <span>Declaro que el contenido respeta la memoria cultural, comunidades y contexto de Bacalar.</span>
+            </label>
+            <label className="creator-declaration-item">
+              <input
+                type="checkbox"
+                checked={declarations.review}
+                onChange={(event) => updateDeclaration('review', event.target.checked)}
+                disabled={isReviewLocked}
+              />
+              <span>Acepto que la obra sea revisada por administracion antes de publicarse.</span>
+            </label>
+          </div>
+
+          <p className="creator-checklist-note">
+            Estas declaraciones se validan antes de enviar la obra a revision administrativa.
+          </p>
+
+          <div className="creator-review-actions">
+            <Button type="button" variant="ghost" onClick={() => setActiveTab('ar')}>Volver</Button>
+            <Button type="button" onClick={() => setActiveTab('review')} disabled={!declarationsAccepted}>Continuar a revision</Button>
+          </div>
+        </Card>
+      )}
+
       {activeTab === 'review' && (
         <Card className="creator-editor-card">
           <div className="creator-editor-card-title">
-            <span>4</span>
+            <span>6</span>
             <div>
               <h2>Revision y envio</h2>
               <p>Confirma que la obra tiene lo necesario antes de enviarla al admin.</p>
@@ -660,12 +791,14 @@ function LegendEditor({ legendId }) {
 
           <div className="creator-review-grid">
             <span className={form.title && form.synopsis && form.short_synopsis ? 'ready' : ''}>Datos generales</span>
+            <span className={genres.length ? 'ready' : ''}>Generos: {genres.length || 'pendientes'}</span>
             <span className={visiblePages.some((page) => page.text_content?.trim()) ? 'ready' : ''}>Paginas con texto: {visiblePages.filter((page) => page.text_content?.trim()).length}</span>
             <span className={hasResource(existingResources, 'cover') ? 'ready' : ''}>Portada {hasResource(existingResources, 'cover') ? 'cargada' : 'pendiente'}</span>
             <span className={hasResource(existingResources, 'banner') ? 'ready' : ''}>Banner {hasResource(existingResources, 'banner') ? 'cargado' : 'opcional'}</span>
             <span className={hasResource(existingResources, 'pdf') ? 'ready' : ''}>PDF {hasResource(existingResources, 'pdf') ? 'cargado' : 'opcional'}</span>
             <span className={hasResource(existingResources, 'model3d') ? 'ready' : ''}>Modelo 3D {hasResource(existingResources, 'model3d') ? 'listo' : 'opcional'}</span>
             <span className={hasResource(existingResources, 'marker') ? 'ready' : ''}>Marcador AR {hasResource(existingResources, 'marker') ? 'listo' : 'opcional'}</span>
+            <span className={declarationsAccepted ? 'ready' : ''}>Declaraciones {declarationsAccepted ? 'aceptadas' : 'pendientes'}</span>
           </div>
 
           {reviewError && <p className="error-message">{reviewError.message}</p>}

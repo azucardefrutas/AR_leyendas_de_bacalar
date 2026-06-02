@@ -130,14 +130,17 @@ export function AdminLayoutShell() {
 
       <aside className="admin-sidebar">
         <div className="admin-sidebar-heading">
-          <strong>Leyendas de Bacalar</strong>
-          <span>Administracion cultural</span>
+          <span className="admin-sidebar-mark" aria-hidden="true">LB</span>
+          <span className="admin-sidebar-heading-copy">
+            <strong>Leyendas de Bacalar</strong>
+            <span>Administracion cultural</span>
+          </span>
         </div>
         <nav aria-label="Navegacion administrativa">
           {adminNavItems.map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.end}>
-              <span aria-hidden="true"><AdminIcon name={item.icon} /></span>
-              {item.label}
+            <NavLink key={item.to} to={item.to} end={item.end} aria-label={item.label} title={item.label}>
+              <span className="admin-nav-icon" aria-hidden="true"><AdminIcon name={item.icon} /></span>
+              <span className="admin-nav-label">{item.label}</span>
             </NavLink>
           ))}
         </nav>

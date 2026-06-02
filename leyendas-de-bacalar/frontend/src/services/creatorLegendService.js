@@ -82,42 +82,42 @@ function normalizePages(pages = []) {
 }
 
 function normalizeGenres(genres = []) {
-  return [...new Set(genres.map((genre) => genre?.trim()).filter(Boolean))];
+  return [...new Set(genres.map((genre) => (
+    typeof genre === 'string' ? genre : genre?.name
+  )?.trim()).filter(Boolean))];
 }
 
-async function tryInsertGenre(client, name) {
-  const { data, error } = await client.from('genres').insert({ name }).select().single();
-  if (!error) return { data, error: null };
-
-  console.error('createLegendDraft error', error);
-  return { data: null, error };
-}
-
-async function saveLegendGenres(client, legendId, genres = []) {
+async function saveLegendGenres(client, legendId, genres = [], { replace = false } = {}) {
   const cleanedGenres = normalizeGenres(genres);
-  if (!cleanedGenres.length) return { data: [], error: null };
 
   try {
+    if (replace) {
+      const { error: deleteError } = await client.from('legend_genres').delete().eq('legend_id', legendId);
+      if (deleteError) {
+        console.error('saveLegendGenres error', deleteError);
+        return { data: [], error: null };
+      }
+    }
+
+    if (!cleanedGenres.length) return { data: [], error: null };
+
     const { data: existingGenres, error: existingError } = await client
       .from('genres')
-      .select('id, name')
+      .select('id, name, slug')
       .in('name', cleanedGenres);
 
     if (existingError) {
-      console.error(existingError);
+      console.error('saveLegendGenres error', existingError);
       return { data: [], error: null };
     }
 
     const found = existingGenres ?? [];
-    const foundNames = new Set(found.map((genre) => genre.name));
-    const created = [];
-
-    for (const genreName of cleanedGenres.filter((name) => !foundNames.has(name))) {
-      const { data } = await tryInsertGenre(client, genreName);
-      if (data) created.push(data);
+    const missingGenres = cleanedGenres.filter((name) => !found.some((genre) => genre.name === name));
+    if (missingGenres.length && isDev()) {
+      console.error('saveLegendGenres missing existing genres', missingGenres);
     }
 
-    const allGenres = [...found, ...created].filter((genre) => genre?.id);
+    const allGenres = found.filter((genre) => genre?.id);
     if (!allGenres.length) return { data: [], error: null };
 
     const linkPayloads = allGenres.map((genre) => ({
@@ -127,7 +127,7 @@ async function saveLegendGenres(client, legendId, genres = []) {
 
     const { error: linkError } = await client.from('legend_genres').insert(linkPayloads);
     if (linkError) {
-      console.error(linkError);
+      console.error('saveLegendGenres error', linkError);
       return { data: allGenres, error: null };
     }
 
@@ -135,6 +135,47 @@ async function saveLegendGenres(client, legendId, genres = []) {
   } catch (error) {
     console.error(error);
     return { data: [], error: null };
+  }
+}
+
+async function getLegendGenres(client, legendId) {
+  if (isInvalidId(legendId)) return { data: [], error: null };
+
+  const { data, error } = await client
+    .from('legend_genres')
+    .select('genres(id, name, slug)')
+    .eq('legend_id', legendId);
+
+  if (error) {
+    console.error('getLegendEditorData error', error);
+    return { data: [], error: null };
+  }
+
+  return {
+    data: (data ?? []).map((row) => row.genres).filter((genre) => genre?.id || genre?.name),
+    error: null,
+  };
+}
+
+export async function getAvailableGenres() {
+  const { data: client, error: clientError } = getClient();
+  if (clientError) return { data: [], error: clientError };
+
+  try {
+    const { data, error } = await client
+      .from('genres')
+      .select('id, name, slug')
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('getAvailableGenres error', error);
+      return { data: [], error: friendlyLegendError('No pudimos cargar los generos.') };
+    }
+
+    return { data: data ?? [], error: null };
+  } catch (error) {
+    console.error('getAvailableGenres error', error);
+    return { data: [], error: friendlyLegendError('No pudimos cargar los generos.') };
   }
 }
 
@@ -397,6 +438,7 @@ export async function createLegendDraft(payload, pages = []) {
 export async function updateLegendDraft(legendId, payload) {
   if (isInvalidId(legendId)) return { data: null, error: friendlyLegendError('No pudimos guardar la leyenda.') };
   const cleanedPayload = cleanLegendPayload(payload);
+  const genres = normalizeGenres(payload.genres ?? []);
   const validationError = validateLegendPayload(cleanedPayload);
   if (validationError) return { data: null, error: validationError };
 
@@ -437,6 +479,8 @@ export async function updateLegendDraft(legendId, payload) {
       console.error(error);
       return { data: null, error: friendlyLegendError('No pudimos guardar la leyenda.') };
     }
+
+    await saveLegendGenres(client, existingLegend.id, genres, { replace: true });
 
     return { data, error: null };
   } catch (error) {
@@ -604,12 +648,14 @@ export async function getLegendEditorData(legendId) {
 
     const resourcesResult = await getLegendResources(legend.id);
     const resources = resourcesResult.data ?? { media: [], documents: [], arScenes: [], arMarkers: [] };
+    const genresResult = await getLegendGenres(client, legend.id);
 
     return {
       data: {
         legend,
         version,
         pages: pages ?? [],
+        genres: genresResult.data ?? [],
         media: resources.media ?? [],
         sourceDocuments: resources.documents ?? [],
         arScenes: resources.arScenes ?? [],
