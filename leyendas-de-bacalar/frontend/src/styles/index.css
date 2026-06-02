@@ -1806,7 +1806,7 @@ pre {
 .creator-shell {
   height: 100vh;
   display: grid;
-  grid-template-columns: 76px minmax(0, 1fr);
+  grid-template-columns: 72px minmax(0, 1fr);
   grid-template-rows: 96px minmax(0, 1fr);
   overflow: hidden;
   color: #172033;
@@ -1818,7 +1818,7 @@ pre {
 
 .creator-shell:has(.creator-sidebar:hover),
 .creator-shell:has(.creator-sidebar:focus-within) {
-  grid-template-columns: 278px minmax(0, 1fr);
+  grid-template-columns: 248px minmax(0, 1fr);
 }
 
 .creator-header {
@@ -2005,11 +2005,17 @@ pre {
 .creator-sidebar-brand {
   min-height: 64px;
   display: flex;
-  gap: 12px;
+  gap: 0;
   align-items: center;
   border-radius: 18px;
   padding: 10px;
   background: rgba(255, 255, 255, 0.09);
+  transition: gap 220ms ease;
+}
+
+.creator-shell:has(.creator-sidebar:hover) .creator-sidebar-brand,
+.creator-shell:has(.creator-sidebar:focus-within) .creator-sidebar-brand {
+  gap: 12px;
 }
 
 .creator-sidebar-mark,
@@ -2070,17 +2076,18 @@ pre {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 0;
   border-radius: 16px;
   padding: 10px 12px;
   color: rgba(255, 255, 255, 0.82);
   font-size: 0.92rem;
   font-weight: 780;
-  transition: background 160ms ease, color 160ms ease, justify-content 160ms ease;
+  transition: background 160ms ease, color 160ms ease, gap 220ms ease, justify-content 160ms ease;
 }
 
 .creator-shell:has(.creator-sidebar:hover) .creator-sidebar a,
 .creator-shell:has(.creator-sidebar:focus-within) .creator-sidebar a {
+  gap: 12px;
   justify-content: flex-start;
 }
 
@@ -2953,7 +2960,7 @@ pre {
 .admin-shell {
   height: 100vh;
   display: grid;
-  grid-template-columns: 76px minmax(0, 1fr);
+  grid-template-columns: 72px minmax(0, 1fr);
   grid-template-rows: 102px minmax(0, 1fr);
   overflow: hidden;
   color: #0f172a;
@@ -2965,7 +2972,7 @@ pre {
 
 .admin-shell:has(.admin-sidebar:hover),
 .admin-shell:has(.admin-sidebar:focus-within) {
-  grid-template-columns: 292px minmax(0, 1fr);
+  grid-template-columns: 248px minmax(0, 1fr);
 }
 
 .admin-sidebar {
@@ -2995,11 +3002,17 @@ pre {
 .admin-sidebar-heading {
   min-height: 64px;
   display: flex;
-  gap: 12px;
+  gap: 0;
   align-items: center;
   border-radius: 18px;
   padding: 10px;
   background: rgba(255, 255, 255, 0.09);
+  transition: gap 220ms ease;
+}
+
+.admin-shell:has(.admin-sidebar:hover) .admin-sidebar-heading,
+.admin-shell:has(.admin-sidebar:focus-within) .admin-sidebar-heading {
+  gap: 12px;
 }
 
 .admin-sidebar-heading-copy strong,
@@ -3026,17 +3039,18 @@ pre {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 0;
   border-radius: 16px;
   padding: 10px 12px;
   color: rgba(255, 255, 255, 0.82);
   font-size: 0.92rem;
   font-weight: 780;
-  transition: background 160ms ease, color 160ms ease, justify-content 160ms ease;
+  transition: background 160ms ease, color 160ms ease, gap 220ms ease, justify-content 160ms ease;
 }
 
 .admin-shell:has(.admin-sidebar:hover) .admin-sidebar nav a,
 .admin-shell:has(.admin-sidebar:focus-within) .admin-sidebar nav a {
+  gap: 12px;
   justify-content: flex-start;
 }
 
