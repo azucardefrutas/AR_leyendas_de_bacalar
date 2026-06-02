@@ -6,6 +6,7 @@ import LoadingState from '../../components/ui/LoadingState.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useRoles } from '../../hooks/useRoles.js';
 import {
+  getLatestPendingCreatorApplication,
   getMyCreatorStatus,
   sendCreatorOnboardingEmail,
   submitCreatorApplication,
@@ -151,10 +152,23 @@ function CreatorApplyPage() {
   }
 
   async function handleResendEmail() {
-    const applicationId = getApplicationId(statusState.application);
+    let application = statusState.application;
+    let applicationId = getApplicationId(application);
+
     if (!applicationId) {
-      setError('No pudimos encontrar la solicitud para reenviar el correo.');
-      return;
+      const { data: pendingApplication, error: pendingError } = await getLatestPendingCreatorApplication();
+      if (pendingError) {
+        setError('No pudimos enviar el correo de confirmacion. Intentalo nuevamente.');
+        return;
+      }
+
+      application = pendingApplication;
+      applicationId = getApplicationId(pendingApplication);
+
+      if (!applicationId) {
+        setError('No encontramos una solicitud pendiente. Vuelve a enviar el formulario.');
+        return;
+      }
     }
 
     setResending(true);
@@ -165,11 +179,12 @@ function CreatorApplyPage() {
     setResending(false);
 
     if (resendError) {
-      setError(resendError.message || 'Guardamos tu solicitud, pero no pudimos enviar el correo de confirmacion.');
+      setError(resendError.message || 'No pudimos enviar el correo de confirmacion. Intentalo nuevamente.');
       setStatusState((current) => ({
         ...current,
         application: {
           ...(current.application ?? {}),
+          ...(application ?? {}),
           id: applicationId,
           email_status: 'failed',
         },
@@ -182,6 +197,7 @@ function CreatorApplyPage() {
       ...current,
       application: {
         ...(current.application ?? {}),
+        ...(application ?? {}),
         id: applicationId,
         email_status: 'sent',
         resend_id: data?.resend_id || null,

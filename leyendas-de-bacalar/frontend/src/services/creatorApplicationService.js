@@ -7,7 +7,7 @@ function getClient() {
   return { data: supabase, error: null };
 }
 
-function friendlyCreatorApplicationError(error) {
+function friendlyCreatorApplicationError(error, { context = 'general' } = {}) {
   if (!error) return null;
   const message = String(error.message || '');
 
@@ -21,8 +21,14 @@ function friendlyCreatorApplicationError(error) {
   ) {
     return new Error('Tu sesion no pudo validarse. Vuelve a iniciar sesion.');
   }
-  if (message.includes('No pudimos enviar el correo')) {
-    return new Error('No pudimos enviar el correo de confirmacion. Intentalo nuevamente en unos minutos.');
+  if (
+    context === 'email' &&
+    (message.includes('No pudimos enviar el correo') ||
+      message.includes('Resend no confirmo') ||
+      message.includes('Resend no confirmó') ||
+      message.includes('delivery request'))
+  ) {
+    return new Error('No pudimos enviar el correo de confirmacion. Intentalo nuevamente.');
   }
   if (message.includes('Falta la solicitud') || message.includes('application_id') || message.includes('solicitud de creador')) {
     return new Error('No pudimos registrar tu solicitud de creador.');
@@ -30,7 +36,7 @@ function friendlyCreatorApplicationError(error) {
   if (message.includes('confirmar tu correo')) {
     return new Error('Debes confirmar tu correo antes de continuar como creador.');
   }
-  if (message.includes('enlace') || message.includes('Token') || message.includes('token')) {
+  if (context === 'confirm' && (message.includes('enlace') || message.includes('Token') || message.includes('token'))) {
     return new Error('El enlace de confirmacion no es valido o expiro.');
   }
   if (message.includes('terminos') || message.includes('privacidad') || message.includes('autoria')) {
@@ -38,6 +44,9 @@ function friendlyCreatorApplicationError(error) {
   }
   if (message.includes('nombre de autor')) {
     return new Error('Escribe tu nombre de autor o seudonimo.');
+  }
+  if (context === 'email') {
+    return new Error('No pudimos enviar el correo de confirmacion. Intentalo nuevamente.');
   }
 
   return new Error('No pudimos completar la accion. Verifica tu sesion e intenta nuevamente.');
@@ -174,25 +183,25 @@ export async function sendCreatorOnboardingEmail(applicationId, accessToken) {
     if (error) {
       if (import.meta.env.DEV) console.error('[creator onboarding] edge function error', error);
       const functionMessage = await getFunctionErrorMessage(error);
-      return { data: null, error: friendlyCreatorApplicationError(new Error(functionMessage || error.message)) };
+      return { data: null, error: friendlyCreatorApplicationError(new Error(functionMessage || error.message), { context: 'email' }) };
     }
 
     if (!data?.ok || !data?.resend_id) {
       if (import.meta.env.DEV) console.error('[creator onboarding] email not sent', data);
       return {
         data: null,
-        error: friendlyCreatorApplicationError(new Error(data?.error || 'Resend no confirmo el envio del correo.')),
+        error: friendlyCreatorApplicationError(new Error(data?.error || 'Resend no confirmo el envio del correo.'), { context: 'email' }),
       };
     }
 
     return { data, error: null };
   } catch (error) {
     if (import.meta.env.DEV) console.error('sendCreatorOnboardingEmail unexpected error', error);
-    return { data: null, error: friendlyCreatorApplicationError(error) };
+    return { data: null, error: friendlyCreatorApplicationError(error, { context: 'email' }) };
   }
 }
 
-export async function getMyCreatorApplication() {
+export async function getMyCreatorApplication({ status } = {}) {
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: null, error: clientError };
 
@@ -203,18 +212,37 @@ export async function getMyCreatorApplication() {
     const userId = sessionData?.session?.user?.id;
     if (!userId) return { data: null, error: null };
 
-    const { data, error } = await client
+    let query = client
       .from('creator_applications')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .limit(1);
+
+    if (status) query = query.eq('status', status);
+
+    const { data, error } = await query.maybeSingle();
 
     return { data: data ?? null, error: error ? friendlyCreatorApplicationError(error) : null };
   } catch (error) {
     return { data: null, error: friendlyCreatorApplicationError(error) };
   }
+}
+
+export async function getLatestPendingCreatorApplication() {
+  const { data, error } = await getMyCreatorApplication({ status: 'pending' });
+  if (error) return { data: null, error };
+  if (!data) return { data: null, error: null };
+
+  return {
+    data: {
+      id: data.id,
+      status: data.status,
+      created_at: data.created_at,
+      pen_name: data.pen_name,
+    },
+    error: null,
+  };
 }
 
 export async function submitCreatorApplication(payload = {}) {
@@ -249,7 +277,7 @@ export async function submitCreatorApplication(payload = {}) {
 
     if (error) {
       if (import.meta.env.DEV) console.error('submitCreatorOnboardingRequest error', error);
-      return { data: null, error: friendlyCreatorApplicationError(error) };
+      return { data: null, error: friendlyCreatorApplicationError(error, { context: 'submit' }) };
     }
 
     const applicationId = getApplicationIdFromRpcResult(applicationResult);
@@ -280,7 +308,7 @@ export async function submitCreatorApplication(payload = {}) {
       error: null,
     };
   } catch (error) {
-    return { data: null, error: friendlyCreatorApplicationError(error) };
+    return { data: null, error: friendlyCreatorApplicationError(error, { context: 'submit' }) };
   }
 }
 
@@ -299,12 +327,12 @@ export async function confirmCreatorOnboarding(token) {
 
     if (error) {
       if (import.meta.env.DEV) console.error('confirmCreatorOnboarding error', error);
-      return { data: null, error: friendlyCreatorApplicationError(error) };
+      return { data: null, error: friendlyCreatorApplicationError(error, { context: 'confirm' }) };
     }
 
     return { data, error: null };
   } catch (error) {
-    return { data: null, error: friendlyCreatorApplicationError(error) };
+    return { data: null, error: friendlyCreatorApplicationError(error, { context: 'confirm' }) };
   }
 }
 
