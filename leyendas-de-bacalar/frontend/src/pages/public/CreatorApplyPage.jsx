@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth.js';
 import { useRoles } from '../../hooks/useRoles.js';
 import {
   getMyCreatorStatus,
+  sendCreatorOnboardingEmail,
   submitCreatorApplication,
 } from '../../services/creatorApplicationService.js';
 import { getLoginPathForRedirect } from '../../utils/authRedirect.js';
@@ -36,6 +37,10 @@ function hasVerifiedEmail(user) {
   return Boolean(user?.email_confirmed_at || user?.confirmed_at);
 }
 
+function getApplicationId(application) {
+  return application?.id || application?.application_id || application?.applicationId || null;
+}
+
 function CreatorApplyPage() {
   const { isAuthenticated, user } = useAuth();
   const { roles, loading: rolesLoading } = useRoles();
@@ -47,6 +52,7 @@ function CreatorApplyPage() {
   const [statusLoading, setStatusLoading] = useState(Boolean(isAuthenticated));
   const [form, setForm] = useState(initialForm);
   const [submitting, setSubmitting] = useState(false);
+  const [resending, setResending] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
   const acceptedLegalTerms =
@@ -141,6 +147,47 @@ function CreatorApplyPage() {
       status: data?.status ?? 'pending',
     }));
     setForm(initialForm);
+    setMessage('Te enviamos un enlace para confirmar tu alta como creador. Cuando lo confirmes, tu perfil se activara automaticamente.');
+  }
+
+  async function handleResendEmail() {
+    const applicationId = getApplicationId(statusState.application);
+    if (!applicationId) {
+      setError('No pudimos encontrar la solicitud para reenviar el correo.');
+      return;
+    }
+
+    setResending(true);
+    setError(null);
+    setMessage(null);
+
+    const { data, error: resendError } = await sendCreatorOnboardingEmail(applicationId);
+    setResending(false);
+
+    if (resendError) {
+      setError(resendError.message || 'Guardamos tu solicitud, pero no pudimos enviar el correo de confirmacion.');
+      setStatusState((current) => ({
+        ...current,
+        application: {
+          ...(current.application ?? {}),
+          id: applicationId,
+          email_status: 'failed',
+        },
+        status: 'email_failed',
+      }));
+      return;
+    }
+
+    setStatusState((current) => ({
+      ...current,
+      application: {
+        ...(current.application ?? {}),
+        id: applicationId,
+        email_status: 'sent',
+        resend_id: data?.resend_id || null,
+      },
+      status: 'pending',
+    }));
     setMessage('Te enviamos un enlace para confirmar tu alta como creador. Cuando lo confirmes, tu perfil se activara automaticamente.');
   }
 
@@ -239,7 +286,10 @@ function CreatorApplyPage() {
     );
   }
 
-  if (statusState.status === 'pending' || message) {
+  const applicationEmailSent = statusState.application?.email_status === 'sent';
+  const shouldShowEmailSuccess = message || (statusState.status === 'pending' && applicationEmailSent);
+
+  if (shouldShowEmailSuccess) {
     return (
       <section className="legal-page creator-apply-page">
         <Card className="creator-apply-card">
@@ -254,6 +304,29 @@ function CreatorApplyPage() {
             </Link>
             <Link to="/terms/creators">
               <Button variant="ghost">Ver terminos</Button>
+            </Link>
+          </div>
+        </Card>
+      </section>
+    );
+  }
+
+  if (statusState.status === 'pending' || statusState.status === 'email_failed') {
+    return (
+      <section className="legal-page creator-apply-page">
+        <Card className="creator-apply-card">
+          <p className="eyebrow">Confirmacion pendiente</p>
+          <h1>Guardamos tu solicitud, pero no pudimos enviar el correo de confirmacion.</h1>
+          <p>
+            Tu formulario editorial quedo registrado. Reenviaremos el correo de confirmacion sin volver a enviar el formulario.
+          </p>
+          {error && <p className="error-message">{error}</p>}
+          <div className="actions-row">
+            <Button onClick={handleResendEmail} disabled={resending}>
+              {resending ? 'Reenviando...' : 'Reenviar correo de confirmacion'}
+            </Button>
+            <Link to="/">
+              <Button variant="ghost">Volver al inicio</Button>
             </Link>
           </div>
         </Card>

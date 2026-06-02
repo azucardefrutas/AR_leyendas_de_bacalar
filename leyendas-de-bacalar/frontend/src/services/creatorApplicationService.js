@@ -156,22 +156,33 @@ export async function sendCreatorOnboardingEmail(applicationId, accessToken) {
     return { data: null, error: new Error('No pudimos registrar tu solicitud de creador.') };
   }
 
-  if (!accessToken) {
-    return { data: null, error: new Error('Tu sesion expiro. Inicia sesion nuevamente para continuar.') };
+  let token = accessToken;
+  if (!token) {
+    const { data: sessionToken, error: sessionError } = await getSessionAccessToken(client);
+    if (sessionError) return { data: null, error: sessionError };
+    token = sessionToken;
   }
 
   try {
     const { data, error } = await client.functions.invoke('send-creator-onboarding-email', {
       body: { application_id: cleanApplicationId },
       headers: {
-        Authorization: `Bearer ${accessToken}`,
+        Authorization: `Bearer ${token}`,
       },
     });
 
     if (error) {
-      if (import.meta.env.DEV) console.error('sendCreatorOnboardingEmail error', error);
+      if (import.meta.env.DEV) console.error('[creator onboarding] edge function error', error);
       const functionMessage = await getFunctionErrorMessage(error);
       return { data: null, error: friendlyCreatorApplicationError(new Error(functionMessage || error.message)) };
+    }
+
+    if (!data?.ok) {
+      if (import.meta.env.DEV) console.error('[creator onboarding] email not sent', data);
+      return {
+        data: null,
+        error: friendlyCreatorApplicationError(new Error(data?.error || 'No pudimos enviar el correo de confirmacion.')),
+      };
     }
 
     return { data, error: null };
@@ -262,7 +273,8 @@ export async function submitCreatorApplication(payload = {}) {
       data: {
         ...(pendingApplication ?? {}),
         id: pendingApplication?.id ?? applicationId,
-        email_status: emailResult?.ok ? 'sent' : 'unknown',
+        email_status: 'sent',
+        resend_id: emailResult?.resend_id || null,
         activation_status: 'pending_email_confirmation',
       },
       error: null,

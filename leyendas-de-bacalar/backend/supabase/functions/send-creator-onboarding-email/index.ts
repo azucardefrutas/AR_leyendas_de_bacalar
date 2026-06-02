@@ -104,6 +104,8 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: 'No pudimos obtener el correo de tu cuenta.' }, 400);
   }
 
+  console.log('authenticated user resolved', { userId: user.id, email });
+
   const body = await request.json().catch(() => ({}));
   const applicationId =
     typeof body.application_id === 'string'
@@ -164,7 +166,7 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: 'No pudimos generar el enlace de confirmacion de creador.' }, 500);
   }
 
-  console.log('creator confirmation token generated', { applicationId });
+  console.log('creator token generated', { applicationId });
 
   const confirmationUrl = `${siteUrl.replace(/\/$/, '')}/creator/confirm?token=${encodeURIComponent(tokenRow.token)}`;
   const resendResponse = await fetch('https://api.resend.com/emails', {
@@ -181,20 +183,32 @@ Deno.serve(async (request) => {
       text: `Confirma tu alta como creador: ${confirmationUrl}`,
     }),
   });
+  const resendBody = await resendResponse.clone().json().catch(async () => ({
+    raw: await resendResponse.text().catch(() => ''),
+  }));
+
+  console.log('resend response received', { status: resendResponse.status });
 
   if (!resendResponse.ok) {
-    const resendText = await resendResponse.text();
     console.error('Resend failed', {
       status: resendResponse.status,
-      body: resendText,
+      body: resendBody,
     });
-    return jsonResponse({ error: 'No pudimos enviar el correo de confirmacion. Intenta nuevamente.' }, 500);
+    return jsonResponse({
+      ok: false,
+      error: 'No pudimos enviar el correo de confirmacion. Intenta nuevamente.',
+    }, 500);
   }
 
-  console.log('creator confirmation email sent', { applicationId, to: email });
+  console.log('creator confirmation email sent', {
+    applicationId,
+    to: email,
+    resendId: resendBody?.id || null,
+  });
 
   return jsonResponse({
     ok: true,
     message: 'Correo de confirmacion enviado.',
+    resend_id: resendBody?.id || null,
   });
 });
