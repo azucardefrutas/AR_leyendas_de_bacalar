@@ -49,6 +49,10 @@ function CreatorApplyPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
+  const acceptedLegalTerms =
+    form.acceptedCreatorTerms &&
+    form.acceptedCreatorPrivacy &&
+    form.acceptedAuthorshipDeclaration;
 
   useEffect(() => {
     let active = true;
@@ -137,7 +141,7 @@ function CreatorApplyPage() {
       status: data?.status ?? 'pending',
     }));
     setForm(initialForm);
-    setMessage('Revisa tu correo para confirmar tu alta como creador.');
+    setMessage('Te enviamos un enlace para confirmar tu alta como creador. Cuando lo confirmes, tu perfil se activara automaticamente.');
   }
 
   if (!isAuthenticated) {
@@ -240,12 +244,12 @@ function CreatorApplyPage() {
       <section className="legal-page creator-apply-page">
         <Card className="creator-apply-card">
           <p className="eyebrow">Correo de confirmacion enviado</p>
-          <h1>Revisa tu correo para confirmar tu alta como creador.</h1>
+          <h1>Revisa tu correo</h1>
           <p>
             {message || 'Te enviamos un enlace para confirmar tu alta como creador. Cuando lo confirmes, tu perfil se activara automaticamente.'}
           </p>
           <div className="actions-row">
-            <Link to="/reader/library">
+            <Link to="/">
               <Button>Volver al inicio</Button>
             </Link>
             <Link to="/terms/creators">
@@ -445,10 +449,15 @@ function CreatorApplyPage() {
               Declaro que la informacion proporcionada es veraz y que cuento o contare con los derechos necesarios sobre las obras, textos, imagenes, modelos 3D, PDFs, marcadores y recursos que publique.
             </span>
           </label>
+          {!acceptedLegalTerms && (
+            <p className="admin-muted">
+              Debes aceptar los terminos, el aviso de privacidad y la declaracion de autoria para continuar.
+            </p>
+          )}
           {error && <p className="error-message">{error}</p>}
           <div className="actions-row">
-            <Button type="submit" disabled={submitting}>
-              {submitting ? 'Enviando confirmacion...' : 'Enviar solicitud de creador'}
+            <Button type="submit" disabled={submitting || !acceptedLegalTerms}>
+              {submitting ? 'Enviando confirmacion...' : 'Enviar solicitud y confirmar por correo'}
             </Button>
             <Link to="/terms/creators">
               <Button variant="ghost">Revisar terminos</Button>

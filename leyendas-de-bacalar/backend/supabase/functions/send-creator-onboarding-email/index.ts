@@ -61,7 +61,7 @@ Deno.serve(async (request) => {
   const jwt = authorization.replace(/^Bearer\s+/i, '').trim();
 
   if (!jwt) {
-    return jsonResponse({ error: 'Debes iniciar sesion para continuar.' }, 401);
+    return jsonResponse({ error: 'Debes iniciar sesion para confirmar tu alta como creador.' }, 401);
   }
 
   const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
@@ -74,7 +74,7 @@ Deno.serve(async (request) => {
   const { data: userData, error: userError } = await serviceClient.auth.getUser(jwt);
 
   if (userError || !userData?.user) {
-    return jsonResponse({ error: 'No pudimos validar tu sesion.' }, 401);
+    return jsonResponse({ error: 'Tu sesion no pudo validarse. Vuelve a iniciar sesion.' }, 401);
   }
 
   if (!userData.user.email) {
@@ -90,7 +90,7 @@ Deno.serve(async (request) => {
         : null;
 
   if (!applicationId) {
-    return jsonResponse({ error: 'Falta la solicitud de creador.' }, 400);
+    return jsonResponse({ error: 'No pudimos registrar tu solicitud de creador.' }, 400);
   }
 
   const { data: application, error: applicationError } = await serviceClient
@@ -135,7 +135,7 @@ Deno.serve(async (request) => {
 
   if (!resendResponse.ok) {
     console.error('Resend email failed', resendResponse.status);
-    return jsonResponse({ error: 'No pudimos enviar el correo de confirmacion.' }, 502);
+    return jsonResponse({ error: 'No pudimos enviar el correo de confirmacion. Intentalo nuevamente en unos minutos.' }, 502);
   }
 
   return jsonResponse({

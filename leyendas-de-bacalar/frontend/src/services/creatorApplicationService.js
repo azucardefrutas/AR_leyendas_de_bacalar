@@ -1,4 +1,4 @@
-import { getCurrentUser, getSession } from './authService.js';
+import { getSession } from './authService.js';
 import { getSupabaseConfigError, supabase } from '../lib/supabaseClient.js';
 import { getCurrentUserRoles } from './roleService.js';
 
@@ -11,6 +11,22 @@ function friendlyCreatorApplicationError(error) {
   if (!error) return null;
   const message = String(error.message || '');
 
+  if (message.includes('sesion expiro') || message.includes('no hay sesion') || message.includes('no hay session')) {
+    return new Error('Tu sesion expiro. Inicia sesion nuevamente para continuar.');
+  }
+  if (
+    message.includes('No pudimos validar tu sesion') ||
+    message.includes('sesion no pudo validarse') ||
+    message.includes('Debes iniciar sesion para confirmar')
+  ) {
+    return new Error('Tu sesion no pudo validarse. Vuelve a iniciar sesion.');
+  }
+  if (message.includes('No pudimos enviar el correo')) {
+    return new Error('No pudimos enviar el correo de confirmacion. Intentalo nuevamente en unos minutos.');
+  }
+  if (message.includes('Falta la solicitud') || message.includes('application_id') || message.includes('solicitud de creador')) {
+    return new Error('No pudimos registrar tu solicitud de creador.');
+  }
   if (message.includes('confirmar tu correo')) {
     return new Error('Debes confirmar tu correo antes de continuar como creador.');
   }
@@ -25,6 +41,24 @@ function friendlyCreatorApplicationError(error) {
   }
 
   return new Error('No pudimos completar la accion. Verifica tu sesion e intenta nuevamente.');
+}
+
+async function getSessionAccessToken(client) {
+  const {
+    data: { session },
+    error,
+  } = await client.auth.getSession();
+
+  if (error) {
+    if (import.meta.env.DEV) console.error('creator onboarding session error', error);
+    return { data: null, error: new Error('Tu sesion expiro. Inicia sesion nuevamente para continuar.') };
+  }
+
+  if (!session?.access_token) {
+    return { data: null, error: new Error('Tu sesion expiro. Inicia sesion nuevamente para continuar.') };
+  }
+
+  return { data: session.access_token, error: null };
 }
 
 function validatePayload({
@@ -58,6 +92,23 @@ function validatePayload({
   }
 
   return null;
+}
+
+async function getFunctionErrorMessage(error) {
+  if (!error) return null;
+
+  const context = error.context || error.response;
+  if (context && typeof context.json === 'function') {
+    try {
+      const body = await context.json();
+      if (body?.error) return String(body.error);
+      if (body?.message) return String(body.message);
+    } catch {
+      // Ignore body parsing failures and use the generic message below.
+    }
+  }
+
+  return error.message ? String(error.message) : null;
 }
 
 function getApplicationIdFromRpcResult(result) {
@@ -96,29 +147,37 @@ export function buildCreatorApplicationReason(payload = {}) {
   return lines.join('\n');
 }
 
-export async function sendCreatorOnboardingEmail(applicationId) {
+export async function sendCreatorOnboardingEmail(applicationId, accessToken) {
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: null, error: clientError };
 
   const cleanApplicationId = String(applicationId ?? '').trim();
   if (!cleanApplicationId || cleanApplicationId === 'undefined') {
-    return { data: null, error: new Error('No pudimos preparar el correo de confirmacion.') };
+    return { data: null, error: new Error('No pudimos registrar tu solicitud de creador.') };
+  }
+
+  if (!accessToken) {
+    return { data: null, error: new Error('Tu sesion expiro. Inicia sesion nuevamente para continuar.') };
   }
 
   try {
     const { data, error } = await client.functions.invoke('send-creator-onboarding-email', {
       body: { application_id: cleanApplicationId },
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
     });
 
     if (error) {
       if (import.meta.env.DEV) console.error('sendCreatorOnboardingEmail error', error);
-      return { data: null, error: new Error('Guardamos tu solicitud, pero no pudimos enviar el correo de confirmacion. Intenta nuevamente.') };
+      const functionMessage = await getFunctionErrorMessage(error);
+      return { data: null, error: friendlyCreatorApplicationError(new Error(functionMessage || error.message)) };
     }
 
     return { data, error: null };
   } catch (error) {
     if (import.meta.env.DEV) console.error('sendCreatorOnboardingEmail unexpected error', error);
-    return { data: null, error: new Error('Guardamos tu solicitud, pero no pudimos enviar el correo de confirmacion. Intenta nuevamente.') };
+    return { data: null, error: friendlyCreatorApplicationError(error) };
   }
 }
 
@@ -155,11 +214,8 @@ export async function submitCreatorApplication(payload = {}) {
   if (clientError) return { data: null, error: clientError };
 
   try {
-    const { data: userData, error: userError } = await getCurrentUser();
-    if (userError) return { data: null, error: friendlyCreatorApplicationError(userError) };
-
-    const userId = userData?.user?.id;
-    if (!userId) return { data: null, error: new Error('Debes iniciar sesion para continuar.') };
+    const { data: accessToken, error: sessionError } = await getSessionAccessToken(client);
+    if (sessionError) return { data: null, error: sessionError };
 
     const { data: applicationResult, error } = await client.rpc('submit_creator_onboarding_request', {
       p_pen_name: payload.penName.trim(),
@@ -188,10 +244,10 @@ export async function submitCreatorApplication(payload = {}) {
     const applicationId = getApplicationIdFromRpcResult(applicationResult);
     if (!applicationId) {
       if (import.meta.env.DEV) console.error('submitCreatorOnboardingRequest missing application_id', applicationResult);
-      return { data: null, error: new Error('No pudimos preparar la confirmacion de creador.') };
+      return { data: null, error: new Error('No pudimos registrar tu solicitud de creador.') };
     }
 
-    const { data: emailResult, error: emailError } = await sendCreatorOnboardingEmail(applicationId);
+    const { data: emailResult, error: emailError } = await sendCreatorOnboardingEmail(applicationId, accessToken);
 
     if (emailError) {
       return {
