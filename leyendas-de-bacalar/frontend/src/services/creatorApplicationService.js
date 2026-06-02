@@ -103,21 +103,24 @@ function validatePayload({
   return null;
 }
 
-async function getFunctionErrorMessage(error) {
-  if (!error) return null;
+async function getFunctionErrorInfo(error) {
+  if (!error) return { message: null, code: null };
 
   const context = error.context || error.response;
   if (context && typeof context.json === 'function') {
     try {
       const body = await context.json();
-      if (body?.error) return String(body.error);
-      if (body?.message) return String(body.message);
+      if (body?.code && import.meta.env.DEV) {
+        console.error('[creator onboarding] edge function code', body.code);
+      }
+      if (body?.error) return { message: String(body.error), code: body?.code || null };
+      if (body?.message) return { message: String(body.message), code: body?.code || null };
     } catch {
       // Ignore body parsing failures and use the generic message below.
     }
   }
 
-  return error.message ? String(error.message) : null;
+  return { message: error.message ? String(error.message) : null, code: null };
 }
 
 function getApplicationIdFromRpcResult(result) {
@@ -182,12 +185,13 @@ export async function sendCreatorOnboardingEmail(applicationId, accessToken) {
 
     if (error) {
       if (import.meta.env.DEV) console.error('[creator onboarding] edge function error', error);
-      const functionMessage = await getFunctionErrorMessage(error);
-      return { data: null, error: friendlyCreatorApplicationError(new Error(functionMessage || error.message), { context: 'email' }) };
+      const functionError = await getFunctionErrorInfo(error);
+      return { data: null, error: friendlyCreatorApplicationError(new Error(functionError.message || error.message), { context: 'email' }) };
     }
 
     if (!data?.ok || !data?.resend_id) {
       if (import.meta.env.DEV) console.error('[creator onboarding] email not sent', data);
+      if (data?.code && import.meta.env.DEV) console.error('[creator onboarding] email error code', data.code);
       return {
         data: null,
         error: friendlyCreatorApplicationError(new Error(data?.error || 'Resend no confirmo el envio del correo.'), { context: 'email' }),

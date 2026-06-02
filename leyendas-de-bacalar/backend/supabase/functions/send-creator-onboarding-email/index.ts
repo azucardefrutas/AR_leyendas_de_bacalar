@@ -45,10 +45,10 @@ Deno.serve(async (request) => {
   }
 
   if (request.method !== 'POST') {
-    return jsonResponse({ error: 'Metodo no permitido.' }, 405);
+    return jsonResponse({ ok: false, code: 'method_not_allowed', error: 'Metodo no permitido.' }, 405);
   }
 
-  console.log('send-creator-onboarding-email started');
+  console.log('creator email function started');
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -62,16 +62,31 @@ Deno.serve(async (request) => {
     ['SITE_URL', siteUrl],
   ].filter(([, value]) => !value).map(([name]) => name);
 
-  if (missingSecrets.length) {
-    console.error('send-creator-onboarding-email missing secrets', { missingSecrets });
-    return jsonResponse({ error: 'La funcion no esta configurada correctamente.' }, 500);
+  const invalidResendKey = Boolean(resendApiKey && !resendApiKey.startsWith('re_'));
+
+  if (missingSecrets.length || invalidResendKey) {
+    console.error('creator email missing or invalid secrets', {
+      missingSecrets,
+      invalidResendKey,
+    });
+    return jsonResponse({
+      ok: false,
+      code: 'missing_secret',
+      error: 'La funcion no esta configurada correctamente.',
+    }, 500);
   }
+
+  console.log('creator email secrets validated');
 
   const authorization = request.headers.get('Authorization') || '';
   const jwt = authorization.replace(/^Bearer\s+/i, '').trim();
 
   if (!jwt) {
-    return jsonResponse({ error: 'Debes iniciar sesion para confirmar tu alta como creador.' }, 401);
+    return jsonResponse({
+      ok: false,
+      code: 'invalid_session',
+      error: 'Tu sesion no pudo validarse.',
+    }, 401);
   }
 
   const authClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
@@ -90,21 +105,30 @@ Deno.serve(async (request) => {
   const { data: userData, error: userError } = await authClient.auth.getUser(jwt);
 
   if (userError || !userData?.user) {
-    console.error('send-creator-onboarding-email auth validation failed', {
+    console.error('creator email auth validation failed', {
       message: userError?.message,
       code: userError?.code,
     });
-    return jsonResponse({ error: 'Tu sesion no pudo validarse. Vuelve a iniciar sesion.' }, 401);
+    return jsonResponse({
+      ok: false,
+      code: 'invalid_session',
+      error: 'Tu sesion no pudo validarse.',
+    }, 401);
   }
 
   const user = userData.user;
   const email = user.email;
 
   if (!email) {
-    return jsonResponse({ error: 'No pudimos obtener el correo de tu cuenta.' }, 400);
+    console.error('creator email user without email', { userId: user.id });
+    return jsonResponse({
+      ok: false,
+      code: 'invalid_session',
+      error: 'Tu sesion no pudo validarse.',
+    }, 400);
   }
 
-  console.log('authenticated user resolved', { userId: user.id, email });
+  console.log('creator email user validated', { userId: user.id, email });
 
   const body = await request.json().catch(() => ({}));
   const applicationId =
@@ -115,7 +139,11 @@ Deno.serve(async (request) => {
         : null;
 
   if (!applicationId) {
-    return jsonResponse({ error: 'No se recibio la solicitud de creador.' }, 400);
+    return jsonResponse({
+      ok: false,
+      code: 'invalid_application',
+      error: 'No pudimos validar tu solicitud de creador.',
+    }, 400);
   }
 
   const { data: application, error: applicationError } = await serviceClient
@@ -132,22 +160,38 @@ Deno.serve(async (request) => {
       hint: applicationError.hint,
       code: applicationError.code,
     });
-    return jsonResponse({ error: 'No pudimos validar la solicitud de creador.' }, 500);
+    return jsonResponse({
+      ok: false,
+      code: 'invalid_application',
+      error: 'No pudimos validar tu solicitud de creador.',
+    }, 500);
   }
 
   if (!application?.id) {
-    return jsonResponse({ error: 'La solicitud de creador no existe.' }, 404);
+    return jsonResponse({
+      ok: false,
+      code: 'invalid_application',
+      error: 'No pudimos validar tu solicitud de creador.',
+    }, 404);
   }
 
   if (application.user_id !== user.id) {
-    return jsonResponse({ error: 'Esta solicitud no pertenece a tu cuenta.' }, 403);
+    return jsonResponse({
+      ok: false,
+      code: 'invalid_application',
+      error: 'No pudimos validar tu solicitud de creador.',
+    }, 403);
   }
 
   if (application.status !== 'pending') {
-    return jsonResponse({ error: 'Esta solicitud no esta pendiente de confirmacion.' }, 400);
+    return jsonResponse({
+      ok: false,
+      code: 'invalid_application',
+      error: 'No pudimos validar tu solicitud de creador.',
+    }, 400);
   }
 
-  console.log('application ownership validated', { applicationId });
+  console.log('creator email application validated', { applicationId });
 
   const { data: tokenRows, error: tokenError } = await serviceClient.rpc(
     'issue_creator_onboarding_email_token',
@@ -163,16 +207,20 @@ Deno.serve(async (request) => {
       hint: tokenError?.hint,
       code: tokenError?.code,
     });
-    return jsonResponse({ error: 'No pudimos generar el enlace de confirmacion de creador.' }, 500);
+    return jsonResponse({
+      ok: false,
+      code: 'token_generation_failed',
+      error: 'No pudimos generar el enlace de confirmacion.',
+    }, 500);
   }
 
-  console.log('creator token generated', { applicationId });
+  console.log('creator email token generated', { applicationId });
 
   const confirmationUrl = `${siteUrl.replace(/\/$/, '')}/creator/confirm?token=${encodeURIComponent(tokenRow.token)}`;
-  console.log('sending creator email through Resend', {
+  console.log('creator email sending through Resend', {
+    applicationId,
     to: email,
     from: 'no-reply@bacalarlegends-ar.com',
-    applicationId,
   });
 
   const resendResponse = await fetch('https://api.resend.com/emails', {
@@ -197,20 +245,34 @@ Deno.serve(async (request) => {
     resendBody = { raw: resendRaw };
   }
 
-  console.log('resend response received', {
+  console.log('creator email resend response', {
     status: resendResponse.status,
     ok: resendResponse.ok,
     body: resendBody,
   });
 
-  if (!resendResponse.ok || !resendBody?.id) {
+  if (!resendResponse.ok) {
     console.error('Resend did not confirm delivery request', {
       status: resendResponse.status,
       body: resendBody,
     });
     return jsonResponse({
       ok: false,
-      error: resendBody?.error?.message || resendBody?.message || 'Resend no confirmo el envio del correo.',
+      code: 'resend_failed',
+      error: 'No pudimos enviar el correo de confirmacion.',
+      resend_error: resendBody?.error?.message || resendBody?.message || null,
+    }, 500);
+  }
+
+  if (!resendBody?.id) {
+    console.error('Resend response missing id', {
+      status: resendResponse.status,
+      body: resendBody,
+    });
+    return jsonResponse({
+      ok: false,
+      code: 'resend_no_id',
+      error: 'Resend no confirmo el envio del correo.',
     }, 500);
   }
 
