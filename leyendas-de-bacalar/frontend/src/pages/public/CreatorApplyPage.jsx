@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
@@ -38,8 +38,7 @@ function hasVerifiedEmail(user) {
 
 function CreatorApplyPage() {
   const { isAuthenticated, user } = useAuth();
-  const { roles, loading: rolesLoading, refetchRoles } = useRoles();
-  const navigate = useNavigate();
+  const { roles, loading: rolesLoading } = useRoles();
   const [statusState, setStatusState] = useState({
     application: null,
     isCreator: false,
@@ -126,16 +125,9 @@ function CreatorApplyPage() {
         setStatusState((current) => ({
           ...current,
           application: data,
-          status: data?.status ?? 'pending',
+          status: data?.email_status === 'failed' ? 'email_failed' : data?.status ?? 'pending',
         }));
       }
-      return;
-    }
-
-    if (data?.activation_status === 'activated') {
-      await refetchRoles();
-      setMessage('Tu perfil de creador fue activado correctamente.');
-      navigate('/creator', { replace: true });
       return;
     }
 
@@ -145,7 +137,7 @@ function CreatorApplyPage() {
       status: data?.status ?? 'pending',
     }));
     setForm(initialForm);
-    setMessage('Tu perfil de creador fue activado correctamente.');
+    setMessage('Revisa tu correo para confirmar tu alta como creador.');
   }
 
   if (!isAuthenticated) {
@@ -243,16 +235,18 @@ function CreatorApplyPage() {
     );
   }
 
-  if (message) {
+  if (statusState.status === 'pending' || message) {
     return (
       <section className="legal-page creator-apply-page">
         <Card className="creator-apply-card">
-          <p className="eyebrow">Perfil activado</p>
-          <h1>Tu perfil de creador fue activado correctamente.</h1>
-          <p>{message}</p>
+          <p className="eyebrow">Correo de confirmacion enviado</p>
+          <h1>Revisa tu correo para confirmar tu alta como creador.</h1>
+          <p>
+            {message || 'Te enviamos un enlace para confirmar tu alta como creador. Cuando lo confirmes, tu perfil se activara automaticamente.'}
+          </p>
           <div className="actions-row">
-            <Link to="/creator">
-              <Button>Ir al panel de creador</Button>
+            <Link to="/reader/library">
+              <Button>Volver al inicio</Button>
             </Link>
             <Link to="/terms/creators">
               <Button variant="ghost">Ver terminos</Button>
@@ -454,7 +448,7 @@ function CreatorApplyPage() {
           {error && <p className="error-message">{error}</p>}
           <div className="actions-row">
             <Button type="submit" disabled={submitting}>
-              {submitting ? 'Activando perfil...' : 'Activar perfil de creador'}
+              {submitting ? 'Enviando confirmacion...' : 'Enviar solicitud de creador'}
             </Button>
             <Link to="/terms/creators">
               <Button variant="ghost">Revisar terminos</Button>

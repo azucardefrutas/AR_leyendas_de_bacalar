@@ -38,6 +38,7 @@ import UploadAssetsPage from '../pages/creator/UploadAssetsPage.jsx';
 import AccessDeniedPage from '../pages/public/AccessDeniedPage.jsx';
 import CatalogPage from '../pages/public/CatalogPage.jsx';
 import CreatorApplyPage from '../pages/public/CreatorApplyPage.jsx';
+import CreatorConfirmPage from '../pages/public/CreatorConfirmPage.jsx';
 import CreatorPrivacyPage from '../pages/public/CreatorPrivacyPage.jsx';
 import CreatorTermsPage from '../pages/public/CreatorTermsPage.jsx';
 import LegendDetailPage from '../pages/public/LegendDetailPage.jsx';
@@ -70,6 +71,7 @@ export const router = createBrowserRouter([
       { path: '/terms/creators', element: <CreatorTermsPage /> },
       { path: '/privacy/creators', element: <CreatorPrivacyPage /> },
       { path: '/creator/apply', element: <CreatorApplyPage /> },
+      { path: '/creator/confirm', element: <CreatorConfirmPage /> },
       { path: '/access-denied', element: <AccessDeniedPage /> },
     ],
   },

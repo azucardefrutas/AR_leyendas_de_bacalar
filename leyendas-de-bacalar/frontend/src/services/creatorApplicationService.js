@@ -14,6 +14,9 @@ function friendlyCreatorApplicationError(error) {
   if (message.includes('confirmar tu correo')) {
     return new Error('Debes confirmar tu correo antes de continuar como creador.');
   }
+  if (message.includes('enlace') || message.includes('Token') || message.includes('token')) {
+    return new Error('El enlace de confirmacion no es valido o expiro.');
+  }
   if (message.includes('terminos') || message.includes('privacidad') || message.includes('autoria')) {
     return new Error('Debes aceptar los terminos, el aviso de privacidad y la declaracion de autoria.');
   }
@@ -57,6 +60,16 @@ function validatePayload({
   return null;
 }
 
+function getApplicationIdFromRpcResult(result) {
+  if (typeof result === 'string') return result;
+  if (Array.isArray(result)) return getApplicationIdFromRpcResult(result[0]);
+  if (result && typeof result === 'object') {
+    return result.application_id || result.applicationId || result.id || null;
+  }
+
+  return null;
+}
+
 export function buildCreatorApplicationReason(payload = {}) {
   const clean = (value) => String(value ?? '').trim() || 'No especificado';
   const lines = [
@@ -81,6 +94,32 @@ export function buildCreatorApplicationReason(payload = {}) {
   ];
 
   return lines.join('\n');
+}
+
+export async function sendCreatorOnboardingEmail(applicationId) {
+  const { data: client, error: clientError } = getClient();
+  if (clientError) return { data: null, error: clientError };
+
+  const cleanApplicationId = String(applicationId ?? '').trim();
+  if (!cleanApplicationId || cleanApplicationId === 'undefined') {
+    return { data: null, error: new Error('No pudimos preparar el correo de confirmacion.') };
+  }
+
+  try {
+    const { data, error } = await client.functions.invoke('send-creator-onboarding-email', {
+      body: { application_id: cleanApplicationId },
+    });
+
+    if (error) {
+      if (import.meta.env.DEV) console.error('sendCreatorOnboardingEmail error', error);
+      return { data: null, error: new Error('Guardamos tu solicitud, pero no pudimos enviar el correo de confirmacion. Intenta nuevamente.') };
+    }
+
+    return { data, error: null };
+  } catch (error) {
+    if (import.meta.env.DEV) console.error('sendCreatorOnboardingEmail unexpected error', error);
+    return { data: null, error: new Error('Guardamos tu solicitud, pero no pudimos enviar el correo de confirmacion. Intenta nuevamente.') };
+  }
 }
 
 export async function getMyCreatorApplication() {
@@ -122,7 +161,7 @@ export async function submitCreatorApplication(payload = {}) {
     const userId = userData?.user?.id;
     if (!userId) return { data: null, error: new Error('Debes iniciar sesion para continuar.') };
 
-    const { data, error } = await client.rpc('complete_creator_onboarding', {
+    const { data: applicationResult, error } = await client.rpc('submit_creator_onboarding_request', {
       p_pen_name: payload.penName.trim(),
       p_legal_first_name: payload.legalFirstName.trim(),
       p_legal_last_name: payload.legalLastName.trim(),
@@ -142,20 +181,60 @@ export async function submitCreatorApplication(payload = {}) {
     });
 
     if (error) {
-      if (import.meta.env.DEV) console.error('completeCreatorOnboarding error', error);
+      if (import.meta.env.DEV) console.error('submitCreatorOnboardingRequest error', error);
       return { data: null, error: friendlyCreatorApplicationError(error) };
     }
 
-    const { data: activatedApplication } = await getMyCreatorApplication();
+    const applicationId = getApplicationIdFromRpcResult(applicationResult);
+    if (!applicationId) {
+      if (import.meta.env.DEV) console.error('submitCreatorOnboardingRequest missing application_id', applicationResult);
+      return { data: null, error: new Error('No pudimos preparar la confirmacion de creador.') };
+    }
+
+    const { data: emailResult, error: emailError } = await sendCreatorOnboardingEmail(applicationId);
+
+    if (emailError) {
+      return {
+        data: { id: applicationId, status: 'pending', email_status: 'failed' },
+        error: emailError,
+      };
+    }
+
+    const { data: pendingApplication } = await getMyCreatorApplication();
 
     return {
       data: {
-        ...(activatedApplication ?? {}),
-        activated_user_id: data ?? userId,
-        activation_status: 'activated',
+        ...(pendingApplication ?? {}),
+        id: pendingApplication?.id ?? applicationId,
+        email_status: emailResult?.ok ? 'sent' : 'unknown',
+        activation_status: 'pending_email_confirmation',
       },
       error: null,
     };
+  } catch (error) {
+    return { data: null, error: friendlyCreatorApplicationError(error) };
+  }
+}
+
+export async function confirmCreatorOnboarding(token) {
+  const { data: client, error: clientError } = getClient();
+  if (clientError) return { data: null, error: clientError };
+
+  if (!token || !String(token).trim()) {
+    return { data: null, error: new Error('El enlace de confirmacion no es valido.') };
+  }
+
+  try {
+    const { data, error } = await client.rpc('confirm_creator_onboarding', {
+      p_token: String(token).trim(),
+    });
+
+    if (error) {
+      if (import.meta.env.DEV) console.error('confirmCreatorOnboarding error', error);
+      return { data: null, error: friendlyCreatorApplicationError(error) };
+    }
+
+    return { data, error: null };
   } catch (error) {
     return { data: null, error: friendlyCreatorApplicationError(error) };
   }

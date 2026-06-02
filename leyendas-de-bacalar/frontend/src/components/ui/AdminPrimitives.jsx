@@ -6,7 +6,7 @@ import Button from './Button.jsx';
 export const adminNavItems = [
   { label: 'Dashboard', to: '/admin', icon: 'dashboard', end: true },
   { label: 'Usuarios', to: '/admin/users', icon: 'users' },
-  { label: 'Solicitudes de creador', to: '/admin/creator-applications', icon: 'application' },
+  { label: 'Registro creador', to: '/admin/creator-applications', icon: 'application' },
   { label: 'Autores', to: '/admin/authors', icon: 'author' },
   { label: 'Leyendas', to: '/admin/legends', icon: 'book' },
   { label: 'Revisiones', to: '/admin/reviews', icon: 'review' },
@@ -191,6 +191,7 @@ const statusClassMap = {
   suspended: 'danger',
   disabled: 'danger',
   canceled: 'danger',
+  cancelled: 'danger',
   unused: 'info',
 };
 
@@ -201,7 +202,7 @@ const statusLabelMap = {
   redeemed: 'Canjeado',
   paid: 'Pagado',
   completed: 'Completado',
-  pending: 'Pendiente',
+  pending: 'Pendiente de correo',
   draft: 'Borrador',
   in_review: 'En revision',
   review: 'En revision',
@@ -209,6 +210,7 @@ const statusLabelMap = {
   suspended: 'Suspendido',
   disabled: 'Deshabilitado',
   canceled: 'Cancelado',
+  cancelled: 'Cancelado',
   unused: 'Disponible',
 };
 

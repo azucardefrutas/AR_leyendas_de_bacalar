@@ -36,14 +36,14 @@ function CreatorAccessGuard() {
         <Card className="creator-application-card">
           <div>
             <p className="eyebrow">Acceso de creador</p>
-            <h1>{pending ? 'Tu solicitud esta en revision.' : 'Necesitas ser creador aprobado para acceder.'}</h1>
+            <h1>{pending ? 'Tu alta de creador esta pendiente de confirmacion.' : 'Necesitas completar tu alta como creador para acceder.'}</h1>
             <p>
               {pending
-                ? 'Un administrador revisara tu propuesta antes de activar el panel editorial.'
-                : 'Envia una solicitud para publicar leyendas y recursos culturales.'}
+                ? 'Abre el enlace que enviamos a tu correo para activar el panel editorial.'
+                : 'Completa el formulario editorial, acepta los terminos y confirma el correo especial de creador.'}
             </p>
           </div>
-          <Link to="/creator/apply"><Button>Solicitar ser creador</Button></Link>
+          <Link to="/creator/apply"><Button>Continuar alta de creador</Button></Link>
         </Card>
       </section>
     );

@@ -64,7 +64,7 @@ function getApplicationSummary(applications = []) {
     summary.total += 1;
     summary[status] = (summary[status] || 0) + 1;
     return summary;
-  }, { total: 0, pending: 0, approved: 0, rejected: 0 });
+  }, { total: 0, pending: 0, approved: 0, rejected: 0, cancelled: 0, canceled: 0 });
 }
 
 function getEmptyTitle(status) {
@@ -75,7 +75,7 @@ function getEmptyTitle(status) {
 
 function AdminCreatorApplicationsPage() {
   const [applications, setApplications] = useState([]);
-  const [summary, setSummary] = useState({ total: 0, pending: 0, approved: 0, rejected: 0 });
+  const [summary, setSummary] = useState({ total: 0, pending: 0, approved: 0, rejected: 0, cancelled: 0, canceled: 0 });
   const [filters, setFilters] = useState({ status: 'all', search: '' });
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
@@ -126,9 +126,10 @@ function AdminCreatorApplicationsPage() {
       <div className="admin-application-summary">
         {[
           ['Total', summary.total, 'Solicitudes recibidas'],
-          ['Pendientes', summary.pending, 'Registros historicos por completar'],
-          ['Aprobadas', summary.approved, 'Con acceso creador'],
-          ['Rechazadas', summary.rejected, 'No aprobadas'],
+          ['Pendientes', summary.pending, 'Pendientes de confirmacion por correo'],
+          ['Activos', summary.approved, 'Con acceso creador'],
+          ['Observados', summary.rejected, 'Rechazados u observados'],
+          ['Cancelados', summary.cancelled + summary.canceled, 'Procesos cancelados'],
         ].map(([label, value, description]) => (
           <article key={label}>
             <strong>{value}</strong>
@@ -148,8 +149,9 @@ function AdminCreatorApplicationsPage() {
         <select value={filters.status} onChange={(event) => updateFilter('status', event.target.value)}>
           <option value="all">Todas</option>
           <option value="pending">Pendientes</option>
-          <option value="approved">Aprobadas</option>
-          <option value="rejected">Rechazadas</option>
+          <option value="approved">Creadores activos</option>
+          <option value="rejected">Rechazados / observados</option>
+          <option value="cancelled">Cancelados</option>
         </select>
       </div>
 
