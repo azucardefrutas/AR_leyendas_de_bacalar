@@ -29,8 +29,8 @@ function CatalogPage() {
         <p className="eyebrow">Catalogo</p>
         <h1>Leyendas publicadas</h1>
       </header>
-      {error && <p className="error-message">{error.message}</p>}
-      {!error && legends.length === 0 && <EmptyState title="Sin leyendas publicadas" message="Cuando existan obras aprobadas apareceran aqui." />}
+      {error && <p className="error-message">No pudimos cargar el catalogo.</p>}
+      {!error && legends.length === 0 && <EmptyState title="Aun no hay historias publicadas." message="Vuelve pronto para descubrir nuevas leyendas de Bacalar." />}
       <div className="catalog-grid">
         {legends.map((legend) => (
           <LegendCard key={legend.id} legend={legend} />

@@ -1,12 +1,12 @@
 import React from 'react';
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import Button from '../../components/ui/Button.jsx';
 import PhysicalBookActivationModal from '../../components/reader/PhysicalBookActivationModal.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
-import { getLegendBySlug, getLegendPages, getUserLegendAccess } from '../../services/legendService.js';
+import { getLegendPages, getPublishedLegendBySlug, getUserLegendAccess } from '../../services/legendService.js';
 import { getLoginPathForRedirect } from '../../utils/authRedirect.js';
 
 const fallbackCovers = [
@@ -17,6 +17,22 @@ const fallbackCovers = [
   '/assets/Portada_los guardianes.png',
 ];
 
+const accessLabels = {
+  free: 'Gratis',
+  paid: 'Compra',
+  subscription: 'Suscripcion',
+  code_required: 'Codigo fisico',
+  mixed: 'Mixto',
+};
+
+const actionLabels = {
+  free: 'Explorar historia',
+  paid: 'Desbloquear historia',
+  subscription: 'Ver opciones de acceso',
+  code_required: 'Activar libro fisico',
+  mixed: 'Ver formas de acceso',
+};
+
 function getFallbackCover(slug = '') {
   const total = fallbackCovers.length;
   const index = Math.abs(slug.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0)) % total;
@@ -25,6 +41,7 @@ function getFallbackCover(slug = '') {
 
 function LegendDetailPage() {
   const { slug } = useParams();
+  const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const [legend, setLegend] = useState(null);
   const [pages, setPages] = useState([]);
@@ -32,11 +49,13 @@ function LegendDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activationOpen, setActivationOpen] = useState(false);
+  const [actionMessage, setActionMessage] = useState(null);
 
   useEffect(() => {
     async function loadLegend() {
       setLoading(true);
-      const { data, error: legendError } = await getLegendBySlug(slug);
+      setError(null);
+      const { data, error: legendError } = await getPublishedLegendBySlug(slug);
       if (legendError || !data) {
         setError(legendError ?? new Error('Leyenda no encontrada.'));
         setLoading(false);
@@ -66,15 +85,34 @@ function LegendDetailPage() {
   const currentPath = `/legend/${slug}`;
   const loginForLegend = getLoginPathForRedirect(currentPath);
   const previewText = pages.find((page) => page.text_content)?.text_content;
-  const coverUrl = legend.cover_url || legend.coverUrl || legend.poster_url || getFallbackCover(slug);
-  const authorName = legend.author_name || legend.creator_name || legend.pen_name || 'Autor no disponible';
-  const synopsis = legend.synopsis ?? legend.description ?? legend.short_synopsis ?? legend.short_description ?? 'Una leyenda de Bacalar lista para descubrir.';
-  const chips = [legend.origin_place || 'Bacalar', legend.access_type || 'free'].filter(Boolean);
+  const coverUrl = legend.coverUrl || legend.cover_url || legend.poster_url || getFallbackCover(slug);
+  const authorName = legend.authorName || legend.author_name || legend.creator_name || legend.pen_name || 'Autor no disponible';
+  const synopsis = legend.synopsis || legend.shortSynopsis || 'Una leyenda de Bacalar lista para descubrir.';
+  const genres = Array.isArray(legend.genres) ? legend.genres : [];
+  const chips = [
+    legend.origin_place || 'Bacalar',
+    accessLabels[legend.access_type] || legend.access_type || 'Gratis',
+    ...genres.map((genre) => genre.name).filter(Boolean),
+  ].filter(Boolean);
+  const actionLabel = actionLabels[accessType] || 'Explorar historia';
 
   async function refreshAccess() {
     if (!legend?.id || !isAuthenticated) return;
     const { data } = await getUserLegendAccess(legend.id);
     setAccess(data);
+  }
+
+  function handleProtectedAction() {
+    setActionMessage(null);
+    if (!isAuthenticated) {
+      navigate(loginForLegend);
+      return;
+    }
+    if (accessType === 'code_required' || accessType === 'mixed') {
+      setActivationOpen(true);
+      return;
+    }
+    setActionMessage('Para desbloquear esta leyenda se habilitaran opciones de acceso desde tu cuenta.');
   }
 
   return (
@@ -97,12 +135,13 @@ function LegendDetailPage() {
               </Link>
             ) : (
               <>
-                <Button className="reader-glow-button" onClick={() => setActivationOpen(true)}>Desbloquear</Button>
+                <Button className="reader-glow-button" onClick={handleProtectedAction}>{actionLabel}</Button>
                 <p className="legend-locked-note">
                   Esta leyenda esta bloqueada. Desbloqueala para leer la historia completa.
                 </p>
+                {actionMessage && <p className="legend-locked-note">{actionMessage}</p>}
                 {!isAuthenticated && (
-                  <Link className="reader-soft-link" to={loginForLegend}>Iniciar sesion antes de desbloquear</Link>
+                  <Link className="reader-soft-link" to={loginForLegend}>Para desbloquear esta leyenda necesitas iniciar sesion.</Link>
                 )}
               </>
             )}
