@@ -48,12 +48,22 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: 'Metodo no permitido.' }, 405);
   }
 
+  console.log('send-creator-onboarding-email started');
+
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   const resendApiKey = Deno.env.get('RESEND_API_KEY');
   const siteUrl = Deno.env.get('SITE_URL');
 
-  if (!supabaseUrl || !supabaseServiceRoleKey || !resendApiKey || !siteUrl) {
+  const missingSecrets = [
+    ['SUPABASE_URL', supabaseUrl],
+    ['SUPABASE_SERVICE_ROLE_KEY', supabaseServiceRoleKey],
+    ['RESEND_API_KEY', resendApiKey],
+    ['SITE_URL', siteUrl],
+  ].filter(([, value]) => !value).map(([name]) => name);
+
+  if (missingSecrets.length) {
+    console.error('send-creator-onboarding-email missing secrets', { missingSecrets });
     return jsonResponse({ error: 'La funcion no esta configurada correctamente.' }, 500);
   }
 
@@ -64,6 +74,12 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: 'Debes iniciar sesion para confirmar tu alta como creador.' }, 401);
   }
 
+  const authClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
   const serviceClient = createClient(supabaseUrl, supabaseServiceRoleKey, {
     auth: {
       autoRefreshToken: false,
@@ -71,39 +87,65 @@ Deno.serve(async (request) => {
     },
   });
 
-  const { data: userData, error: userError } = await serviceClient.auth.getUser(jwt);
+  const { data: userData, error: userError } = await authClient.auth.getUser(jwt);
 
   if (userError || !userData?.user) {
+    console.error('send-creator-onboarding-email auth validation failed', {
+      message: userError?.message,
+      code: userError?.code,
+    });
     return jsonResponse({ error: 'Tu sesion no pudo validarse. Vuelve a iniciar sesion.' }, 401);
   }
 
-  if (!userData.user.email) {
-    return jsonResponse({ error: 'Tu cuenta no tiene correo disponible.' }, 400);
+  const user = userData.user;
+  const email = user.email;
+
+  if (!email) {
+    return jsonResponse({ error: 'No pudimos obtener el correo de tu cuenta.' }, 400);
   }
 
   const body = await request.json().catch(() => ({}));
   const applicationId =
     typeof body.application_id === 'string'
-      ? body.application_id
+      ? body.application_id.trim()
       : typeof body.applicationId === 'string'
-        ? body.applicationId
+        ? body.applicationId.trim()
         : null;
 
   if (!applicationId) {
-    return jsonResponse({ error: 'No pudimos registrar tu solicitud de creador.' }, 400);
+    return jsonResponse({ error: 'No se recibio la solicitud de creador.' }, 400);
   }
 
   const { data: application, error: applicationError } = await serviceClient
     .from('creator_applications')
-    .select('id')
+    .select('id, user_id, status')
     .eq('id', applicationId)
-    .eq('user_id', userData.user.id)
-    .eq('status', 'pending')
     .maybeSingle();
 
-  if (applicationError || !application?.id) {
-    return jsonResponse({ error: 'No encontramos una solicitud de creador pendiente.' }, 404);
+  if (applicationError) {
+    console.error('creator application lookup failed', {
+      applicationId,
+      message: applicationError.message,
+      details: applicationError.details,
+      hint: applicationError.hint,
+      code: applicationError.code,
+    });
+    return jsonResponse({ error: 'No pudimos validar la solicitud de creador.' }, 500);
   }
+
+  if (!application?.id) {
+    return jsonResponse({ error: 'La solicitud de creador no existe.' }, 404);
+  }
+
+  if (application.user_id !== user.id) {
+    return jsonResponse({ error: 'Esta solicitud no pertenece a tu cuenta.' }, 403);
+  }
+
+  if (application.status !== 'pending') {
+    return jsonResponse({ error: 'Esta solicitud no esta pendiente de confirmacion.' }, 400);
+  }
+
+  console.log('application ownership validated', { applicationId });
 
   const { data: tokenRows, error: tokenError } = await serviceClient.rpc(
     'issue_creator_onboarding_email_token',
@@ -113,9 +155,16 @@ Deno.serve(async (request) => {
   const tokenRow = Array.isArray(tokenRows) ? tokenRows[0] : tokenRows;
 
   if (tokenError || !tokenRow?.token) {
-    console.error('issue_creator_onboarding_email_token failed');
-    return jsonResponse({ error: 'No pudimos preparar el correo de confirmacion.' }, 500);
+    console.error('issue_creator_onboarding_email_token failed', {
+      message: tokenError?.message,
+      details: tokenError?.details,
+      hint: tokenError?.hint,
+      code: tokenError?.code,
+    });
+    return jsonResponse({ error: 'No pudimos generar el enlace de confirmacion de creador.' }, 500);
   }
+
+  console.log('creator confirmation token generated', { applicationId });
 
   const confirmationUrl = `${siteUrl.replace(/\/$/, '')}/creator/confirm?token=${encodeURIComponent(tokenRow.token)}`;
   const resendResponse = await fetch('https://api.resend.com/emails', {
@@ -126,7 +175,7 @@ Deno.serve(async (request) => {
     },
     body: JSON.stringify({
       from: 'Bacalar Legends AR <no-reply@bacalarlegends-ar.com>',
-      to: [userData.user.email],
+      to: email,
       subject: 'Confirma tu alta como creador',
       html: emailHtml({ confirmationUrl }),
       text: `Confirma tu alta como creador: ${confirmationUrl}`,
@@ -134,13 +183,18 @@ Deno.serve(async (request) => {
   });
 
   if (!resendResponse.ok) {
-    console.error('Resend email failed', resendResponse.status);
-    return jsonResponse({ error: 'No pudimos enviar el correo de confirmacion. Intentalo nuevamente en unos minutos.' }, 502);
+    const resendText = await resendResponse.text();
+    console.error('Resend failed', {
+      status: resendResponse.status,
+      body: resendText,
+    });
+    return jsonResponse({ error: 'No pudimos enviar el correo de confirmacion. Intenta nuevamente.' }, 500);
   }
+
+  console.log('creator confirmation email sent', { applicationId, to: email });
 
   return jsonResponse({
     ok: true,
-    applicationId,
-    expiresAt: tokenRow.expires_at,
+    message: 'Correo de confirmacion enviado.',
   });
 });
