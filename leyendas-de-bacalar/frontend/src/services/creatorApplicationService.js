@@ -177,11 +177,11 @@ export async function sendCreatorOnboardingEmail(applicationId, accessToken) {
       return { data: null, error: friendlyCreatorApplicationError(new Error(functionMessage || error.message)) };
     }
 
-    if (!data?.ok) {
+    if (!data?.ok || !data?.resend_id) {
       if (import.meta.env.DEV) console.error('[creator onboarding] email not sent', data);
       return {
         data: null,
-        error: friendlyCreatorApplicationError(new Error(data?.error || 'No pudimos enviar el correo de confirmacion.')),
+        error: friendlyCreatorApplicationError(new Error(data?.error || 'Resend no confirmo el envio del correo.')),
       };
     }
 

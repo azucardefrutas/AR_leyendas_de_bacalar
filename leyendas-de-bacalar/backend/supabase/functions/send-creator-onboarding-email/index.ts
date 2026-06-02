@@ -169,6 +169,12 @@ Deno.serve(async (request) => {
   console.log('creator token generated', { applicationId });
 
   const confirmationUrl = `${siteUrl.replace(/\/$/, '')}/creator/confirm?token=${encodeURIComponent(tokenRow.token)}`;
+  console.log('sending creator email through Resend', {
+    to: email,
+    from: 'no-reply@bacalarlegends-ar.com',
+    applicationId,
+  });
+
   const resendResponse = await fetch('https://api.resend.com/emails', {
     method: 'POST',
     headers: {
@@ -180,35 +186,43 @@ Deno.serve(async (request) => {
       to: email,
       subject: 'Confirma tu alta como creador',
       html: emailHtml({ confirmationUrl }),
-      text: `Confirma tu alta como creador: ${confirmationUrl}`,
     }),
   });
-  const resendBody = await resendResponse.clone().json().catch(async () => ({
-    raw: await resendResponse.text().catch(() => ''),
-  }));
+  const resendRaw = await resendResponse.text();
+  let resendBody = null;
 
-  console.log('resend response received', { status: resendResponse.status });
+  try {
+    resendBody = resendRaw ? JSON.parse(resendRaw) : null;
+  } catch {
+    resendBody = { raw: resendRaw };
+  }
 
-  if (!resendResponse.ok) {
-    console.error('Resend failed', {
+  console.log('resend response received', {
+    status: resendResponse.status,
+    ok: resendResponse.ok,
+    body: resendBody,
+  });
+
+  if (!resendResponse.ok || !resendBody?.id) {
+    console.error('Resend did not confirm delivery request', {
       status: resendResponse.status,
       body: resendBody,
     });
     return jsonResponse({
       ok: false,
-      error: 'No pudimos enviar el correo de confirmacion. Intenta nuevamente.',
+      error: resendBody?.error?.message || resendBody?.message || 'Resend no confirmo el envio del correo.',
     }, 500);
   }
 
   console.log('creator confirmation email sent', {
     applicationId,
     to: email,
-    resendId: resendBody?.id || null,
+    resendId: resendBody.id,
   });
 
   return jsonResponse({
     ok: true,
     message: 'Correo de confirmacion enviado.',
-    resend_id: resendBody?.id || null,
+    resend_id: resendBody.id,
   });
 });
