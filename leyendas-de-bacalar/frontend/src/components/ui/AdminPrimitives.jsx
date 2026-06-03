@@ -84,46 +84,48 @@ export function AdminLayoutShell() {
         <Link className="admin-header-logo" to="/admin" aria-label="Universidad Politecnica de Bacalar">
           <img src="/assets/Logo de la Upb sin fondo.png" alt="Universidad Politecnica de Bacalar" />
         </Link>
-        <div className="admin-header-context">
-          <strong>{current?.label || 'Administracion'}</strong>
-          <span>Panel administrativo</span>
-        </div>
-        <div className="admin-header-tools">
-          <div className="admin-info-card admin-info-card-inline">
-            <AdminIcon name="calendar" />
-            <strong>{clock.date}</strong>
-            <span>{clock.time}</span>
+        <div className="admin-header-body">
+          <div className="admin-header-context">
+            <strong>{current?.label || 'Administracion'}</strong>
+            <span>Panel administrativo</span>
           </div>
-          <div className="admin-info-card admin-info-card-inline">
-            <AdminIcon name="location" />
-            <strong>Bacalar, Q. Roo.</strong>
-          </div>
-          <button className="admin-notification" type="button" title="Notificaciones">
-            <AdminIcon name="bell" />
-          </button>
-          <div className="admin-user-menu">
-            <button
-              className="admin-user-chip"
-              type="button"
-              onClick={() => setUserMenuOpen((open) => !open)}
-              aria-expanded={userMenuOpen}
-            >
-              <div>
-                <strong>Admin</strong>
-                <small><i /> Conectado</small>
-              </div>
-              <span>{(user?.email || 'A').slice(0, 1).toUpperCase()}</span>
+          <div className="admin-header-tools">
+            <div className="admin-info-card admin-info-card-inline">
+              <AdminIcon name="calendar" />
+              <strong>{clock.date}</strong>
+              <span>{clock.time}</span>
+            </div>
+            <div className="admin-info-card admin-info-card-inline">
+              <AdminIcon name="location" />
+              <strong>Bacalar, Q. Roo.</strong>
+            </div>
+            <button className="admin-notification" type="button" title="Notificaciones">
+              <AdminIcon name="bell" />
             </button>
-            {userMenuOpen && (
-              <div className="admin-user-dropdown">
-                <Link to="/admin/settings" onClick={() => setUserMenuOpen(false)}>
-                  <AdminIcon name="profile" /> Mi perfil
-                </Link>
-                <button type="button" onClick={handleSignOut}>
-                  <AdminIcon name="logout" /> Cerrar sesion
-                </button>
-              </div>
-            )}
+            <div className="admin-user-menu">
+              <button
+                className="admin-user-chip"
+                type="button"
+                onClick={() => setUserMenuOpen((open) => !open)}
+                aria-expanded={userMenuOpen}
+              >
+                <div>
+                  <strong>Admin</strong>
+                  <small><i /> Conectado</small>
+                </div>
+                <span>{(user?.email || 'A').slice(0, 1).toUpperCase()}</span>
+              </button>
+              {userMenuOpen && (
+                <div className="admin-user-dropdown">
+                  <Link to="/admin/settings" onClick={() => setUserMenuOpen(false)}>
+                    <AdminIcon name="profile" /> Mi perfil
+                  </Link>
+                  <button type="button" onClick={handleSignOut}>
+                    <AdminIcon name="logout" /> Cerrar sesion
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>

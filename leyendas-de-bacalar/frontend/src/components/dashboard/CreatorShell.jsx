@@ -50,47 +50,49 @@ function CreatorShell({ items }) {
         <Link className="creator-header-logo" to="/creator">
           <img src="/assets/Logo de la Upb sin fondo.png" alt="Universidad Politecnica de Bacalar" />
         </Link>
-        <div className="creator-header-context">
-          <strong>{current?.label || 'Dashboard'}</strong>
-          <span>Panel editorial</span>
-        </div>
-        <div className="creator-header-tools">
-          <div className="creator-header-chip">
-            <CreatorShellIcon name="calendar_month" />
-            <strong>{clock.date}</strong>
-            <span>{clock.time}</span>
+        <div className="creator-header-body">
+          <div className="creator-header-context">
+            <strong>{current?.label || 'Dashboard'}</strong>
+            <span>Panel editorial</span>
           </div>
-          <div className="creator-header-chip">
-            <CreatorShellIcon name="edit_document" />
-            <strong>Modo autor</strong>
-            <span>Creacion y revision</span>
-          </div>
-          <button className="creator-header-button" type="button" title="Notificaciones">
-            <CreatorShellIcon name="notifications" />
-          </button>
-          <div className="creator-user-menu">
-            <button
-              className="creator-user-chip"
-              type="button"
-              onClick={() => setMenuOpen((open) => !open)}
-              aria-expanded={menuOpen}
-            >
-              <div>
-                <strong>{displayName}</strong>
-                <small><i /> Creador</small>
-              </div>
-              <span>{initial}</span>
+          <div className="creator-header-tools">
+            <div className="creator-header-chip">
+              <CreatorShellIcon name="calendar_month" />
+              <strong>{clock.date}</strong>
+              <span>{clock.time}</span>
+            </div>
+            <div className="creator-header-chip">
+              <CreatorShellIcon name="edit_document" />
+              <strong>Modo autor</strong>
+              <span>Creacion y revision</span>
+            </div>
+            <button className="creator-header-button" type="button" title="Notificaciones">
+              <CreatorShellIcon name="notifications" />
             </button>
-            {menuOpen && (
-              <div className="creator-user-dropdown">
-                <Link to="/creator/profile" onClick={() => setMenuOpen(false)}>
-                  <UserIcon /> Mi perfil
-                </Link>
-                <button type="button" onClick={handleSignOut}>
-                  <CreatorShellIcon name="logout" /> Cerrar sesion
-                </button>
-              </div>
-            )}
+            <div className="creator-user-menu">
+              <button
+                className="creator-user-chip"
+                type="button"
+                onClick={() => setMenuOpen((open) => !open)}
+                aria-expanded={menuOpen}
+              >
+                <div>
+                  <strong>{displayName}</strong>
+                  <small><i /> Creador</small>
+                </div>
+                <span>{initial}</span>
+              </button>
+              {menuOpen && (
+                <div className="creator-user-dropdown">
+                  <Link to="/creator/profile" onClick={() => setMenuOpen(false)}>
+                    <UserIcon /> Mi perfil
+                  </Link>
+                  <button type="button" onClick={handleSignOut}>
+                    <CreatorShellIcon name="logout" /> Cerrar sesion
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>
