@@ -5,7 +5,13 @@ import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
-import { getMyLegends } from '../../services/creatorService.js';
+import { deleteLegendDraft, getMyLegends } from '../../services/creatorService.js';
+
+const DELETE_DRAFT_CONFIRMATION = '¿Seguro que quieres eliminar este borrador? Esta accion borrara la leyenda y su contenido asociado. No se puede deshacer.';
+
+function isDraftLegend(legend) {
+  return ['draft', 'borrador'].includes(String(legend?.status || 'draft').toLowerCase());
+}
 
 function CreatorLegendsPage() {
   const location = useLocation();
@@ -13,7 +19,9 @@ function CreatorLegendsPage() {
   const [searchParams] = useSearchParams();
   const [legends, setLegends] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState(null);
+  const [message, setMessage] = useState(null);
 
   useEffect(() => {
     async function loadLegends() {
@@ -42,6 +50,32 @@ function CreatorLegendsPage() {
     navigate(`/creator/legends/${legend.id}/edit`);
   }
 
+  async function handleDeleteDraft(legend) {
+    if (!isDraftLegend(legend)) {
+      setError(new Error('Solo puedes eliminar leyendas en borrador.'));
+      return;
+    }
+
+    const confirmed = window.confirm(DELETE_DRAFT_CONFIRMATION);
+    if (!confirmed) return;
+
+    setDeletingId(legend.id);
+    setError(null);
+    setMessage(null);
+
+    const { error: deleteError } = await deleteLegendDraft(legend.id);
+
+    setDeletingId(null);
+
+    if (deleteError) {
+      setError(deleteError);
+      return;
+    }
+
+    setLegends((current) => current.filter((item) => item.id !== legend.id));
+    setMessage('Borrador eliminado correctamente.');
+  }
+
   return (
     <section className="page-stack creator-panel">
       <div className="page-heading-row">
@@ -53,6 +87,7 @@ function CreatorLegendsPage() {
       </div>
 
       {error && <p className="error-message">{error.message}</p>}
+      {message && <p className="success-message">{message}</p>}
 
       {visibleLegends.length === 0 ? (
         <Card>
@@ -66,13 +101,22 @@ function CreatorLegendsPage() {
         <div className="creator-editorial-grid">
           {visibleLegends.map((legend) => (
             <Card key={legend.id} className="creator-editorial-card">
-              <div>
+              <div className="creator-editorial-card-main">
                 <span className="creator-status-pill">{legend.status || 'draft'}</span>
                 <h2>{legend.title}</h2>
-                <p>{legend.short_synopsis || legend.synopsis || 'Sin sinopsis breve.'}</p>
               </div>
-              <div className="actions-row">
-                <Button variant="ghost" onClick={() => openEditor(legend)}>Editar</Button>
+              <div className="creator-card-actions">
+                <Button variant="ghost" className="creator-card-action" onClick={() => openEditor(legend)}>Editar</Button>
+                {isDraftLegend(legend) && (
+                  <Button
+                    variant="ghost"
+                    className="creator-card-action danger-action"
+                    onClick={() => handleDeleteDraft(legend)}
+                    disabled={deletingId === legend.id}
+                  >
+                    {deletingId === legend.id ? 'Eliminando...' : 'Eliminar borrador'}
+                  </Button>
+                )}
               </div>
             </Card>
           ))}

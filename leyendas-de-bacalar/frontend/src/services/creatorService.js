@@ -7,6 +7,7 @@ import {
 } from './creatorAccessService.js';
 import {
   createLegendDraft,
+  deleteLegendDraft as deleteEditorLegendDraft,
   getMyLegends as getEditorMyLegends,
 } from './creatorLegendService.js';
 
@@ -62,6 +63,10 @@ export async function getMyLegends() {
 
 export async function createLegend(payload) {
   return createLegendDraft(payload);
+}
+
+export async function deleteLegendDraft(legendId) {
+  return deleteEditorLegendDraft(legendId);
 }
 
 export async function updateLegend(legendId, payload) {

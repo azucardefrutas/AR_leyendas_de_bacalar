@@ -7,6 +7,8 @@ import { getLegendResources } from './assetService.js';
 
 const ACCESS_TYPES = ['free', 'paid', 'subscription', 'code_required', 'mixed'];
 const EDITABLE_VERSION_STATUSES = ['draft', 'rejected'];
+const DELETABLE_DRAFT_STATUSES = ['draft', 'borrador'];
+const SHORT_SYNOPSIS_LENGTH = 220;
 
 function getClient() {
   if (!supabase) return { data: null, error: getSupabaseConfigError() };
@@ -29,6 +31,18 @@ function debugEditor(label, value) {
   if (isDev()) console.log(label, value);
 }
 
+function logDeleteError(label, value) {
+  if (isDev()) console.error(label, value);
+}
+
+function friendlyDeleteDraftError() {
+  return friendlyLegendError('No pudimos eliminar el borrador. Revisa si ya fue enviado a revision o si tiene relaciones protegidas.');
+}
+
+function isDraftStatus(status) {
+  return DELETABLE_DRAFT_STATUSES.includes(String(status || 'draft').toLowerCase());
+}
+
 function isLegendOwnedByCreator(legend, creatorCandidates = []) {
   if (!legend?.creator_id) return false;
   return creatorCandidates.map(String).includes(String(legend.creator_id));
@@ -46,12 +60,19 @@ function normalizeLegendListItem(legend) {
   };
 }
 
+function createShortSynopsis(synopsis = '') {
+  const cleanSynopsis = synopsis.trim().replace(/\s+/g, ' ');
+  if (cleanSynopsis.length <= SHORT_SYNOPSIS_LENGTH) return cleanSynopsis;
+  return `${cleanSynopsis.slice(0, SHORT_SYNOPSIS_LENGTH).trim()}...`;
+}
+
 function cleanLegendPayload(payload = {}) {
+  const synopsis = payload.synopsis?.trim() || payload.short_synopsis?.trim() || '';
   return {
     title: payload.title?.trim(),
     slug: payload.slug?.trim(),
-    short_synopsis: payload.short_synopsis?.trim(),
-    synopsis: payload.synopsis?.trim(),
+    short_synopsis: payload.short_synopsis?.trim() || createShortSynopsis(synopsis),
+    synopsis,
     origin_place: payload.origin_place?.trim() || 'Bacalar',
     language: payload.language?.trim() || 'es',
     age_rating: payload.age_rating || 'general',
@@ -63,8 +84,8 @@ function cleanLegendPayload(payload = {}) {
 function validateLegendPayload(payload = {}) {
   if (!payload.title?.trim()) return friendlyLegendError('Completa los datos obligatorios.');
   if (!payload.slug?.trim()) return friendlyLegendError('Completa los datos obligatorios.');
-  if (!payload.short_synopsis?.trim()) return friendlyLegendError('Completa los datos obligatorios.');
-  if (!payload.synopsis?.trim()) return friendlyLegendError('Completa los datos obligatorios.');
+  if (!payload.synopsis?.trim()) return friendlyLegendError('Agrega la sinopsis de la leyenda.');
+  if (payload.synopsis.trim().length < 30) return friendlyLegendError('La sinopsis debe tener al menos 30 caracteres.');
   if (!ACCESS_TYPES.includes(payload.access_type)) return friendlyLegendError('Selecciona un tipo de acceso valido.');
   return null;
 }
@@ -81,60 +102,154 @@ function normalizePages(pages = []) {
     .sort((a, b) => a.page_number - b.page_number);
 }
 
-function normalizeGenres(genres = []) {
-  return [...new Set(genres.map((genre) => (
-    typeof genre === 'string' ? genre : genre?.name
-  )?.trim()).filter(Boolean))];
+export function normalizeGenreName(name = '') {
+  return String(name)
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+    .replace(/(^|\s|-)([a-záéíóúñü])/g, (match) => match.toUpperCase());
 }
 
-async function saveLegendGenres(client, legendId, genres = [], { replace = false } = {}) {
-  const cleanedGenres = normalizeGenres(genres);
+function slugifyGenreName(name = '') {
+  return normalizeGenreName(name)
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function normalizeGenres(genres = []) {
+  return [...new Set(genres.map((genre) => normalizeGenreName(
+    typeof genre === 'string' ? genre : genre?.name,
+  )).filter(Boolean))];
+}
+
+export async function getOrCreateGenresByNames(names = [], clientOverride = null) {
+  const cleanedGenres = normalizeGenres(names);
+  if (!cleanedGenres.length) return { data: [], error: null, missing: [] };
+
+  const { data: client, error: clientError } = clientOverride ? { data: clientOverride, error: null } : getClient();
+  if (clientError) return { data: [], error: clientError, missing: cleanedGenres };
+
+  try {
+    const { data: existingGenres, error: existingError } = await client
+      .from('genres')
+      .select('id, name, slug')
+      .order('name', { ascending: true });
+
+    if (existingError) {
+      console.error('getOrCreateGenresByNames error', existingError);
+      return {
+        data: [],
+        error: friendlyLegendError('No pudimos guardar algunos generos nuevos. Revisa permisos o usa generos existentes.'),
+        missing: cleanedGenres,
+      };
+    }
+
+    const existing = existingGenres ?? [];
+    const found = [];
+    const missing = [];
+
+    for (const name of cleanedGenres) {
+      const slug = slugifyGenreName(name);
+      const match = existing.find((genre) => (
+        normalizeGenreName(genre.name) === name || genre.slug === slug
+      ));
+      if (match?.id) found.push(match);
+      else missing.push(name);
+    }
+
+    const created = [];
+    for (const name of missing) {
+      const { data, error } = await client
+        .from('genres')
+        .insert({ name, slug: slugifyGenreName(name) })
+        .select('id, name, slug')
+        .single();
+
+      if (error) {
+        console.error('getOrCreateGenresByNames insert error', error);
+        return {
+          data: [...found, ...created],
+          error: friendlyLegendError('No pudimos guardar algunos generos nuevos. Revisa permisos o usa generos existentes.'),
+          missing,
+        };
+      }
+
+      if (data?.id) created.push(data);
+    }
+
+    return { data: [...found, ...created], error: null, missing: [] };
+  } catch (error) {
+    console.error('getOrCreateGenresByNames error', error);
+    return {
+      data: [],
+      error: friendlyLegendError('No pudimos guardar algunos generos nuevos. Revisa permisos o usa generos existentes.'),
+      missing: cleanedGenres,
+    };
+  }
+}
+
+export async function updateLegendGenres(legendId, genreNames = [], { replace = false, client: clientOverride = null } = {}) {
+  const cleanedGenres = normalizeGenres(genreNames);
+  const { data: client, error: clientError } = clientOverride ? { data: clientOverride, error: null } : getClient();
+  if (clientError) return { data: [], error: clientError };
 
   try {
     if (replace) {
       const { error: deleteError } = await client.from('legend_genres').delete().eq('legend_id', legendId);
       if (deleteError) {
-        console.error('saveLegendGenres error', deleteError);
-        return { data: [], error: null };
+        console.error('updateLegendGenres error', deleteError);
+        return { data: [], error: friendlyLegendError('No pudimos actualizar los generos de la leyenda.') };
       }
     }
 
     if (!cleanedGenres.length) return { data: [], error: null };
 
-    const { data: existingGenres, error: existingError } = await client
-      .from('genres')
-      .select('id, name, slug')
-      .in('name', cleanedGenres);
+    const genresResult = await getOrCreateGenresByNames(cleanedGenres, client);
+    const allGenres = genresResult.data.filter((genre) => genre?.id);
+    if (!allGenres.length) return genresResult;
 
-    if (existingError) {
-      console.error('saveLegendGenres error', existingError);
-      return { data: [], error: null };
+    const { data: existingLinks, error: linksError } = await client
+      .from('legend_genres')
+      .select('genre_id')
+      .eq('legend_id', legendId);
+
+    if (linksError) {
+      console.error('updateLegendGenres error', linksError);
+      return { data: allGenres, error: friendlyLegendError('No pudimos actualizar los generos de la leyenda.') };
     }
 
-    const found = existingGenres ?? [];
-    const missingGenres = cleanedGenres.filter((name) => !found.some((genre) => genre.name === name));
-    if (missingGenres.length && isDev()) {
-      console.error('saveLegendGenres missing existing genres', missingGenres);
+    const existingIds = new Set((existingLinks ?? []).map((link) => String(link.genre_id)));
+    const linkPayloads = allGenres
+      .filter((genre) => !existingIds.has(String(genre.id)))
+      .map((genre) => ({
+        legend_id: legendId,
+        genre_id: genre.id,
+      }));
+
+    if (linkPayloads.length) {
+      const { error: linkError } = await client.from('legend_genres').insert(linkPayloads);
+      if (linkError) {
+        console.error('updateLegendGenres error', linkError);
+        return { data: allGenres, error: friendlyLegendError('No pudimos actualizar los generos de la leyenda.') };
+      }
     }
 
-    const allGenres = found.filter((genre) => genre?.id);
-    if (!allGenres.length) return { data: [], error: null };
+    return { data: allGenres, error: genresResult.error };
+  } catch (error) {
+    console.error('updateLegendGenres error', error);
+    return { data: [], error: friendlyLegendError('No pudimos actualizar los generos de la leyenda.') };
+  }
+}
 
-    const linkPayloads = allGenres.map((genre) => ({
-      legend_id: legendId,
-      genre_id: genre.id,
-    }));
-
-    const { error: linkError } = await client.from('legend_genres').insert(linkPayloads);
-    if (linkError) {
-      console.error('saveLegendGenres error', linkError);
-      return { data: allGenres, error: null };
-    }
-
-    return { data: allGenres, error: null };
+async function saveLegendGenres(client, legendId, genres = [], { replace = false } = {}) {
+  try {
+    return updateLegendGenres(legendId, genres, { replace, client });
   } catch (error) {
     console.error(error);
-    return { data: [], error: null };
+    return { data: [], error: friendlyLegendError('No pudimos actualizar los generos de la leyenda.') };
   }
 }
 
@@ -176,6 +291,31 @@ export async function getAvailableGenres() {
   } catch (error) {
     console.error('getAvailableGenres error', error);
     return { data: [], error: friendlyLegendError('No pudimos cargar los generos.') };
+  }
+}
+
+export async function getCurrentCreatorReviewData() {
+  try {
+    const { data: accessStatus, error } = await ensureCreatorCanCreate();
+    if (error) {
+      console.error('getCurrentCreatorReviewData error', error);
+      return { data: null, error };
+    }
+
+    const profile = accessStatus?.creatorProfile ?? null;
+    return {
+      data: {
+        userId: accessStatus?.userId ?? null,
+        userLabel: accessStatus?.userId ?? null,
+        penName: profile?.pen_name ?? null,
+        status: profile?.status ?? null,
+        profile,
+      },
+      error: null,
+    };
+  } catch (error) {
+    console.error('getCurrentCreatorReviewData error', error);
+    return { data: null, error };
   }
 }
 
@@ -423,12 +563,12 @@ export async function createLegendDraft(payload, pages = []) {
       return { data: { legend, version: null, pages: [] }, error: friendlyLegendError('No pudimos crear la version inicial.') };
     }
 
-    await saveLegendGenres(client, legend.id, genres);
+    const genreResult = await saveLegendGenres(client, legend.id, genres);
 
     const pagesResult = await saveLegendPages({ versionId: version.id, pages });
     if (pagesResult.error) return { data: { legend, version, pages: [] }, error: pagesResult.error };
 
-    return { data: { legend, version, pages: pagesResult.data }, error: null };
+    return { data: { legend, version, pages: pagesResult.data, genreError: genreResult.error }, error: null };
   } catch (error) {
     console.error('createLegendDraft error', error);
     return { data: null, error: friendlyLegendError('No pudimos guardar la leyenda.') };
@@ -480,9 +620,9 @@ export async function updateLegendDraft(legendId, payload) {
       return { data: null, error: friendlyLegendError('No pudimos guardar la leyenda.') };
     }
 
-    await saveLegendGenres(client, existingLegend.id, genres, { replace: true });
+    const genreResult = await saveLegendGenres(client, existingLegend.id, genres, { replace: true });
 
-    return { data, error: null };
+    return { data, error: null, genreError: genreResult.error };
   } catch (error) {
     console.error(error);
     return { data: null, error: friendlyLegendError('No pudimos guardar la leyenda.') };
@@ -530,6 +670,175 @@ export async function getDrafts() {
     data: (data ?? []).filter((legend) => ['draft', 'rejected'].includes(legend.status || 'draft')),
     error: null,
   };
+}
+
+async function getLegendVersionsForDelete(client, legendId) {
+  const { data, error } = await client
+    .from('legend_versions')
+    .select('id, status, version_number')
+    .eq('legend_id', legendId)
+    .order('version_number', { ascending: false });
+
+  if (error) {
+    logDeleteError('deleteLegendDraft versions error', error);
+    return { data: [], error: friendlyDeleteDraftError() };
+  }
+
+  return { data: data ?? [], error: null };
+}
+
+async function getContentReviewsForDelete(client, versionIds = []) {
+  if (!versionIds.length) return { data: [], error: null };
+
+  const attempts = [
+    () => client.from('content_reviews').select('id, status').in('legend_version_id', versionIds),
+    () => client.from('content_reviews').select('id, status').in('version_id', versionIds),
+  ];
+
+  let lastError = null;
+  for (const attempt of attempts) {
+    const { data, error } = await attempt();
+    if (!error) return { data: data ?? [], error: null };
+    lastError = error;
+  }
+
+  logDeleteError('deleteLegendDraft reviews lookup error', lastError);
+  return { data: [], error: friendlyDeleteDraftError() };
+}
+
+async function deleteContentReviewsForDraft(client, reviewIds = []) {
+  if (!reviewIds.length) return { error: null };
+
+  const { error } = await client.from('content_reviews').delete().in('id', reviewIds);
+  if (error) {
+    logDeleteError('deleteLegendDraft reviews delete error', error);
+    return { error: friendlyDeleteDraftError() };
+  }
+
+  return { error: null };
+}
+
+async function deleteByLegendId(client, table, legendId) {
+  const { error } = await client.from(table).delete().eq('legend_id', legendId);
+  if (error) {
+    logDeleteError(`deleteLegendDraft ${table} error`, error);
+    return { error: friendlyDeleteDraftError() };
+  }
+  return { error: null };
+}
+
+async function deletePagesForVersions(client, versionIds = []) {
+  if (!versionIds.length) return { error: null };
+
+  const { error } = await client.from('legend_pages').delete().in('version_id', versionIds);
+  if (error) {
+    logDeleteError('deleteLegendDraft pages error', error);
+    return { error: friendlyDeleteDraftError() };
+  }
+
+  return { error: null };
+}
+
+async function deleteVersionsForLegend(client, legendId) {
+  const { error } = await client.from('legend_versions').delete().eq('legend_id', legendId);
+  if (error) {
+    logDeleteError('deleteLegendDraft versions delete error', error);
+    return { error: friendlyDeleteDraftError() };
+  }
+  return { error: null };
+}
+
+async function deleteLegendRow(client, legendId) {
+  const { data, error } = await client.from('legends').delete().eq('id', legendId).select().maybeSingle();
+  if (error) {
+    logDeleteError('deleteLegendDraft legend delete error', error);
+    return { data: null, error: friendlyDeleteDraftError() };
+  }
+  if (!data?.id) return { data: null, error: friendlyDeleteDraftError() };
+  return { data, error: null };
+}
+
+export async function deleteLegendDraft(legendId) {
+  if (isInvalidId(legendId)) return { data: null, error: friendlyDeleteDraftError() };
+
+  const { data: client, error: clientError } = getClient();
+  if (clientError) return { data: null, error: clientError };
+
+  try {
+    const { data: accessStatus, error: accessError } = await ensureCreatorCanCreate();
+    if (accessError) return { data: null, error: accessError };
+    const creatorCandidates = getCreatorIdCandidates(accessStatus);
+    if (!creatorCandidates.length) return { data: null, error: friendlyDeleteDraftError() };
+
+    const { data: legend, error: legendError } = await resolveLegendForEditor(client, legendId);
+    if (legendError || !legend?.id) {
+      logDeleteError('deleteLegendDraft legend lookup error', legendError);
+      return { data: null, error: friendlyDeleteDraftError() };
+    }
+
+    const ownsLegend = await validateLegendOwnership(client, legend, accessStatus, creatorCandidates);
+    if (!ownsLegend) {
+      logDeleteError('deleteLegendDraft ownership error', {
+        legendCreatorId: legend.creator_id,
+        creatorCandidates,
+      });
+      return { data: null, error: friendlyDeleteDraftError() };
+    }
+
+    if (!isDraftStatus(legend.status)) {
+      logDeleteError('deleteLegendDraft blocked by legend status', legend.status);
+      return { data: null, error: friendlyDeleteDraftError() };
+    }
+
+    const versionsResult = await getLegendVersionsForDelete(client, legend.id);
+    if (versionsResult.error) return { data: null, error: versionsResult.error };
+    const versions = versionsResult.data ?? [];
+    const versionIds = versions.map((version) => version.id).filter(Boolean);
+    const hasNonDraftVersion = versions.some((version) => !isDraftStatus(version.status));
+
+    if (hasNonDraftVersion) {
+      logDeleteError('deleteLegendDraft blocked by version status', versions.map((version) => ({
+        id: version.id,
+        status: version.status,
+      })));
+      return { data: null, error: friendlyDeleteDraftError() };
+    }
+
+    const reviewsResult = await getContentReviewsForDelete(client, versionIds);
+    if (reviewsResult.error) return { data: null, error: reviewsResult.error };
+    const reviews = reviewsResult.data ?? [];
+    const protectedReviews = reviews.filter((review) => !isDraftStatus(review.status));
+
+    if (protectedReviews.length) {
+      logDeleteError('deleteLegendDraft blocked by content reviews', protectedReviews);
+      return { data: null, error: friendlyDeleteDraftError() };
+    }
+
+    const draftReviewIds = reviews.map((review) => review.id).filter(Boolean);
+    const deleteSteps = [
+      () => deleteByLegendId(client, 'legend_genres', legend.id),
+      () => deletePagesForVersions(client, versionIds),
+      () => deleteByLegendId(client, 'legend_media', legend.id),
+      () => deleteByLegendId(client, 'legend_source_documents', legend.id),
+      () => deleteByLegendId(client, 'ar_markers', legend.id),
+      () => deleteByLegendId(client, 'ar_scenes', legend.id),
+      () => deleteContentReviewsForDraft(client, draftReviewIds),
+      () => deleteVersionsForLegend(client, legend.id),
+    ];
+
+    for (const step of deleteSteps) {
+      const result = await step();
+      if (result.error) return { data: null, error: result.error };
+    }
+
+    const deleteLegendResult = await deleteLegendRow(client, legend.id);
+    if (deleteLegendResult.error) return { data: null, error: deleteLegendResult.error };
+
+    return { data: deleteLegendResult.data, error: null };
+  } catch (error) {
+    logDeleteError('deleteLegendDraft error', error);
+    return { data: null, error: friendlyDeleteDraftError() };
+  }
 }
 
 export async function getCurrentEditableVersion(legendId) {
@@ -788,11 +1097,12 @@ export function canEditVersion(version) {
   return EDITABLE_VERSION_STATUSES.includes(version?.status || 'draft');
 }
 
-export function validateReadyForReview({ legend, pages }) {
+export function validateReadyForReview({ legend, pages, requirePages = true, hasSourceDocument = false }) {
   const validationError = validateLegendPayload(cleanLegendPayload(legend));
   if (validationError) return validationError;
   const validPages = normalizePages(pages).filter((page) => page.text_content);
-  if (!validPages.length) return friendlyLegendError('Agrega al menos una pagina antes de enviar a revision.');
+  if (requirePages && !validPages.length) return friendlyLegendError('Agrega al menos una pagina antes de enviar a revision.');
+  if (!requirePages && !hasSourceDocument) return friendlyLegendError('Guarda el documento fuente antes de enviar a revision.');
   return null;
 }
 

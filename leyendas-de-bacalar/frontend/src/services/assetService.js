@@ -8,7 +8,7 @@ const EXTENSIONS_BY_TYPE = {
   banner: ['png', 'jpg', 'jpeg', 'webp'],
   backdrop: ['png', 'jpg', 'jpeg', 'webp'],
   pdf: ['pdf'],
-  document: ['pdf'],
+  document: ['pdf', 'doc', 'docx'],
   model_3d: ['glb', 'gltf'],
   marker_image: ['png', 'jpg', 'jpeg', 'webp'],
 };
@@ -350,6 +350,24 @@ export async function saveLegendResource({ legendId, pageId, resource }) {
   }
 
   return { data: { asset: assetResult.data }, error: null };
+}
+
+export async function uploadSourceDocument({ legendId, file, url = '' }) {
+  const extension = getExtension(file?.name || url);
+  const documentType = extension === 'pdf' ? 'pdf' : extension || 'docx';
+  return saveLegendResource({
+    legendId,
+    pageId: null,
+    resource: {
+      key: 'sourceDocument',
+      kind: 'document',
+      assetType: 'document',
+      documentType,
+      accept: '.pdf,.doc,.docx',
+      file,
+      url,
+    },
+  });
 }
 
 export async function getAssetsForLegend(legendId) {
