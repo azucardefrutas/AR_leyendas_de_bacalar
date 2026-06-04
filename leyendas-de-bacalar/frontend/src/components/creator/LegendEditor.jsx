@@ -59,26 +59,6 @@ const resourceDefinitions = [
     accept: '.png,.jpg,.jpeg,.webp',
   },
   {
-    key: 'backdrop',
-    tab: 'resources',
-    title: 'Imagen de fondo',
-    description: 'Imagen ambiental para detalle o lector.',
-    assetType: 'backdrop',
-    mediaType: 'backdrop',
-    kind: 'media',
-    accept: '.png,.jpg,.jpeg,.webp',
-  },
-  {
-    key: 'pdf',
-    tab: 'resources',
-    title: 'PDF opcional',
-    description: 'Documento fuente o edicion digital de apoyo.',
-    assetType: 'pdf',
-    documentType: 'pdf',
-    kind: 'document',
-    accept: '.pdf',
-  },
-  {
     key: 'model3d',
     tab: 'ar',
     title: 'Modelo 3D',
@@ -152,20 +132,40 @@ function statusLabel(status) {
   return labels[status] || status || 'Borrador';
 }
 
-function hasResource(resources, key) {
-  if (!resources) return false;
-  if (key === 'cover' || key === 'banner' || key === 'backdrop') {
-    return resources.media?.some((item) => item.media_type === key || item.type === key);
+function getResourceAsset(resource = {}) {
+  return resource?.assets || resource?.asset || resource;
+}
+
+function getResourceUrl(resource = {}) {
+  const asset = getResourceAsset(resource);
+  return asset?.public_url || asset?.file_url || asset?.url || asset?.external_url || '';
+}
+
+function getExistingResource(resources, key) {
+  if (!resources) return null;
+  if (key === 'cover' || key === 'banner') {
+    const matches = (resources.media ?? []).filter((item) => item.media_type === key || item.type === key || item.assets?.asset_type === key);
+    return matches.find((item) => Boolean(getResourceUrl(item)) && item.is_primary)
+      || matches.find((item) => Boolean(getResourceUrl(item)))
+      || matches.find((item) => item.is_primary)
+      || matches[0]
+      || null;
   }
-  if (key === 'pdf') return Boolean(resources.documents?.length);
-  if (key === 'model3d') return Boolean(resources.arScenes?.length);
-  if (key === 'marker') return Boolean(resources.arMarkers?.length);
-  return false;
+  if (key === 'model3d') return resources.arScenes?.[0] || null;
+  if (key === 'marker') return resources.arMarkers?.[0] || null;
+  return null;
+}
+
+function hasResource(resources, key) {
+  return Boolean(getExistingResource(resources, key));
 }
 
 function ResourceCard({ definition, value, existing, disabled, saving, onChange, onSave }) {
   const fileName = value.file?.name;
   const icon = definition.kind === 'document' ? 'picture_as_pdf' : definition.kind.startsWith('ar') ? 'view_in_ar' : 'image';
+  const savedRecord = value.record?.asset || value.record;
+  const previewUrl = value.previewUrl || getResourceUrl(savedRecord) || getResourceUrl(existing) || value.url;
+  const canPreviewImage = previewUrl && ['cover', 'banner', 'marker_image'].includes(definition.assetType);
 
   return (
     <Card className="creator-resource-card">
@@ -180,6 +180,12 @@ function ResourceCard({ definition, value, existing, disabled, saving, onChange,
       <span className={`creator-resource-status ${existing || value.saved ? 'ready' : ''}`}>
         {existing || value.saved ? 'Cargado' : 'Sin recurso'}
       </span>
+
+      {canPreviewImage && (
+        <div className="creator-resource-preview">
+          <img src={previewUrl} alt={`Vista previa ${definition.title}`} />
+        </div>
+      )}
 
       <label className="field" htmlFor={`resource-url-${definition.key}`}>
         <span>URL externa</span>
@@ -204,12 +210,6 @@ function ResourceCard({ definition, value, existing, disabled, saving, onChange,
         <MaterialIcon name="upload_file" />
         <span>{fileName || 'Subir archivo'}</span>
       </label>
-
-      {value.url && definition.assetType !== 'pdf' && definition.assetType !== 'model_3d' && (
-        <div className="creator-resource-preview">
-          <img src={value.url} alt={`Vista previa ${definition.title}`} />
-        </div>
-      )}
 
       {value.message && <p className="success-message">{value.message}</p>}
       {value.error && <p className="error-message">{value.error}</p>}
@@ -407,7 +407,16 @@ function LegendEditor({ legendId }) {
       return;
     }
 
-    updateResource(definition.key, { url: '', file: null, saved: true, message: 'Recurso guardado.', error: '' });
+    const asset = result.data?.asset || result.data;
+    updateResource(definition.key, {
+      url: '',
+      file: null,
+      saved: true,
+      message: 'Recurso guardado.',
+      error: '',
+      record: result.data,
+      previewUrl: getResourceUrl(asset),
+    });
     await loadEditor();
   }
 
@@ -669,7 +678,7 @@ function LegendEditor({ legendId }) {
               key={definition.key}
               definition={definition}
               value={resources[definition.key]}
-              existing={hasResource(existingResources, definition.key)}
+              existing={getExistingResource(existingResources, definition.key)}
               disabled={isReviewLocked}
               saving={savingResourceKey === definition.key}
               onChange={(value) => updateResource(definition.key, value)}
@@ -708,7 +717,7 @@ function LegendEditor({ legendId }) {
                 key={definition.key}
                 definition={definition}
                 value={resources[definition.key]}
-                existing={hasResource(existingResources, definition.key)}
+                existing={getExistingResource(existingResources, definition.key)}
                 disabled={isReviewLocked}
                 saving={savingResourceKey === definition.key}
                 onChange={(value) => updateResource(definition.key, value)}
@@ -795,7 +804,6 @@ function LegendEditor({ legendId }) {
             <span className={visiblePages.some((page) => page.text_content?.trim()) ? 'ready' : ''}>Paginas con texto: {visiblePages.filter((page) => page.text_content?.trim()).length}</span>
             <span className={hasResource(existingResources, 'cover') ? 'ready' : ''}>Portada {hasResource(existingResources, 'cover') ? 'cargada' : 'pendiente'}</span>
             <span className={hasResource(existingResources, 'banner') ? 'ready' : ''}>Banner {hasResource(existingResources, 'banner') ? 'cargado' : 'opcional'}</span>
-            <span className={hasResource(existingResources, 'pdf') ? 'ready' : ''}>PDF {hasResource(existingResources, 'pdf') ? 'cargado' : 'opcional'}</span>
             <span className={hasResource(existingResources, 'model3d') ? 'ready' : ''}>Modelo 3D {hasResource(existingResources, 'model3d') ? 'listo' : 'opcional'}</span>
             <span className={hasResource(existingResources, 'marker') ? 'ready' : ''}>Marcador AR {hasResource(existingResources, 'marker') ? 'listo' : 'opcional'}</span>
             <span className={declarationsAccepted ? 'ready' : ''}>Declaraciones {declarationsAccepted ? 'aceptadas' : 'pendientes'}</span>

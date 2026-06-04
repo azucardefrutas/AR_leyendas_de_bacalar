@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Card from '../../components/ui/Card.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
 import { useProfile } from '../../hooks/useProfile.js';
-import { getMyCreatorProfile, getMyLegends } from '../../services/creatorService.js';
+import { getCreatorLegends, getMyCreatorProfile } from '../../services/creatorService.js';
 
 const STATUS_LABELS = {
   draft: 'Borradores',
@@ -60,7 +60,7 @@ function CreatorProfilePage() {
     async function loadCreatorProfile() {
       const [creatorResult, legendsResult] = await Promise.all([
         getMyCreatorProfile(),
-        getMyLegends(),
+        getCreatorLegends(),
       ]);
 
       setCreatorProfile(creatorResult.data);

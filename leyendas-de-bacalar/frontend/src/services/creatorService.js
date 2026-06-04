@@ -8,6 +8,7 @@ import {
 import {
   createLegendDraft,
   deleteLegendDraft as deleteEditorLegendDraft,
+  getCreatorLegends as getEditorCreatorLegends,
   getMyLegends as getEditorMyLegends,
 } from './creatorLegendService.js';
 
@@ -59,6 +60,10 @@ export async function getMyCreatorApplications() {
 
 export async function getMyLegends() {
   return getEditorMyLegends();
+}
+
+export async function getCreatorLegends() {
+  return getEditorCreatorLegends();
 }
 
 export async function createLegend(payload) {

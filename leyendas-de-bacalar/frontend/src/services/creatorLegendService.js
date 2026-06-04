@@ -3,7 +3,7 @@ import {
   ensureCreatorCanCreate,
   getCreatorIdCandidates,
 } from './creatorAccessService.js';
-import { getLegendResources } from './assetService.js';
+import { getLegendResources, STORAGE_BUCKETS } from './assetService.js';
 
 const ACCESS_TYPES = ['free', 'paid', 'subscription', 'code_required', 'mixed'];
 const EDITABLE_VERSION_STATUSES = ['draft', 'rejected'];
@@ -14,6 +14,7 @@ const MEDIA_TYPES = {
   banner: ['banner', 'hero'],
   backdrop: ['backdrop', 'background', 'fondo'],
 };
+const IMAGE_ASSET_TYPES = ['cover', 'portada', 'banner', 'hero', 'backdrop', 'background', 'fondo', 'image', 'imagen'];
 
 function getClient() {
   if (!supabase) return { data: null, error: getSupabaseConfigError() };
@@ -82,23 +83,63 @@ function normalizeText(value, fallback = '') {
 }
 
 function getAssetUrl(asset = {}) {
+  const directUrl = asset.public_url || asset.file_url || asset.external_url || asset.url || '';
+  if (directUrl) return directUrl;
+
+  const storagePath = asset.storage_path || '';
+  if (!storagePath) return null;
+  if (/^(https?:|data:|blob:)/i.test(storagePath)) return storagePath;
+
+  const cleanPath = storagePath.replace(new RegExp(`^${STORAGE_BUCKETS.assets}/`), '');
+  const { data } = supabase?.storage?.from(STORAGE_BUCKETS.assets)?.getPublicUrl(cleanPath) ?? {};
+  return data?.publicUrl || storagePath;
+}
+
+function getMediaType(media = {}) {
+  return String(
+    media.media_type
+    || media.type
+    || media.usage_context
+    || media.context
+    || media.role
+    || media.asset_type
+    || media.assets?.asset_type
+    || media.asset?.asset_type
+    || media.assets?.type
+    || media.asset?.type
+    || '',
+  ).toLowerCase();
+}
+
+function getMediaAsset(media = {}) {
+  return media.assets || media.asset || entryAssetFallback(media);
+}
+
+function getMediaUrl(media = {}) {
+  return getAssetUrl(getMediaAsset(media));
+}
+
+function isImageMedia(media = {}) {
+  const type = getMediaType(media);
+  const asset = getMediaAsset(media);
+  const mimeType = String(asset.mime_type || asset.content_type || '').toLowerCase();
+  return IMAGE_ASSET_TYPES.includes(type) || mimeType.startsWith('image/');
+}
+
+function findMediaEntry(media = [], allowedTypes = []) {
+  const matches = media.filter((entry) => allowedTypes.includes(getMediaType(entry)));
   return (
-    asset.public_url
-    || asset.file_url
-    || asset.external_url
-    || asset.url
-    || asset.storage_path
+    matches.find((entry) => Boolean(entry.is_primary) && Boolean(getMediaUrl(entry)))
+    || matches.find((entry) => Boolean(getMediaUrl(entry)))
+    || matches.find((entry) => Boolean(entry.is_primary))
+    || matches[0]
     || null
   );
 }
 
-function getMediaType(media = {}) {
-  return String(media.media_type || media.type || media.asset_type || '').toLowerCase();
-}
-
-function findMediaUrl(media = [], allowedTypes = []) {
-  const item = media.find((entry) => allowedTypes.includes(getMediaType(entry)));
-  return item ? getAssetUrl(item.assets || item.asset || entryAssetFallback(item)) : null;
+function findPrimaryImageEntry(media = []) {
+  const matches = media.filter((entry) => Boolean(entry.is_primary) && isImageMedia(entry));
+  return matches.find((entry) => Boolean(getMediaUrl(entry))) || matches[0] || null;
 }
 
 function entryAssetFallback(entry = {}) {
@@ -125,22 +166,33 @@ function normalizeGenresFromRows(rows = []) {
 function normalizeCreatorLegendListItem(legend, {
   genresByLegendId = new Map(),
   mediaByLegendId = new Map(),
+  pagesCountByLegendId = new Map(),
   creatorProfile = null,
 } = {}) {
   const normalized = normalizeLegendListItem(legend);
   const media = mediaByLegendId.get(legend.id) || [];
   const genres = genresByLegendId.get(legend.id) || [];
-  const coverUrl = findMediaUrl(media, MEDIA_TYPES.cover) || legend.cover_url || legend.coverUrl || legend.poster_url || null;
-  const bannerUrl = findMediaUrl(media, MEDIA_TYPES.banner) || legend.banner_url || null;
-  const backdropUrl = findMediaUrl(media, MEDIA_TYPES.backdrop) || legend.backdrop_url || legend.background_url || bannerUrl || null;
+  const coverMedia = findMediaEntry(media, MEDIA_TYPES.cover) || findPrimaryImageEntry(media);
+  const bannerMedia = findMediaEntry(media, MEDIA_TYPES.banner);
+  const backdropMedia = findMediaEntry(media, MEDIA_TYPES.backdrop);
+  const coverUrl = (coverMedia ? getMediaUrl(coverMedia) : null) || legend.cover_url || legend.coverUrl || legend.poster_url || null;
+  const bannerUrl = (bannerMedia ? getMediaUrl(bannerMedia) : null) || legend.banner_url || null;
+  const backdropUrl = (backdropMedia ? getMediaUrl(backdropMedia) : null) || legend.backdrop_url || legend.background_url || bannerUrl || null;
 
   return {
     ...normalized,
     authorName: normalizeText(creatorProfile?.pen_name || legend.author_name || legend.creator_name || legend.pen_name, 'Autor sin alias'),
     genres,
+    media,
+    coverMedia,
+    bannerMedia,
+    backdropMedia,
+    coverAsset: coverMedia ? getMediaAsset(coverMedia) : null,
+    bannerAsset: bannerMedia ? getMediaAsset(bannerMedia) : null,
     coverUrl,
     bannerUrl,
     backdropUrl,
+    pagesCount: pagesCountByLegendId.get(legend.id) || 0,
     shortSynopsis: normalizeText(legend.short_synopsis, legend.short_description || legend.synopsis || legend.description || ''),
   };
 }
@@ -643,9 +695,9 @@ async function getCreatorGenresByLegendId(client, legendIds = []) {
 async function getCreatorMediaByLegendId(client, legendIds = []) {
   if (!legendIds.length) return { data: new Map(), error: null };
 
-  const { data, error } = await client
+  const { data: mediaRows, error } = await client
     .from('legend_media')
-    .select('*, assets(*)')
+    .select('*')
     .in('legend_id', legendIds);
 
   if (error) {
@@ -660,24 +712,115 @@ async function getCreatorMediaByLegendId(client, legendIds = []) {
     return { data: new Map(), error: null };
   }
 
+  const assetIds = [...new Set((mediaRows ?? []).map((row) => row.asset_id).filter(Boolean))];
+  let assetsById = new Map();
+
+  if (assetIds.length) {
+    const { data: assets, error: assetsError } = await client
+      .from('assets')
+      .select('*')
+      .in('id', assetIds);
+
+    if (assetsError) {
+      if (isDev()) {
+        console.error('[CreatorLegendService] Error real:', {
+          functionName: 'getCreatorMediaByLegendId',
+          step: 'select assets',
+          table: 'assets',
+          error: assetsError,
+        });
+      }
+    } else {
+      assetsById = new Map((assets ?? []).map((asset) => [String(asset.id), asset]));
+    }
+  }
+
   const map = new Map();
-  for (const row of data ?? []) {
+  for (const row of mediaRows ?? []) {
+    const rowWithAsset = {
+      ...row,
+      assets: row.asset_id ? assetsById.get(String(row.asset_id)) || null : null,
+    };
     const current = map.get(row.legend_id) || [];
-    map.set(row.legend_id, [...current, row]);
+    map.set(row.legend_id, [...current, rowWithAsset]);
   }
   return { data: map, error: null };
 }
 
+async function getCreatorPagesCountByLegendId(client, legendIds = []) {
+  if (!legendIds.length) return { data: new Map(), error: null };
+
+  const { data: versions, error: versionsError } = await client
+    .from('legend_versions')
+    .select('id, legend_id, version_number, created_at')
+    .in('legend_id', legendIds);
+
+  if (versionsError) {
+    if (isDev()) {
+      console.error('[CreatorLegendService] Error real:', {
+        functionName: 'getCreatorPagesCountByLegendId',
+        step: 'select legend_versions',
+        table: 'legend_versions',
+        error: versionsError,
+      });
+    }
+    return { data: new Map(), error: null };
+  }
+
+  const latestVersionByLegendId = new Map();
+  for (const version of versions ?? []) {
+    const current = latestVersionByLegendId.get(version.legend_id);
+    const currentNumber = Number(current?.version_number || 0);
+    const nextNumber = Number(version.version_number || 0);
+    if (!current || nextNumber > currentNumber) {
+      latestVersionByLegendId.set(version.legend_id, version);
+    }
+  }
+
+  const versionToLegendId = new Map(
+    [...latestVersionByLegendId.values()].map((version) => [String(version.id), version.legend_id]),
+  );
+  const versionIds = [...versionToLegendId.keys()];
+  if (!versionIds.length) return { data: new Map(), error: null };
+
+  const { data: pages, error: pagesError } = await client
+    .from('legend_pages')
+    .select('version_id')
+    .in('version_id', versionIds);
+
+  if (pagesError) {
+    if (isDev()) {
+      console.error('[CreatorLegendService] Error real:', {
+        functionName: 'getCreatorPagesCountByLegendId',
+        step: 'select legend_pages',
+        table: 'legend_pages',
+        error: pagesError,
+      });
+    }
+    return { data: new Map(), error: null };
+  }
+
+  const counts = new Map();
+  for (const page of pages ?? []) {
+    const legendId = versionToLegendId.get(String(page.version_id));
+    if (!legendId) continue;
+    counts.set(legendId, (counts.get(legendId) || 0) + 1);
+  }
+  return { data: counts, error: null };
+}
+
 async function enrichCreatorLegends(client, legends = [], creatorProfile = null) {
   const legendIds = legends.map((legend) => legend.id).filter(Boolean);
-  const [genresResult, mediaResult] = await Promise.all([
+  const [genresResult, mediaResult, pagesCountResult] = await Promise.all([
     getCreatorGenresByLegendId(client, legendIds),
     getCreatorMediaByLegendId(client, legendIds),
+    getCreatorPagesCountByLegendId(client, legendIds),
   ]);
 
   return legends.map((legend) => normalizeCreatorLegendListItem(legend, {
     genresByLegendId: genresResult.data,
     mediaByLegendId: mediaResult.data,
+    pagesCountByLegendId: pagesCountResult.data,
     creatorProfile,
   }));
 }
@@ -788,7 +931,7 @@ export async function updateLegendGeneralData(legendId, payload) {
   return updateLegendDraft(legendId, payload);
 }
 
-export async function getMyLegends() {
+export async function getCreatorLegends() {
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: [], error: clientError };
 
@@ -807,16 +950,20 @@ export async function getMyLegends() {
     const { data, error } = await withCreatorFilter(query, creatorCandidates);
 
     if (error) {
-      console.error('getMyLegends error', error);
+      console.error('getCreatorLegends error', error);
       return { data: [], error: friendlyLegendError('No pudimos cargar tus leyendas.') };
     }
 
     const enrichedLegends = await enrichCreatorLegends(client, data ?? [], accessStatus.creatorProfile);
     return { data: enrichedLegends, error: null };
   } catch (error) {
-    console.error('getMyLegends error', error);
+    console.error('getCreatorLegends error', error);
     return { data: [], error: friendlyLegendError('No pudimos cargar tus leyendas.') };
   }
+}
+
+export async function getMyLegends() {
+  return getCreatorLegends();
 }
 
 export async function getDrafts() {

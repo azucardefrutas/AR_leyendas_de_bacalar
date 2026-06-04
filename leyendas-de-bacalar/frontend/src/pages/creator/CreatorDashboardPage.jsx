@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import Button from '../../components/ui/Button.jsx';
+import CreatorLegendCard from '../../components/creator/CreatorLegendCard.jsx';
 import Card from '../../components/ui/Card.jsx';
 import { DraftIcon, PublishedIcon, ReviewIcon } from '../../components/ui/CreatorIcons.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
 import { useProfile } from '../../hooks/useProfile.js';
-import { getMyCreatorProfile, getMyLegends } from '../../services/creatorService.js';
+import { getCreatorLegends, getMyCreatorProfile } from '../../services/creatorService.js';
 
 function getDisplayName(profile, creatorProfile) {
   return creatorProfile?.pen_name || profile?.full_name || profile?.name || 'creador';
@@ -27,7 +27,7 @@ function CreatorDashboardPage() {
     async function loadDashboard() {
       const [creatorResult, legendsResult] = await Promise.all([
         getMyCreatorProfile(),
-        getMyLegends(),
+        getCreatorLegends(),
       ]);
 
       setCreatorProfile(creatorResult.data);
@@ -43,7 +43,7 @@ function CreatorDashboardPage() {
 
   const publishedCount = countByStatus(legends, ['published']);
   const reviewCount = countByStatus(legends, ['in_review', 'review', 'pending_review']);
-  const draftCount = countByStatus(legends, ['draft', 'rejected']);
+  const draftCount = countByStatus(legends, ['draft', 'borrador']);
 
   function openEditor(legend) {
     if (!legend?.id) {
@@ -101,12 +101,12 @@ function CreatorDashboardPage() {
       ) : (
         <div className="creator-editorial-grid">
           {legends.slice(0, 6).map((legend) => (
-            <Card key={legend.id} className="creator-editorial-card">
-              <span className="creator-status-pill">{legend.status || 'draft'}</span>
-              <h3>{legend.title}</h3>
-              <p>{legend.short_synopsis || legend.synopsis || 'Sin sinopsis breve.'}</p>
-              <Button type="button" variant="ghost" onClick={() => openEditor(legend)}>Editar leyenda</Button>
-            </Card>
+            <CreatorLegendCard
+              key={legend.id}
+              legend={legend}
+              onEdit={openEditor}
+              showDeleteDraft={false}
+            />
           ))}
         </div>
       )}

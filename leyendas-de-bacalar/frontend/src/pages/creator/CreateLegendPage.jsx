@@ -90,7 +90,7 @@ const sourceDocumentDefinition = {
   step: 'source',
   title: 'Documento fuente',
   description: 'Archivo principal de tu leyenda. Puede ser Word o PDF.',
-  assetType: 'document',
+  assetType: 'source_document',
   documentType: 'pdf',
   kind: 'document',
   accept: '.pdf,.doc,.docx',
@@ -201,7 +201,9 @@ function getFileExtension(name = '') {
 
 function getSourceDocumentType(file) {
   const extension = getFileExtension(file?.name);
-  return extension === 'pdf' ? 'pdf' : extension || 'docx';
+  if (extension === 'pdf') return 'pdf';
+  if (extension === 'doc' || extension === 'docx') return 'docx';
+  return extension || 'docx';
 }
 
 function isValidSourceDocument(file) {
@@ -221,6 +223,10 @@ function formatFileSize(size) {
 
 function getSavedAsset(resource) {
   return resource?.record?.asset || resource?.record || null;
+}
+
+function getAssetDisplayName(asset) {
+  return asset?.metadata?.original_name || asset?.name || asset?.id || 'No disponible';
 }
 
 function WizardStepIndicator({ currentStep, steps }) {
@@ -395,7 +401,7 @@ function DocumentPreviewPanel({ sourceDocument }) {
       ) : (
         <Card className="creator-document-placeholder">
           <MaterialIcon name="description" />
-          <h3>{sourceDocument.fileName || asset?.name || 'Documento fuente'}</h3>
+          <h3>{sourceDocument.fileName || getAssetDisplayName(asset) || 'Documento fuente'}</h3>
           <p>
             {sourceDocument.saved
               ? 'Documento guardado como fuente. La extraccion automatica aun no esta disponible.'
@@ -404,7 +410,7 @@ function DocumentPreviewPanel({ sourceDocument }) {
         </Card>
       )}
       <div className="creator-document-meta creator-document-meta-panel">
-        <span>Nombre: <strong>{sourceDocument.fileName || asset?.name || 'No disponible'}</strong></span>
+        <span>Nombre: <strong>{sourceDocument.fileName || getAssetDisplayName(asset)}</strong></span>
         <span>Tipo: <strong>{sourceDocument.fileType || documentType || 'No disponible'}</strong></span>
         <span>Tamano: <strong>{formatFileSize(sourceDocument.fileSize || asset?.size_bytes || asset?.file_size)}</strong></span>
         <span>Estado: <strong>{sourceDocument.saved ? 'Guardado' : 'Pendiente'}</strong></span>
@@ -509,7 +515,7 @@ function FinalReviewPanel({
         {sourceMode === 'upload' ? (
           <article>
             <span>Documento subido</span>
-            <strong>{sourceDocument.saved ? (sourceDocument.fileName || sourceAsset?.name || 'Guardado') : 'Pendiente'}</strong>
+            <strong>{sourceDocument.saved ? (sourceDocument.fileName || getAssetDisplayName(sourceAsset) || 'Guardado') : 'Pendiente'}</strong>
           </article>
         ) : (
           <article>
