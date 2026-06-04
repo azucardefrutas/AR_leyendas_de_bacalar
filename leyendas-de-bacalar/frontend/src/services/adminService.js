@@ -5,9 +5,22 @@ export function getAdminClient() {
   return { data: supabase, error: null };
 }
 
-export function friendlyAdminError(error) {
+export function logAdminServiceError({ operation = 'unknown', table = 'unknown', error }) {
+  if (import.meta.env.DEV) {
+    console.error('[AdminService] Error real:', {
+      operation,
+      table,
+      error,
+    });
+  }
+}
+
+export function friendlyAdminError(error, context = {}) {
   if (!error) return null;
-  return new Error('No pudimos cargar la informacion. Verifica que tengas permisos de administrador.');
+  logAdminServiceError({ ...context, error });
+  const adminError = new Error('No pudimos cargar la informacion administrativa. Revisa consola para el detalle tecnico.');
+  adminError.supabaseError = error;
+  return adminError;
 }
 
 async function countRows(client, table, queryBuilder = null) {

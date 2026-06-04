@@ -20,12 +20,13 @@ export function useRoles() {
     setLoading(true);
     const { data, error: rolesError } = await roleService.getCurrentUserRoles();
     const { data: currentRole } = await roleService.getActiveRole();
-    setRoles(data ?? []);
-    setActiveRoleState(currentRole);
+    const roleNames = roleService.normalizeRoleNames(data ?? []);
+    setRoles(roleNames);
+    setActiveRoleState(roleService.normalizeRoleName(currentRole));
     setError(rolesError);
     setLoading(false);
 
-    return { data, error: rolesError };
+    return { data: roleNames, error: rolesError };
   }, [isAuthenticated]);
 
   async function setActiveRole(role) {
@@ -45,7 +46,10 @@ export function useRoles() {
     activeRole,
     loading,
     error,
-    hasRole: (role) => roles.includes(role),
+    hasRole: (role) => {
+      const roleName = roleService.normalizeRoleName(role);
+      return roleName ? roles.includes(roleName) : false;
+    },
     refreshRoles,
     refetchRoles: refreshRoles,
     setActiveRole,

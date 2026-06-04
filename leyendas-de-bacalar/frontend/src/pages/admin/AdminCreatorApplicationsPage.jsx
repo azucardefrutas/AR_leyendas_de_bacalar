@@ -28,7 +28,7 @@ function getDisplayValue(value) {
 }
 
 function getEmail(row) {
-  return getProfile(row).email || row?.email || 'No disponible';
+  return row?.email || 'No disponible';
 }
 
 function getApplicantName(row) {

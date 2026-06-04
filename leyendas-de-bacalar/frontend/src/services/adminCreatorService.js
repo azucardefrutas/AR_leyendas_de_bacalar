@@ -1,11 +1,9 @@
 import { friendlyAdminError, getAdminClient } from './adminService.js';
 
+const USER_PROFILE_COLUMNS = 'id, full_name, username, avatar_url, bio, status, active_role, created_at, updated_at';
+
 function actionError(message = 'No pudimos completar la accion.') {
   return new Error(message);
-}
-
-function loadApplicationsError() {
-  return new Error('No pudimos cargar las solicitudes.');
 }
 
 function approveError() {
@@ -112,7 +110,6 @@ function applyApplicationFilters(rows = [], { status = 'all', search = '' } = {}
     return [
       profile.full_name,
       profile.username,
-      profile.email,
       details.penName,
       details.affiliation,
       details.city,
@@ -136,8 +133,10 @@ export async function getCreatorApplications(filters = {}) {
       .order('created_at', { ascending: false });
 
     if (applicationsError) {
-      if (import.meta.env.DEV) console.error('getCreatorApplications error', applicationsError);
-      return { data: [], error: loadApplicationsError() };
+      return {
+        data: [],
+        error: friendlyAdminError(applicationsError, { operation: 'getCreatorApplications', table: 'creator_applications' }),
+      };
     }
 
     const userIds = [...new Set((applications ?? []).map((item) => item.user_id).filter(Boolean))];
@@ -146,11 +145,11 @@ export async function getCreatorApplications(filters = {}) {
     if (userIds.length) {
       const { data: profileData, error: profileError } = await client
         .from('users_profile')
-        .select('*')
+        .select(USER_PROFILE_COLUMNS)
         .in('id', userIds);
 
       if (profileError) {
-        if (import.meta.env.DEV) console.error('getCreatorApplications profiles error', profileError);
+        friendlyAdminError(profileError, { operation: 'getCreatorApplications profiles', table: 'users_profile' });
       } else {
         profiles = profileData ?? [];
       }
@@ -160,8 +159,10 @@ export async function getCreatorApplications(filters = {}) {
 
     return { data: applyApplicationFilters(mergedRows, filters), error: null };
   } catch (error) {
-    if (import.meta.env.DEV) console.error('getCreatorApplications unexpected error', error);
-    return { data: [], error: loadApplicationsError() };
+    return {
+      data: [],
+      error: friendlyAdminError(error, { operation: 'getCreatorApplications unexpected', table: 'creator_applications' }),
+    };
   }
 }
 
@@ -228,11 +229,14 @@ export async function getAuthors() {
   try {
     const { data, error } = await client
       .from('creator_profiles')
-      .select('*, users_profile(full_name, username, email), legends(id)')
+      .select(`*, users_profile(${USER_PROFILE_COLUMNS}), legends(id)`)
       .order('created_at', { ascending: false });
 
-    return { data: data ?? [], error: error ? friendlyAdminError(error) : null };
+    return {
+      data: data ?? [],
+      error: error ? friendlyAdminError(error, { operation: 'getAuthors', table: 'creator_profiles' }) : null,
+    };
   } catch (error) {
-    return { data: [], error: friendlyAdminError(error) };
+    return { data: [], error: friendlyAdminError(error, { operation: 'getAuthors unexpected', table: 'creator_profiles' }) };
   }
 }

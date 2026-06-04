@@ -2386,6 +2386,12 @@ pre {
   text-align: center;
 }
 
+.creator-card-error {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.35;
+}
+
 .creator-status-pill {
   width: fit-content;
   display: inline-flex;

@@ -7,9 +7,10 @@ import {
 } from '../../components/ui/AdminPrimitives.jsx';
 import Button from '../../components/ui/Button.jsx';
 import { activateUser, getUsers, suspendUser } from '../../services/adminUserService.js';
+import { normalizeRoleNames } from '../../services/roleService.js';
 
 function getRoleNames(user) {
-  return user.user_roles?.map((item) => item.roles?.name).filter(Boolean) ?? [];
+  return normalizeRoleNames(user.roles?.length ? user.roles : user.user_roles);
 }
 
 function AdminUsersPage() {
@@ -33,7 +34,8 @@ function AdminUsersPage() {
   }, []);
 
   const filteredUsers = useMemo(() => users.filter((user) => {
-    const haystack = `${user.full_name || ''} ${user.email || ''} ${user.username || ''}`.toLowerCase();
+    const roleNames = getRoleNames(user);
+    const haystack = `${user.full_name || ''} ${user.username || ''} ${roleNames.join(' ')}`.toLowerCase();
     const roleMatch = !roleFilter || getRoleNames(user).includes(roleFilter);
     return haystack.includes(query.toLowerCase()) && roleMatch;
   }), [query, roleFilter, users]);
@@ -54,7 +56,7 @@ function AdminUsersPage() {
       <AdminToast type={toast?.type} message={toast?.message} />
       {error && <p className="admin-error">{error.message}</p>}
       <div className="admin-filters">
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nombre, correo o usuario" />
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nombre, usuario o rol" />
         <select value={roleFilter} onChange={(event) => setRoleFilter(event.target.value)}>
           <option value="">Todos los roles</option>
           <option value="reader">reader</option>
@@ -69,7 +71,7 @@ function AdminUsersPage() {
         emptyMessage="No encontramos usuarios con esos filtros."
         columns={[
           { key: 'full_name', header: 'Nombre', render: (row) => row.full_name || row.name || 'Sin nombre' },
-          { key: 'email', header: 'Correo', render: (row) => row.email || 'No disponible' },
+          { key: 'email', header: 'Correo', render: () => 'No disponible' },
           { key: 'username', header: 'Username', render: (row) => row.username || 'Sin username' },
           { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status || 'active'} /> },
           { key: 'roles', header: 'Roles', render: (row) => getRoleNames(row).join(', ') || 'Sin roles' },

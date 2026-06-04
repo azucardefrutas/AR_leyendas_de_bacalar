@@ -31,6 +31,9 @@ function AdminReviewsPage() {
   async function loadReviews() {
     setLoading(true);
     const { data, error: reviewsError } = await getContentReviews();
+    if (reviewsError && import.meta.env.DEV) {
+      console.error('[AdminReviews] Error cargando revisiones:', reviewsError.supabaseError || reviewsError);
+    }
     setReviews(data ?? []);
     setError(reviewsError);
     setLoading(false);

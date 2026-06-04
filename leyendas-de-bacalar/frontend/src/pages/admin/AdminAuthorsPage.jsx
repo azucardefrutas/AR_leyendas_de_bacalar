@@ -35,7 +35,7 @@ function AdminAuthorsPage() {
         columns={[
           { key: 'pen_name', header: 'Nombre de autor', render: (row) => row.pen_name || 'Sin nombre' },
           { key: 'user', header: 'Usuario', render: (row) => row.users_profile?.full_name || row.users_profile?.username || row.user_id },
-          { key: 'email', header: 'Correo', render: (row) => row.users_profile?.email || 'No disponible' },
+          { key: 'email', header: 'Correo', render: () => 'No disponible' },
           { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status || 'approved'} /> },
           { key: 'legends', header: 'Leyendas', render: (row) => row.legends?.length ?? 0 },
           { key: 'created_at', header: 'Creado', render: (row) => row.created_at ? new Date(row.created_at).toLocaleDateString() : 'Sin fecha' },
