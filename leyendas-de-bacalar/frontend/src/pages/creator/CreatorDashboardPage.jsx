@@ -61,7 +61,7 @@ function CreatorDashboardPage() {
           <h1>Hola, {getDisplayName(profile, creatorProfile)}</h1>
           <p>Administra tus leyendas, prepara borradores y da seguimiento a revisiones editoriales.</p>
         </div>
-        <Link to="/creator/legends/new"><Button>Nueva leyenda</Button></Link>
+        <Link to="/creator/legends/new" className="btn btn-primary">Nueva leyenda</Link>
       </div>
 
       {error && <p className="error-message">{error.message}</p>}
@@ -89,14 +89,14 @@ function CreatorDashboardPage() {
           <p className="creator-kicker">Biblioteca editorial</p>
           <h2>Leyendas creadas</h2>
         </div>
-        <Link to="/creator/legends"><Button variant="ghost">Ver todas</Button></Link>
+        <Link to="/creator/legends" className="btn btn-ghost">Ver todas</Link>
       </div>
 
       {legends.length === 0 ? (
         <Card className="creator-empty-card">
           <h2>Aun no has creado leyendas</h2>
           <p>Crea tu primera obra para iniciar el flujo editorial.</p>
-          <Link to="/creator/legends/new"><Button>Crear primera leyenda</Button></Link>
+          <Link to="/creator/legends/new" className="btn btn-primary">Crear primera leyenda</Link>
         </Card>
       ) : (
         <div className="creator-editorial-grid">

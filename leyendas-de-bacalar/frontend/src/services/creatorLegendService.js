@@ -9,6 +9,11 @@ const ACCESS_TYPES = ['free', 'paid', 'subscription', 'code_required', 'mixed'];
 const EDITABLE_VERSION_STATUSES = ['draft', 'rejected'];
 const DELETE_DRAFT_GENERIC_MESSAGE = 'No pudimos eliminar el borrador. Revisa si ya fue enviado a revision o si tiene relaciones protegidas.';
 const SHORT_SYNOPSIS_LENGTH = 220;
+const MEDIA_TYPES = {
+  cover: ['cover', 'portada'],
+  banner: ['banner', 'hero'],
+  backdrop: ['backdrop', 'background', 'fondo'],
+};
 
 function getClient() {
   if (!supabase) return { data: null, error: getSupabaseConfigError() };
@@ -69,6 +74,74 @@ function normalizeLegendListItem(legend) {
     ...legend,
     id: legend.id,
     version_id: legend.version_id ?? legend.legend_versions?.[0]?.id ?? null,
+  };
+}
+
+function normalizeText(value, fallback = '') {
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+}
+
+function getAssetUrl(asset = {}) {
+  return (
+    asset.public_url
+    || asset.file_url
+    || asset.external_url
+    || asset.url
+    || asset.storage_path
+    || null
+  );
+}
+
+function getMediaType(media = {}) {
+  return String(media.media_type || media.type || media.asset_type || '').toLowerCase();
+}
+
+function findMediaUrl(media = [], allowedTypes = []) {
+  const item = media.find((entry) => allowedTypes.includes(getMediaType(entry)));
+  return item ? getAssetUrl(item.assets || item.asset || entryAssetFallback(item)) : null;
+}
+
+function entryAssetFallback(entry = {}) {
+  return {
+    public_url: entry.public_url,
+    file_url: entry.file_url,
+    external_url: entry.external_url,
+    url: entry.url,
+    storage_path: entry.storage_path,
+  };
+}
+
+function normalizeGenresFromRows(rows = []) {
+  return rows
+    .map((row) => row.genres || row.genre || row)
+    .filter((genre) => genre?.id || genre?.name)
+    .map((genre) => ({
+      id: genre.id || genre.name,
+      name: genre.name || 'Genero',
+      slug: genre.slug || null,
+    }));
+}
+
+function normalizeCreatorLegendListItem(legend, {
+  genresByLegendId = new Map(),
+  mediaByLegendId = new Map(),
+  creatorProfile = null,
+} = {}) {
+  const normalized = normalizeLegendListItem(legend);
+  const media = mediaByLegendId.get(legend.id) || [];
+  const genres = genresByLegendId.get(legend.id) || [];
+  const coverUrl = findMediaUrl(media, MEDIA_TYPES.cover) || legend.cover_url || legend.coverUrl || legend.poster_url || null;
+  const bannerUrl = findMediaUrl(media, MEDIA_TYPES.banner) || legend.banner_url || null;
+  const backdropUrl = findMediaUrl(media, MEDIA_TYPES.backdrop) || legend.backdrop_url || legend.background_url || bannerUrl || null;
+
+  return {
+    ...normalized,
+    authorName: normalizeText(creatorProfile?.pen_name || legend.author_name || legend.creator_name || legend.pen_name, 'Autor sin alias'),
+    genres,
+    coverUrl,
+    bannerUrl,
+    backdropUrl,
+    shortSynopsis: normalizeText(legend.short_synopsis, legend.short_description || legend.synopsis || legend.description || ''),
   };
 }
 
@@ -539,6 +612,76 @@ function withCreatorFilter(query, creatorCandidates) {
   return query.in('creator_id', creatorCandidates);
 }
 
+async function getCreatorGenresByLegendId(client, legendIds = []) {
+  if (!legendIds.length) return { data: new Map(), error: null };
+
+  const { data, error } = await client
+    .from('legend_genres')
+    .select('legend_id, genres(id, name, slug)')
+    .in('legend_id', legendIds);
+
+  if (error) {
+    if (isDev()) {
+      console.error('[CreatorLegendService] Error real:', {
+        functionName: 'getCreatorGenresByLegendId',
+        step: 'select legend_genres',
+        table: 'legend_genres',
+        error,
+      });
+    }
+    return { data: new Map(), error: null };
+  }
+
+  const map = new Map();
+  for (const row of data ?? []) {
+    const current = map.get(row.legend_id) || [];
+    map.set(row.legend_id, [...current, ...normalizeGenresFromRows([row])]);
+  }
+  return { data: map, error: null };
+}
+
+async function getCreatorMediaByLegendId(client, legendIds = []) {
+  if (!legendIds.length) return { data: new Map(), error: null };
+
+  const { data, error } = await client
+    .from('legend_media')
+    .select('*, assets(*)')
+    .in('legend_id', legendIds);
+
+  if (error) {
+    if (isDev()) {
+      console.error('[CreatorLegendService] Error real:', {
+        functionName: 'getCreatorMediaByLegendId',
+        step: 'select legend_media',
+        table: 'legend_media',
+        error,
+      });
+    }
+    return { data: new Map(), error: null };
+  }
+
+  const map = new Map();
+  for (const row of data ?? []) {
+    const current = map.get(row.legend_id) || [];
+    map.set(row.legend_id, [...current, row]);
+  }
+  return { data: map, error: null };
+}
+
+async function enrichCreatorLegends(client, legends = [], creatorProfile = null) {
+  const legendIds = legends.map((legend) => legend.id).filter(Boolean);
+  const [genresResult, mediaResult] = await Promise.all([
+    getCreatorGenresByLegendId(client, legendIds),
+    getCreatorMediaByLegendId(client, legendIds),
+  ]);
+
+  return legends.map((legend) => normalizeCreatorLegendListItem(legend, {
+    genresByLegendId: genresResult.data,
+    mediaByLegendId: mediaResult.data,
+    creatorProfile,
+  }));
+}
+
 export async function createLegendDraft(payload, pages = []) {
   const cleanedPayload = cleanLegendPayload(payload);
   const genres = normalizeGenres(payload.genres ?? []);
@@ -668,7 +811,8 @@ export async function getMyLegends() {
       return { data: [], error: friendlyLegendError('No pudimos cargar tus leyendas.') };
     }
 
-    return { data: (data ?? []).map(normalizeLegendListItem), error: null };
+    const enrichedLegends = await enrichCreatorLegends(client, data ?? [], accessStatus.creatorProfile);
+    return { data: enrichedLegends, error: null };
   } catch (error) {
     console.error('getMyLegends error', error);
     return { data: [], error: friendlyLegendError('No pudimos cargar tus leyendas.') };
@@ -679,7 +823,7 @@ export async function getDrafts() {
   const { data, error } = await getMyLegends();
   if (error) return { data: [], error };
   return {
-    data: (data ?? []).filter((legend) => ['draft', 'rejected'].includes(legend.status || 'draft')),
+    data: (data ?? []).filter((legend) => (legend.status || 'draft') === 'draft'),
     error: null,
   };
 }

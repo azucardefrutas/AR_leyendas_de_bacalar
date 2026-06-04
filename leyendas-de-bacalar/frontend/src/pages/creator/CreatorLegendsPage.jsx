@@ -1,5 +1,4 @@
-import React from 'react';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
@@ -7,10 +6,77 @@ import EmptyState from '../../components/ui/EmptyState.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
 import { deleteLegendDraft, getMyLegends } from '../../services/creatorService.js';
 
-const DELETE_DRAFT_CONFIRMATION = '¿Seguro que quieres eliminar este borrador? Se eliminara la leyenda y su contenido asociado. Esta accion no se puede deshacer.';
+const DELETE_DRAFT_CONFIRMATION = 'Seguro que quieres eliminar este borrador? Se eliminara la leyenda y su contenido asociado. Esta accion no se puede deshacer.';
+
+const STATUS_LABELS = {
+  draft: 'Borrador',
+  borrador: 'Borrador',
+  in_review: 'En revision',
+  review: 'En revision',
+  pending_review: 'En revision',
+  rejected: 'Requiere cambios',
+  published: 'Publicada',
+};
+
+const ACCESS_LABELS = {
+  free: 'Gratis',
+  paid: 'Compra',
+  subscription: 'Suscripcion',
+  code_required: 'Codigo fisico',
+  mixed: 'Mixto',
+};
+
+function getStatusKey(legend) {
+  return String(legend?.status || 'draft').toLowerCase();
+}
 
 function isDraftLegend(legend) {
-  return ['draft', 'borrador'].includes(String(legend?.status || 'draft').toLowerCase());
+  return ['draft', 'borrador'].includes(getStatusKey(legend));
+}
+
+function getStatusLabel(legend) {
+  const status = getStatusKey(legend);
+  return STATUS_LABELS[status] || status.replace(/_/g, ' ');
+}
+
+function formatDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat('es-MX', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(date);
+}
+
+function getLegendDate(legend) {
+  return formatDate(legend.updated_at || legend.created_at);
+}
+
+function getAccessLabel(legend) {
+  const accessType = String(legend?.access_type || '').toLowerCase();
+  return ACCESS_LABELS[accessType] || null;
+}
+
+function getGenreNames(legend) {
+  return (legend?.genres ?? [])
+    .map((genre) => (typeof genre === 'string' ? genre : genre?.name))
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
+function LegendCover({ legend }) {
+  const coverUrl = legend.coverUrl || legend.cover_url || legend.bannerUrl || legend.backdropUrl;
+  return (
+    <div className="creator-legend-cover">
+      {coverUrl ? (
+        <img src={coverUrl} alt={`Portada de ${legend.title || 'leyenda'}`} />
+      ) : (
+        <span className="material-symbols-rounded" aria-hidden="true">auto_stories</span>
+      )}
+    </div>
+  );
 }
 
 function CreatorLegendsPage() {
@@ -39,7 +105,7 @@ function CreatorLegendsPage() {
 
   const statusFilter = location.pathname === '/creator/drafts' ? 'draft' : searchParams.get('status');
   const visibleLegends = statusFilter
-    ? legends.filter((legend) => (legend.status || 'draft') === statusFilter || (statusFilter === 'draft' && (legend.status || 'draft') === 'rejected'))
+    ? legends.filter((legend) => getStatusKey(legend) === statusFilter)
     : legends;
   const isDraftsView = statusFilter === 'draft';
 
@@ -72,6 +138,14 @@ function CreatorLegendsPage() {
     setDeletingId(null);
 
     if (deleteError) {
+      if (import.meta.env.DEV) {
+        console.error('[CreatorLegends] Error real:', {
+          operation: 'deleteLegendDraft',
+          table: 'rpc/delete_legend_draft',
+          legendId: legend.id,
+          error: deleteError.supabaseError || deleteError,
+        });
+      }
       setDeleteErrors((current) => ({
         ...current,
         [legend.id]: deleteError.message,
@@ -95,46 +169,76 @@ function CreatorLegendsPage() {
           <p className="creator-kicker">Obras</p>
           <h1>{isDraftsView ? 'Borradores' : 'Mis leyendas'}</h1>
         </div>
-        <Link to="/creator/legends/new"><Button>Crear leyenda</Button></Link>
+        <Link to="/creator/legends/new" className="btn btn-primary">Crear leyenda</Link>
       </div>
 
       {error && <p className="error-message">{error.message}</p>}
       {message && <p className="success-message">{message}</p>}
 
       {visibleLegends.length === 0 ? (
-        <Card>
+        <Card className="creator-empty-card">
           <EmptyState
             title={isDraftsView ? 'No hay borradores' : 'Aun no has creado leyendas'}
-            message={isDraftsView ? 'Los borradores y obras rechazadas apareceran aqui.' : 'Crea tu primera historia para empezar el flujo editorial.'}
+            message={isDraftsView ? 'Los borradores apareceran aqui.' : 'Crea tu primera historia para empezar el flujo editorial.'}
           />
-          <Link to="/creator/legends/new"><Button>Crear primera leyenda</Button></Link>
+          <Link to="/creator/legends/new" className="btn btn-primary">Crear primera leyenda</Link>
         </Card>
       ) : (
         <div className="creator-editorial-grid">
-          {visibleLegends.map((legend) => (
-            <Card key={legend.id} className="creator-editorial-card">
-              <div className="creator-editorial-card-main">
-                <span className="creator-status-pill">{legend.status || 'draft'}</span>
-                <h2>{legend.title}</h2>
-                {deleteErrors[legend.id] && (
-                  <p className="error-message creator-card-error">{deleteErrors[legend.id]}</p>
-                )}
-              </div>
-              <div className="creator-card-actions">
-                <Button variant="ghost" className="creator-card-action" onClick={() => openEditor(legend)}>Editar</Button>
-                {isDraftLegend(legend) && (
-                  <Button
-                    variant="ghost"
-                    className="creator-card-action danger-action"
-                    onClick={() => handleDeleteDraft(legend)}
-                    disabled={deletingId === legend.id}
-                  >
-                    {deletingId === legend.id ? 'Eliminando...' : 'Eliminar borrador'}
-                  </Button>
-                )}
-              </div>
-            </Card>
-          ))}
+          {visibleLegends.map((legend) => {
+            const genres = getGenreNames(legend);
+            const date = getLegendDate(legend);
+            const accessLabel = getAccessLabel(legend);
+            const statusKey = getStatusKey(legend);
+            const canViewPublic = statusKey === 'published' && legend.slug;
+
+            return (
+              <Card key={legend.id} className="creator-editorial-card creator-legend-card">
+                <LegendCover legend={legend} />
+                <div className="creator-editorial-card-main">
+                  <div className="creator-card-topline">
+                    <span className={`creator-status-pill status-${statusKey}`}>{getStatusLabel(legend)}</span>
+                    {accessLabel && <span className="creator-access-pill">{accessLabel}</span>}
+                  </div>
+                  <h2 title={legend.title}>{legend.title || 'Leyenda sin titulo'}</h2>
+                  <div className="creator-card-meta">
+                    <span>{legend.authorName || 'Autor sin alias'}</span>
+                    {date && <span>Actualizada {date}</span>}
+                  </div>
+                  {genres.length > 0 && (
+                    <div className="creator-card-genres" aria-label="Generos">
+                      {genres.map((genre) => <span key={genre}>{genre}</span>)}
+                    </div>
+                  )}
+                  {statusKey === 'rejected' && (
+                    <p className="creator-card-note">Requiere ajustes antes de volver a revision.</p>
+                  )}
+                  {deleteErrors[legend.id] && (
+                    <p className="error-message creator-card-error">{deleteErrors[legend.id]}</p>
+                  )}
+                </div>
+                <div className="creator-card-actions">
+                  {canViewPublic ? (
+                    <Link className="btn btn-ghost creator-card-action" to={`/legend/${legend.slug}`}>Ver</Link>
+                  ) : (
+                    <Button variant="ghost" className="creator-card-action" onClick={() => openEditor(legend)}>
+                      {statusKey === 'rejected' ? 'Editar cambios' : 'Editar'}
+                    </Button>
+                  )}
+                  {isDraftLegend(legend) && (
+                    <Button
+                      variant="ghost"
+                      className="creator-card-action danger-action"
+                      onClick={() => handleDeleteDraft(legend)}
+                      disabled={deletingId === legend.id}
+                    >
+                      {deletingId === legend.id ? 'Eliminando...' : 'Eliminar borrador'}
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            );
+          })}
         </div>
       )}
     </section>
