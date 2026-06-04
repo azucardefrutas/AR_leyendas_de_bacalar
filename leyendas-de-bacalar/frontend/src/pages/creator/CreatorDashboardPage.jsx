@@ -42,7 +42,7 @@ function CreatorDashboardPage() {
   if (loading) return <LoadingState message="Cargando panel de creador..." />;
 
   const publishedCount = countByStatus(legends, ['published']);
-  const reviewCount = countByStatus(legends, ['in_review', 'review', 'pending_review']);
+  const reviewCount = countByStatus(legends, ['in_review', 'review', 'pending_review', 'submitted', 'changes_requested', 'rejected']);
   const draftCount = countByStatus(legends, ['draft', 'borrador']);
 
   function openEditor(legend) {

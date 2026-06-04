@@ -190,14 +190,21 @@ const statusClassMap = {
   completed: 'success',
   pending: 'warning',
   draft: 'info',
+  submitted: 'warning',
   in_review: 'warning',
   review: 'warning',
+  changes_requested: 'warning',
   rejected: 'danger',
   suspended: 'danger',
   disabled: 'danger',
   canceled: 'danger',
   cancelled: 'danger',
   unused: 'info',
+  assigned: 'info',
+  expired: 'danger',
+  generated: 'info',
+  exported: 'info',
+  partially_used: 'warning',
 };
 
 const statusLabelMap = {
@@ -209,14 +216,21 @@ const statusLabelMap = {
   completed: 'Completado',
   pending: 'Pendiente de correo',
   draft: 'Borrador',
+  submitted: 'Enviada',
   in_review: 'En revision',
   review: 'En revision',
+  changes_requested: 'Cambios solicitados',
   rejected: 'Rechazada',
   suspended: 'Suspendido',
   disabled: 'Deshabilitado',
   canceled: 'Cancelado',
   cancelled: 'Cancelado',
   unused: 'Disponible',
+  assigned: 'Asignado',
+  expired: 'Expirado',
+  generated: 'Generado',
+  exported: 'Exportado',
+  partially_used: 'Uso parcial',
 };
 
 export function AdminStatusBadge({ status = 'pending' }) {

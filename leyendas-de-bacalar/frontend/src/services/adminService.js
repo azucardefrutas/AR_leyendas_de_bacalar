@@ -26,7 +26,9 @@ export function logAdminServiceError({
 export function friendlyAdminError(error, context = {}) {
   if (!error) return null;
   logAdminServiceError({ ...context, error });
-  const adminError = new Error('No pudimos cargar la informacion administrativa. Revisa consola para el detalle tecnico.');
+  const tableLabel = context.table && context.table !== 'unknown' ? ` (${context.table})` : '';
+  const operationLabel = context.operation && context.operation !== 'unknown' ? context.operation : 'la operacion administrativa';
+  const adminError = new Error(context.message || `No pudimos completar ${operationLabel}${tableLabel}. Revisa consola para el detalle tecnico.`);
   adminError.supabaseError = error;
   return adminError;
 }

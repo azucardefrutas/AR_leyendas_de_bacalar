@@ -35,8 +35,8 @@ function AdminCodeRequestsPage() {
   function openGenerateModal(request) {
     setModal(request);
     setForm({
-      editionId: request.physical_edition_id || editions[0]?.id || '',
-      quantity: request.quantity || 25,
+      editionId: request.edition_id || editions[0]?.id || '',
+      quantity: request.quantity_requested || 25,
       prefix: '',
       notes: '',
     });
@@ -70,7 +70,8 @@ function AdminCodeRequestsPage() {
         columns={[
           { key: 'author', header: 'Autor', render: (row) => row.creator_profiles?.pen_name || 'Sin autor' },
           { key: 'legend', header: 'Leyenda', render: (row) => row.legends?.title || 'Sin leyenda' },
-          { key: 'quantity', header: 'Cantidad' },
+          { key: 'edition', header: 'Edicion', render: (row) => row.physical_editions?.edition_name || row.edition_id || 'Sin edicion' },
+          { key: 'quantity_requested', header: 'Cantidad' },
           { key: 'reason', header: 'Motivo' },
           { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status || 'pending'} /> },
           { key: 'created_at', header: 'Fecha', render: (row) => row.created_at ? new Date(row.created_at).toLocaleDateString() : 'Sin fecha' },
@@ -91,7 +92,11 @@ function AdminCodeRequestsPage() {
           <span>Edicion fisica</span>
           <select className="select" value={form.editionId} onChange={(event) => setForm((current) => ({ ...current, editionId: event.target.value }))}>
             {editions.length === 0 && <option value="">Sin ediciones disponibles</option>}
-            {editions.map((edition) => <option key={edition.id} value={edition.id}>{edition.name || edition.title || edition.id}</option>)}
+            {editions.map((edition) => (
+              <option key={edition.id} value={edition.id}>
+                {edition.edition_name || edition.legends?.title || edition.id}
+              </option>
+            ))}
           </select>
         </label>
         <label className="field">

@@ -9,7 +9,10 @@ const STATUS_LABELS = {
   in_review: 'En revision',
   review: 'En revision',
   pending_review: 'En revision',
+  submitted: 'En revision',
+  changes_requested: 'Cambios solicitados',
   rejected: 'Requiere cambios',
+  approved: 'Aprobada',
   published: 'Publicada',
 };
 
@@ -30,7 +33,7 @@ function isDraftLegend(legend) {
 }
 
 function isEditableLegend(legend) {
-  return ['draft', 'borrador', 'rejected'].includes(getStatusKey(legend));
+  return ['draft', 'borrador', 'changes_requested', 'rejected'].includes(getStatusKey(legend));
 }
 
 function getStatusLabel(legend) {
@@ -130,8 +133,12 @@ function CreatorLegendCard({
           </div>
         )}
 
-        {statusKey === 'rejected' && (
-          <p className="creator-card-note">Requiere ajustes antes de volver a revision.</p>
+        {(statusKey === 'changes_requested' || statusKey === 'rejected') && (
+          <p className="creator-card-note">
+            {legend.reviewFeedback || (statusKey === 'changes_requested'
+              ? 'El administrador solicito cambios antes de volver a revision.'
+              : 'Requiere ajustes antes de volver a revision.')}
+          </p>
         )}
 
         {deleteError && <p className="error-message creator-card-error">{deleteError}</p>}
@@ -144,7 +151,7 @@ function CreatorLegendCard({
 
         {canEdit && (
           <Button variant="ghost" className="creator-card-action" onClick={() => onEdit?.(legend)}>
-            {statusKey === 'rejected' ? 'Editar correcciones' : 'Editar'}
+            {statusKey === 'rejected' || statusKey === 'changes_requested' ? 'Editar correcciones' : 'Editar'}
           </Button>
         )}
 

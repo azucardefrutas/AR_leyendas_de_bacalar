@@ -167,11 +167,26 @@ function normalizeCreatorLegendListItem(legend, {
   genresByLegendId = new Map(),
   mediaByLegendId = new Map(),
   pagesCountByLegendId = new Map(),
+  reviewByLegendId = new Map(),
+  versionByLegendId = new Map(),
   creatorProfile = null,
 } = {}) {
   const normalized = normalizeLegendListItem(legend);
   const media = mediaByLegendId.get(legend.id) || [];
   const genres = genresByLegendId.get(legend.id) || [];
+  const latestReview = reviewByLegendId.get(legend.id) || null;
+  const latestVersion = versionByLegendId.get(legend.id) || null;
+  const reviewStatus = latestReview?.status || null;
+  const versionStatus = latestVersion?.status || null;
+  const effectiveStatus = reviewStatus === 'changes_requested'
+    ? 'changes_requested'
+    : reviewStatus === 'rejected'
+      ? 'rejected'
+      : versionStatus === 'submitted'
+        ? 'in_review'
+        : versionStatus === 'published'
+          ? 'published'
+          : normalized.status;
   const coverMedia = findMediaEntry(media, MEDIA_TYPES.cover) || findPrimaryImageEntry(media);
   const bannerMedia = findMediaEntry(media, MEDIA_TYPES.banner);
   const backdropMedia = findMediaEntry(media, MEDIA_TYPES.backdrop);
@@ -181,6 +196,13 @@ function normalizeCreatorLegendListItem(legend, {
 
   return {
     ...normalized,
+    status: effectiveStatus,
+    legendStatus: normalized.status,
+    versionStatus,
+    reviewStatus,
+    reviewFeedback: latestReview?.feedback || '',
+    latestReview,
+    currentVersion: latestVersion,
     authorName: normalizeText(creatorProfile?.pen_name || legend.author_name || legend.creator_name || legend.pen_name, 'Autor sin alias'),
     genres,
     media,
@@ -809,18 +831,79 @@ async function getCreatorPagesCountByLegendId(client, legendIds = []) {
   return { data: counts, error: null };
 }
 
+async function getCreatorReviewStateByLegendId(client, legendIds = []) {
+  if (!legendIds.length) return { reviews: new Map(), versions: new Map() };
+
+  const { data: versions, error: versionsError } = await client
+    .from('legend_versions')
+    .select('id, legend_id, version_number, status, review_notes, submitted_at, published_at, created_at')
+    .in('legend_id', legendIds)
+    .order('version_number', { ascending: false });
+
+  if (versionsError) {
+    if (isDev()) {
+      console.error('[CreatorLegendService] Error real:', {
+        functionName: 'getCreatorReviewStateByLegendId',
+        step: 'select legend_versions',
+        table: 'legend_versions',
+        error: versionsError,
+      });
+    }
+    return { reviews: new Map(), versions: new Map() };
+  }
+
+  const versionByLegendId = new Map();
+  for (const version of versions ?? []) {
+    if (!versionByLegendId.has(version.legend_id)) versionByLegendId.set(version.legend_id, version);
+  }
+
+  const versionToLegendId = new Map((versions ?? []).map((version) => [String(version.id), version.legend_id]));
+  const versionIds = [...versionToLegendId.keys()];
+  if (!versionIds.length) return { reviews: new Map(), versions: versionByLegendId };
+
+  const { data: reviews, error: reviewsError } = await client
+    .from('content_reviews')
+    .select('id, legend_version_id, status, feedback, created_at, reviewed_at')
+    .in('legend_version_id', versionIds)
+    .order('created_at', { ascending: false });
+
+  if (reviewsError) {
+    if (isDev()) {
+      console.error('[CreatorLegendService] Error real:', {
+        functionName: 'getCreatorReviewStateByLegendId',
+        step: 'select content_reviews',
+        table: 'content_reviews',
+        error: reviewsError,
+      });
+    }
+    return { reviews: new Map(), versions: versionByLegendId };
+  }
+
+  const reviewByLegendId = new Map();
+  for (const review of reviews ?? []) {
+    const legendId = versionToLegendId.get(String(review.legend_version_id));
+    if (!legendId || reviewByLegendId.has(legendId)) continue;
+    reviewByLegendId.set(legendId, review);
+  }
+
+  return { reviews: reviewByLegendId, versions: versionByLegendId };
+}
+
 async function enrichCreatorLegends(client, legends = [], creatorProfile = null) {
   const legendIds = legends.map((legend) => legend.id).filter(Boolean);
-  const [genresResult, mediaResult, pagesCountResult] = await Promise.all([
+  const [genresResult, mediaResult, pagesCountResult, reviewState] = await Promise.all([
     getCreatorGenresByLegendId(client, legendIds),
     getCreatorMediaByLegendId(client, legendIds),
     getCreatorPagesCountByLegendId(client, legendIds),
+    getCreatorReviewStateByLegendId(client, legendIds),
   ]);
 
   return legends.map((legend) => normalizeCreatorLegendListItem(legend, {
     genresByLegendId: genresResult.data,
     mediaByLegendId: mediaResult.data,
     pagesCountByLegendId: pagesCountResult.data,
+    reviewByLegendId: reviewState.reviews,
+    versionByLegendId: reviewState.versions,
     creatorProfile,
   }));
 }
