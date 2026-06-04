@@ -42,7 +42,19 @@ function AdminDashboardPage() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    function logDashboardError({ operation, table, error: dashboardError }) {
+      if (import.meta.env.DEV) {
+        console.error('[AdminDashboard] Error real:', {
+          operation,
+          table,
+          error: dashboardError?.supabaseError || dashboardError,
+        });
+      }
+    }
+
     async function loadDashboard() {
+      setError(null);
+      setLoading(true);
       const [statsResult, activityResult, codeResult, salesResult, subscriptionResult] = await Promise.all([
         getAdminDashboardStats(),
         getRecentAdminActivity(),
@@ -51,12 +63,30 @@ function AdminDashboardPage() {
         getSubscriptionSummary(),
       ]);
 
+      [
+        { result: statsResult, operation: 'load dashboard metrics', table: 'dashboard metrics', critical: true },
+        { result: activityResult, operation: 'load recent activity', table: 'admin_audit_logs', critical: false },
+        { result: codeResult, operation: 'load code usage', table: 'access_codes', critical: false },
+        { result: salesResult, operation: 'load sales summary', table: 'orders/payments', critical: false },
+        { result: subscriptionResult, operation: 'load subscription summary', table: 'subscription_plans/subscriptions', critical: false },
+      ].forEach(({ result, operation, table }) => {
+        if (result?.error) logDashboardError({ operation, table, error: result.error });
+      });
+
+      (statsResult.warnings ?? []).forEach((warning) => {
+        logDashboardError({
+          operation: warning.operation || `count ${warning.key}`,
+          table: warning.table,
+          error: warning.error,
+        });
+      });
+
       setStats(statsResult.data);
       setActivity(activityResult.data ?? []);
       setCodeUsage(codeResult.data);
       setSales(salesResult.data);
       setSubscriptions(subscriptionResult.data);
-      setError(statsResult.error || activityResult.error || codeResult.error || salesResult.error || subscriptionResult.error);
+      setError(statsResult.error || null);
       setLoading(false);
     }
 

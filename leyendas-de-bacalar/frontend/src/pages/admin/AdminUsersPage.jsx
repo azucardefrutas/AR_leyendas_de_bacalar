@@ -21,9 +21,18 @@ function AdminUsersPage() {
   const [toast, setToast] = useState(null);
   const [error, setError] = useState(null);
 
-  async function loadUsers() {
+  async function loadUsers({ preserveToast = false } = {}) {
     setLoading(true);
+    setError(null);
+    if (!preserveToast) setToast(null);
     const { data, error: usersError } = await getUsers();
+    if (usersError && import.meta.env.DEV) {
+      console.error('[AdminUsers] Error real:', {
+        operation: 'loadUsers',
+        table: usersError.supabaseError?.table || 'users_profile/user_roles/roles',
+        error: usersError.supabaseError || usersError,
+      });
+    }
     setUsers(data ?? []);
     setError(usersError);
     setLoading(false);
@@ -41,13 +50,23 @@ function AdminUsersPage() {
   }), [query, roleFilter, users]);
 
   async function updateStatus(user, action) {
+    setError(null);
+    setToast(null);
     const result = action === 'suspend' ? await suspendUser(user.id) : await activateUser(user.id);
     if (result.error) {
+      if (import.meta.env.DEV) {
+        console.error('[AdminUsers] Error real:', {
+          operation: action === 'suspend' ? 'suspendUser' : 'activateUser',
+          table: 'users_profile',
+          error: result.error.supabaseError || result.error,
+        });
+      }
       setToast({ type: 'error', message: result.error.message });
       return;
     }
+    setError(null);
     setToast({ type: 'success', message: 'Operacion completada correctamente.' });
-    loadUsers();
+    loadUsers({ preserveToast: true });
   }
 
   return (

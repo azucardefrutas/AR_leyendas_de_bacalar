@@ -27,19 +27,12 @@ function attachRolesToProfiles(profiles = [], roleRows = []) {
 async function getRoleRowsByUserIds(client, userIds = []) {
   if (!userIds.length) return { data: [], error: null };
 
-  const embeddedResult = await client
-    .from('user_roles')
-    .select('user_id, roles(name)')
-    .in('user_id', userIds);
-
-  if (!embeddedResult.error) return { data: embeddedResult.data ?? [], error: null };
-
   const { data: relationRows, error: relationError } = await client
     .from('user_roles')
     .select('user_id, role_id')
     .in('user_id', userIds);
 
-  if (relationError) return { data: [], error: embeddedResult.error };
+  if (relationError) return { data: [], error: relationError };
 
   const roleIds = [...new Set((relationRows ?? []).map((row) => row.role_id).filter(Boolean))];
   if (!roleIds.length) return { data: [], error: null };

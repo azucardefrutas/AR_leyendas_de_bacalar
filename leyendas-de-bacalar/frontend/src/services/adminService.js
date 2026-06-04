@@ -5,9 +5,17 @@ export function getAdminClient() {
   return { data: supabase, error: null };
 }
 
-export function logAdminServiceError({ operation = 'unknown', table = 'unknown', error }) {
+export function logAdminServiceError({
+  functionName = 'adminService',
+  step = 'unknown',
+  operation = 'unknown',
+  table = 'unknown',
+  error,
+}) {
   if (import.meta.env.DEV) {
     console.error('[AdminService] Error real:', {
+      functionName,
+      step,
       operation,
       table,
       error,
@@ -23,15 +31,15 @@ export function friendlyAdminError(error, context = {}) {
   return adminError;
 }
 
-async function countRows(client, table, queryBuilder = null) {
+async function countRows(client, table, queryBuilder = null, operation = 'count rows') {
   try {
     let query = client.from(table).select('id', { count: 'exact', head: true });
     if (queryBuilder) query = queryBuilder(query);
     const { count, error } = await query;
-    if (error) return { count: 0, error };
-    return { count: count ?? 0, error: null };
+    if (error) return { count: 0, error, operation, table };
+    return { count: count ?? 0, error: null, operation, table };
   } catch (error) {
-    return { count: 0, error };
+    return { count: 0, error, operation, table };
   }
 }
 
@@ -77,58 +85,63 @@ export async function getAdminDashboardStats() {
   const { data: client, error: clientError } = getAdminClient();
   if (clientError) return { data: null, error: clientError };
 
-  const [
-    users,
-    authors,
-    pendingApplications,
-    publishedLegends,
-    reviewLegends,
-    codeBatches,
-    redeemedCodes,
-    generatedCodes,
-    simulatedOrders,
-    activeSubscriptions,
-  ] = await Promise.all([
-    countRows(client, 'users_profile'),
-    countRows(client, 'creator_profiles'),
-    countRows(client, 'creator_applications', (query) => query.eq('status', 'pending')),
-    countRows(client, 'legends', (query) => query.eq('status', 'published')),
-    countRows(client, 'content_reviews', (query) => query.in('status', ['pending', 'in_review'])),
-    countRows(client, 'code_batches'),
-    countRows(client, 'access_codes', (query) => query.eq('status', 'redeemed')),
-    countRows(client, 'access_codes'),
-    countRows(client, 'orders'),
-    countRows(client, 'subscriptions', (query) => query.eq('status', 'active')),
-  ]);
+  const metricQueries = [
+    { key: 'users', table: 'users_profile' },
+    { key: 'authors', table: 'creator_profiles' },
+    { key: 'pendingApplications', table: 'creator_applications', queryBuilder: (query) => query.eq('status', 'pending') },
+    { key: 'publishedLegends', table: 'legends', queryBuilder: (query) => query.eq('status', 'published') },
+    { key: 'reviewLegends', table: 'content_reviews', queryBuilder: (query) => query.in('status', ['pending', 'in_review']) },
+    { key: 'codeBatches', table: 'code_batches' },
+    { key: 'redeemedCodes', table: 'access_codes', queryBuilder: (query) => query.eq('status', 'redeemed') },
+    { key: 'generatedCodes', table: 'access_codes' },
+    { key: 'simulatedOrders', table: 'orders' },
+    { key: 'activeSubscriptions', table: 'subscriptions', queryBuilder: (query) => query.eq('status', 'active') },
+  ];
 
-  const firstError = [
-    users,
-    authors,
-    pendingApplications,
-    publishedLegends,
-    reviewLegends,
-    codeBatches,
-    redeemedCodes,
-    generatedCodes,
-    simulatedOrders,
-    activeSubscriptions,
-  ]
-    .find((item) => item.error)?.error;
+  const metricResults = await Promise.all(
+    metricQueries.map((metric) => countRows(client, metric.table, metric.queryBuilder, `count ${metric.key}`)),
+  );
+
+  const warnings = metricResults
+    .map((result, index) => ({ ...result, key: metricQueries[index].key }))
+    .filter((result) => result.error);
+
+  warnings.forEach((warning) => {
+    logAdminServiceError({
+      functionName: 'getAdminDashboardStats',
+      step: warning.operation,
+      operation: warning.operation,
+      table: warning.table,
+      error: warning.error,
+    });
+  });
+
+  const metrics = Object.fromEntries(
+    metricQueries.map((metric, index) => [metric.key, metricResults[index].count]),
+  );
+  const allMetricsFailed = metricResults.length > 0 && metricResults.every((result) => result.error);
 
   return {
     data: {
-      users: users.count,
-      authors: authors.count,
-      pendingApplications: pendingApplications.count,
-      publishedLegends: publishedLegends.count,
-      reviewLegends: reviewLegends.count,
-      codeBatches: codeBatches.count,
-      redeemedCodes: redeemedCodes.count,
-      generatedCodes: generatedCodes.count,
-      simulatedOrders: simulatedOrders.count,
-      activeSubscriptions: activeSubscriptions.count,
+      users: metrics.users,
+      authors: metrics.authors,
+      pendingApplications: metrics.pendingApplications,
+      publishedLegends: metrics.publishedLegends,
+      reviewLegends: metrics.reviewLegends,
+      codeBatches: metrics.codeBatches,
+      redeemedCodes: metrics.redeemedCodes,
+      generatedCodes: metrics.generatedCodes,
+      simulatedOrders: metrics.simulatedOrders,
+      activeSubscriptions: metrics.activeSubscriptions,
     },
-    error: firstError ? friendlyAdminError(firstError) : null,
+    error: allMetricsFailed
+      ? friendlyAdminError(warnings[0]?.error, {
+        functionName: 'getAdminDashboardStats',
+        step: 'all dashboard metric counts failed',
+        table: 'dashboard metrics',
+      })
+      : null,
+    warnings,
   };
 }
 
@@ -143,9 +156,23 @@ export async function getRecentAdminActivity(limit = 8) {
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    return { data: data ?? [], error: error ? friendlyAdminError(error) : null };
+    return {
+      data: data ?? [],
+      error: error ? friendlyAdminError(error, {
+        functionName: 'getRecentAdminActivity',
+        step: 'select recent admin activity',
+        table: 'admin_audit_logs',
+      }) : null,
+    };
   } catch (error) {
-    return { data: [], error: friendlyAdminError(error) };
+    return {
+      data: [],
+      error: friendlyAdminError(error, {
+        functionName: 'getRecentAdminActivity',
+        step: 'select recent admin activity',
+        table: 'admin_audit_logs',
+      }),
+    };
   }
 }
 
@@ -160,7 +187,16 @@ export async function getCodeUsageStats() {
       .order('created_at', { ascending: false })
       .limit(1000);
 
-    if (error) return { data: { generated: 0, redeemed: 0, available: 0, weekly: [] }, error: friendlyAdminError(error) };
+    if (error) {
+      return {
+        data: { generated: 0, redeemed: 0, available: 0, weekly: [] },
+        error: friendlyAdminError(error, {
+          functionName: 'getCodeUsageStats',
+          step: 'select access code usage',
+          table: 'access_codes',
+        }),
+      };
+    }
 
     const rows = data ?? [];
     const redeemedRows = rows.filter((row) => row.status === 'redeemed' || row.redeemed_at);
@@ -175,7 +211,14 @@ export async function getCodeUsageStats() {
       error: null,
     };
   } catch (error) {
-    return { data: { generated: 0, redeemed: 0, available: 0, weekly: [] }, error: friendlyAdminError(error) };
+    return {
+      data: { generated: 0, redeemed: 0, available: 0, weekly: [] },
+      error: friendlyAdminError(error, {
+        functionName: 'getCodeUsageStats',
+        step: 'select access code usage',
+        table: 'access_codes',
+      }),
+    };
   }
 }
 
@@ -195,7 +238,14 @@ export async function getSimulatedSalesSummary() {
 
     const firstError = ordersResult.error || paymentsResult.error;
     if (firstError) {
-      return { data: { orders: 0, payments: 0, monthlyOrders: 0, total: 0 }, error: friendlyAdminError(firstError) };
+      return {
+        data: { orders: 0, payments: 0, monthlyOrders: 0, total: 0 },
+        error: friendlyAdminError(firstError, {
+          functionName: 'getSimulatedSalesSummary',
+          step: ordersResult.error ? 'select orders' : 'select payments',
+          table: ordersResult.error ? 'orders' : 'payments',
+        }),
+      };
     }
 
     const orders = ordersResult.data ?? [];
@@ -213,7 +263,14 @@ export async function getSimulatedSalesSummary() {
       error: null,
     };
   } catch (error) {
-    return { data: { orders: 0, payments: 0, monthlyOrders: 0, total: 0 }, error: friendlyAdminError(error) };
+    return {
+      data: { orders: 0, payments: 0, monthlyOrders: 0, total: 0 },
+      error: friendlyAdminError(error, {
+        functionName: 'getSimulatedSalesSummary',
+        step: 'select orders and payments',
+        table: 'orders/payments',
+      }),
+    };
   }
 }
 
@@ -231,7 +288,11 @@ export async function getSubscriptionSummary() {
     if (firstError) {
       return {
         data: { plans: 0, activePlans: 0, subscriptions: 0, activeSubscriptions: 0 },
-        error: friendlyAdminError(firstError),
+        error: friendlyAdminError(firstError, {
+          functionName: 'getSubscriptionSummary',
+          step: plansResult.error ? 'select subscription plans' : 'select subscriptions',
+          table: plansResult.error ? 'subscription_plans' : 'subscriptions',
+        }),
       };
     }
 
@@ -250,7 +311,11 @@ export async function getSubscriptionSummary() {
   } catch (error) {
     return {
       data: { plans: 0, activePlans: 0, subscriptions: 0, activeSubscriptions: 0 },
-      error: friendlyAdminError(error),
+      error: friendlyAdminError(error, {
+        functionName: 'getSubscriptionSummary',
+        step: 'select subscriptions summary',
+        table: 'subscription_plans/subscriptions',
+      }),
     };
   }
 }

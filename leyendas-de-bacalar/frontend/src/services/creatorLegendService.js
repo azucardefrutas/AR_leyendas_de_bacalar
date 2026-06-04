@@ -7,9 +7,7 @@ import { getLegendResources } from './assetService.js';
 
 const ACCESS_TYPES = ['free', 'paid', 'subscription', 'code_required', 'mixed'];
 const EDITABLE_VERSION_STATUSES = ['draft', 'rejected'];
-const DELETABLE_DRAFT_STATUSES = ['draft', 'borrador'];
 const DELETE_DRAFT_GENERIC_MESSAGE = 'No pudimos eliminar el borrador. Revisa si ya fue enviado a revision o si tiene relaciones protegidas.';
-const DELETE_DRAFT_BLOCKED_MESSAGE = 'Esta obra ya no puede eliminarse porque fue enviada a revision o esta protegida.';
 const SHORT_SYNOPSIS_LENGTH = 220;
 
 function getClient() {
@@ -55,19 +53,6 @@ function createDeleteDraftError({
   deleteError.table = table;
   deleteError.supabaseError = error;
   return deleteError;
-}
-
-function isDraftStatus(status) {
-  return DELETABLE_DRAFT_STATUSES.includes(String(status || 'draft').toLowerCase());
-}
-
-function isSchemaMissError(error) {
-  const code = String(error?.code || '');
-  const message = String(error?.message || error?.details || '').toLowerCase();
-  return ['42703', '42P01', 'PGRST200', 'PGRST204'].includes(code)
-    || message.includes('does not exist')
-    || message.includes('could not find')
-    || message.includes('relationship');
 }
 
 function isLegendOwnedByCreator(legend, creatorCandidates = []) {
@@ -699,191 +684,6 @@ export async function getDrafts() {
   };
 }
 
-async function getLegendVersionsForDelete(client, legendId) {
-  const { data, error } = await client
-    .from('legend_versions')
-    .select('id, status, version_number')
-    .eq('legend_id', legendId)
-    .order('version_number', { ascending: false });
-
-  if (error) {
-    logDeleteSupabaseError('select legend_versions', error, { table: 'legend_versions', legendId });
-    return {
-      data: [],
-      error: createDeleteDraftError({ operation: 'select', table: 'legend_versions', error }),
-    };
-  }
-
-  return { data: data ?? [], error: null };
-}
-
-async function getContentReviewsForDelete(client, versionIds = []) {
-  if (!versionIds.length) return { data: [], error: null };
-
-  const attempts = [
-    { column: 'legend_version_id', query: () => client.from('content_reviews').select('id, status').in('legend_version_id', versionIds) },
-    { column: 'version_id', query: () => client.from('content_reviews').select('id, status').in('version_id', versionIds) },
-  ];
-
-  let lastError = null;
-  for (const attempt of attempts) {
-    const { data, error } = await attempt.query();
-    if (!error) return { data: data ?? [], error: null };
-    lastError = error;
-    logDeleteSupabaseError('select content_reviews', error, {
-      table: 'content_reviews',
-      column: attempt.column,
-      versionIds,
-    });
-    if (!isSchemaMissError(error)) {
-      return {
-        data: [],
-        error: createDeleteDraftError({ operation: 'select', table: 'content_reviews', error }),
-      };
-    }
-  }
-
-  if (lastError) {
-    logDeleteSupabaseError('skip content_reviews lookup: no compatible FK column found', lastError, {
-      table: 'content_reviews',
-      versionIds,
-    });
-  }
-  return { data: [], error: null };
-}
-
-async function deleteContentReviewsForDraft(client, reviewIds = []) {
-  if (!reviewIds.length) return { error: null };
-
-  const { error } = await client.from('content_reviews').delete().in('id', reviewIds);
-  if (error) {
-    logDeleteSupabaseError('delete content_reviews', error, { table: 'content_reviews', reviewIds });
-    return {
-      error: createDeleteDraftError({ operation: 'delete', table: 'content_reviews', error }),
-    };
-  }
-
-  return { error: null };
-}
-
-async function deleteByLegendId(client, table, legendId) {
-  const { error } = await client.from(table).delete().eq('legend_id', legendId);
-  if (error) {
-    logDeleteSupabaseError(`delete ${table}`, error, { table, column: 'legend_id', legendId });
-    return {
-      error: createDeleteDraftError({ operation: 'delete', table, error }),
-    };
-  }
-  return { error: null };
-}
-
-async function deletePagesForVersions(client, versionIds = []) {
-  if (!versionIds.length) return { error: null };
-
-  const { error } = await client.from('legend_pages').delete().in('version_id', versionIds);
-  if (error) {
-    logDeleteSupabaseError('delete legend_pages', error, { table: 'legend_pages', versionIds });
-    return {
-      error: createDeleteDraftError({ operation: 'delete', table: 'legend_pages', error }),
-    };
-  }
-
-  return { error: null };
-}
-
-async function getArSceneIdsForDelete(client, legendId) {
-  const { data, error } = await client
-    .from('ar_scenes')
-    .select('id')
-    .eq('legend_id', legendId);
-
-  if (error) {
-    logDeleteSupabaseError('select ar_scenes', error, { table: 'ar_scenes', legendId });
-    if (isSchemaMissError(error)) return { data: [], error: null };
-    return {
-      data: [],
-      error: createDeleteDraftError({ operation: 'select', table: 'ar_scenes', error }),
-    };
-  }
-
-  return { data: (data ?? []).map((scene) => scene.id).filter(Boolean), error: null };
-}
-
-async function deleteArMarkersForLegend(client, legendId, sceneIds = []) {
-  const attempts = [
-    { column: 'legend_id', values: [legendId], query: () => client.from('ar_markers').delete().eq('legend_id', legendId) },
-    { column: 'ar_scene_id', values: sceneIds, query: () => client.from('ar_markers').delete().in('ar_scene_id', sceneIds) },
-    { column: 'scene_id', values: sceneIds, query: () => client.from('ar_markers').delete().in('scene_id', sceneIds) },
-  ];
-
-  let ranDelete = false;
-  for (const attempt of attempts) {
-    if (!attempt.values.length) continue;
-    const { error } = await attempt.query();
-    if (!error) {
-      ranDelete = true;
-      continue;
-    }
-
-    logDeleteSupabaseError('delete ar_markers', error, {
-      table: 'ar_markers',
-      column: attempt.column,
-      values: attempt.values,
-    });
-
-    if (!isSchemaMissError(error)) {
-      return {
-        error: createDeleteDraftError({ operation: 'delete', table: 'ar_markers', error }),
-      };
-    }
-  }
-
-  return { error: null, ranDelete };
-}
-
-async function deleteVersionsForLegend(client, legendId) {
-  const { error } = await client.from('legend_versions').delete().eq('legend_id', legendId);
-  if (error) {
-    logDeleteSupabaseError('delete legend_versions', error, { table: 'legend_versions', legendId });
-    return {
-      error: createDeleteDraftError({ operation: 'delete', table: 'legend_versions', error }),
-    };
-  }
-  return { error: null };
-}
-
-async function deleteLegendRow(client, legend) {
-  const { error } = await client.from('legends').delete().eq('id', legend.id);
-  if (error) {
-    logDeleteSupabaseError('delete legends', error, { table: 'legends', legendId: legend.id });
-    return {
-      data: null,
-      error: createDeleteDraftError({ operation: 'delete', table: 'legends', error }),
-    };
-  }
-
-  const verifyResult = await client.from('legends').select('id').eq('id', legend.id).maybeSingle();
-  if (verifyResult.error) {
-    logDeleteSupabaseError('verify legends delete', verifyResult.error, { table: 'legends', legendId: legend.id });
-    return {
-      data: null,
-      error: createDeleteDraftError({ operation: 'verify_delete', table: 'legends', error: verifyResult.error }),
-    };
-  }
-
-  if (verifyResult.data?.id) {
-    const blockedError = createDeleteDraftError({
-      message: 'No pudimos eliminar el borrador. Supabase no elimino la leyenda; revisa permisos RLS de DELETE.',
-      operation: 'verify_delete',
-      table: 'legends',
-    });
-    logDeleteSupabaseError('verify legends delete', blockedError, { table: 'legends', legendId: legend.id });
-    return { data: null, error: blockedError };
-  }
-
-  return { data: legend, error: null };
-}
-
 export async function deleteLegendDraft(legendId) {
   if (isInvalidId(legendId)) {
     return {
@@ -896,129 +696,41 @@ export async function deleteLegendDraft(legendId) {
   if (clientError) return { data: null, error: clientError };
 
   try {
-    const { data: accessStatus, error: accessError } = await ensureCreatorCanCreate();
-    if (accessError) return { data: null, error: accessError };
-    const creatorCandidates = getCreatorIdCandidates(accessStatus);
-    if (!creatorCandidates.length) {
-      return {
-        data: null,
-        error: createDeleteDraftError({ message: 'No pudimos confirmar tu perfil de creador para eliminar este borrador.' }),
-      };
-    }
+    const { data, error } = await client.rpc('delete_legend_draft', {
+      p_legend_id: legendId,
+    });
 
-    const { data: legend, error: legendError } = await resolveLegendForEditor(client, legendId);
-    if (legendError || !legend?.id) {
-      logDeleteSupabaseError('select legends', legendError, { table: 'legends', legendId });
-      return {
-        data: null,
-        error: createDeleteDraftError({ operation: 'select', table: 'legends', error: legendError }),
-      };
-    }
-
-    const ownsLegend = await validateLegendOwnership(client, legend, accessStatus, creatorCandidates);
-    if (!ownsLegend) {
-      logDeleteSupabaseError('validate legend ownership', null, {
-        table: 'legends',
-        legendId: legend.id,
-        legendCreatorId: legend.creator_id,
-        creatorCandidates,
+    if (error) {
+      logDeleteSupabaseError('rpc delete_legend_draft', error, {
+        table: 'rpc/delete_legend_draft',
+        legendId,
       });
       return {
         data: null,
-        error: createDeleteDraftError({ message: 'No pudimos eliminar el borrador porque no pertenece al creador actual.' }),
+        error: createDeleteDraftError({
+          message: error.message || DELETE_DRAFT_GENERIC_MESSAGE,
+          operation: 'rpc',
+          table: 'delete_legend_draft',
+          error,
+        }),
       };
     }
 
-    if (!isDraftStatus(legend.status)) {
-      logDeleteSupabaseError('blocked by legend status', null, {
-        table: 'legends',
-        legendId: legend.id,
-        status: legend.status,
+    if (data?.success !== true) {
+      const rpcError = createDeleteDraftError({
+        message: DELETE_DRAFT_GENERIC_MESSAGE,
+        operation: 'rpc',
+        table: 'delete_legend_draft',
       });
-      return {
-        data: null,
-        error: createDeleteDraftError({ message: DELETE_DRAFT_BLOCKED_MESSAGE }),
-      };
-    }
-
-    const versionsResult = await getLegendVersionsForDelete(client, legend.id);
-    if (versionsResult.error) return { data: null, error: versionsResult.error };
-    const versions = versionsResult.data ?? [];
-    const versionIds = versions.map((version) => version.id).filter(Boolean);
-    const hasNonDraftVersion = versions.some((version) => !isDraftStatus(version.status));
-
-    if (hasNonDraftVersion) {
-      logDeleteSupabaseError('blocked by legend_versions status', null, {
-        table: 'legend_versions',
-        legendId: legend.id,
-        versions: versions.map((version) => ({
-          id: version.id,
-          status: version.status,
-        })),
+      logDeleteSupabaseError('rpc delete_legend_draft returned without success', rpcError, {
+        table: 'rpc/delete_legend_draft',
+        legendId,
+        data,
       });
-      return {
-        data: null,
-        error: createDeleteDraftError({ message: DELETE_DRAFT_BLOCKED_MESSAGE, table: 'legend_versions' }),
-      };
+      return { data: null, error: rpcError };
     }
 
-    const reviewsResult = await getContentReviewsForDelete(client, versionIds);
-    if (reviewsResult.error) return { data: null, error: reviewsResult.error };
-    const reviews = reviewsResult.data ?? [];
-    const protectedReviews = reviews.filter((review) => !isDraftStatus(review.status));
-
-    if (protectedReviews.length) {
-      logDeleteSupabaseError('blocked by content_reviews status', null, {
-        table: 'content_reviews',
-        protectedReviews,
-      });
-      return {
-        data: null,
-        error: createDeleteDraftError({ message: DELETE_DRAFT_BLOCKED_MESSAGE, table: 'content_reviews' }),
-      };
-    }
-
-    const arScenesResult = await getArSceneIdsForDelete(client, legend.id);
-    if (arScenesResult.error) return { data: null, error: arScenesResult.error };
-
-    const draftReviewIds = reviews.map((review) => review.id).filter(Boolean);
-    const cleanupSteps = [
-      () => deleteByLegendId(client, 'legend_genres', legend.id),
-      () => deletePagesForVersions(client, versionIds),
-      () => deleteByLegendId(client, 'legend_media', legend.id),
-      () => deleteByLegendId(client, 'legend_source_documents', legend.id),
-      () => deleteArMarkersForLegend(client, legend.id, arScenesResult.data),
-      () => deleteByLegendId(client, 'ar_scenes', legend.id),
-      () => deleteContentReviewsForDraft(client, draftReviewIds),
-    ];
-
-    const cleanupErrors = [];
-    for (const step of cleanupSteps) {
-      const result = await step();
-      if (result.error) cleanupErrors.push(result.error);
-    }
-
-    if (cleanupErrors.length && isDev()) {
-      console.error('[deleteLegendDraft] Error real:', {
-        step: 'cleanup relations before deleting parent rows',
-        legendId: legend.id,
-        versionIds,
-        errors: cleanupErrors.map((cleanupError) => ({
-          message: cleanupError.message,
-          table: cleanupError.table,
-          operation: cleanupError.operation,
-          supabaseError: cleanupError.supabaseError,
-        })),
-      });
-    }
-
-    const deleteVersionsResult = await deleteVersionsForLegend(client, legend.id);
-    if (deleteVersionsResult.error) return { data: null, error: deleteVersionsResult.error };
-
-    const deleteLegendResult = await deleteLegendRow(client, legend);
-    if (deleteLegendResult.error) return { data: null, error: deleteLegendResult.error };
-
-    return { data: deleteLegendResult.data, error: null };
+    return { data, error: null };
   } catch (error) {
     logDeleteSupabaseError('deleteLegendDraft unexpected error', error, { legendId });
     return {
