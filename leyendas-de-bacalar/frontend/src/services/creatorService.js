@@ -6,9 +6,18 @@ import {
   getCurrentCreatorProfile,
 } from './creatorAccessService.js';
 import {
+  canDeleteCreatorLegend as canDeleteEditorCreatorLegend,
+  canEditCreatorLegend as canEditEditorCreatorLegend,
   createLegendDraft,
+  deleteCreatorLegend as deleteEditorCreatorLegend,
   deleteLegendDraft as deleteEditorLegendDraft,
+  getCreatorLegendCardData as getEditorCreatorLegendCardData,
+  getCreatorLegendStatusKey as getEditorCreatorLegendStatusKey,
   getCreatorLegends as getEditorCreatorLegends,
+  getLegendCardActions as getEditorLegendCardActions,
+  getLegendDeleteConfirmation as getEditorLegendDeleteConfirmation,
+  getLegendDisplayStatus as getEditorLegendDisplayStatus,
+  getLegendFeedback as getEditorLegendFeedback,
   getMyLegends as getEditorMyLegends,
 } from './creatorLegendService.js';
 
@@ -72,6 +81,42 @@ export async function createLegend(payload) {
 
 export async function deleteLegendDraft(legendId) {
   return deleteEditorLegendDraft(legendId);
+}
+
+export async function deleteCreatorLegend(legendId, options = {}) {
+  return deleteEditorCreatorLegend(legendId, options);
+}
+
+export function getCreatorLegendStatusKey(legendOrStatus) {
+  return getEditorCreatorLegendStatusKey(legendOrStatus);
+}
+
+export function canDeleteCreatorLegend(legendOrStatus) {
+  return canDeleteEditorCreatorLegend(legendOrStatus);
+}
+
+export function canEditCreatorLegend(legendOrStatus) {
+  return canEditEditorCreatorLegend(legendOrStatus);
+}
+
+export function getLegendDisplayStatus(legendOrStatus) {
+  return getEditorLegendDisplayStatus(legendOrStatus);
+}
+
+export function getLegendFeedback(legend) {
+  return getEditorLegendFeedback(legend);
+}
+
+export function getLegendCardActions(legend, options = {}) {
+  return getEditorLegendCardActions(legend, options);
+}
+
+export function getLegendDeleteConfirmation(legend) {
+  return getEditorLegendDeleteConfirmation(legend);
+}
+
+export function getCreatorLegendCardData(legend, options = {}) {
+  return getEditorCreatorLegendCardData(legend, options);
 }
 
 export async function updateLegend(legendId, payload) {

@@ -5,14 +5,19 @@ import Card from '../../components/ui/Card.jsx';
 import { DraftIcon, PublishedIcon, ReviewIcon } from '../../components/ui/CreatorIcons.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
 import { useProfile } from '../../hooks/useProfile.js';
-import { getCreatorLegends, getMyCreatorProfile } from '../../services/creatorService.js';
+import {
+  getCreatorLegendCardData,
+  getCreatorLegendStatusKey,
+  getCreatorLegends,
+  getMyCreatorProfile,
+} from '../../services/creatorService.js';
 
 function getDisplayName(profile, creatorProfile) {
   return creatorProfile?.pen_name || profile?.full_name || profile?.name || 'creador';
 }
 
 function countByStatus(legends, statuses) {
-  return legends.filter((legend) => statuses.includes(legend.status || 'draft')).length;
+  return legends.filter((legend) => statuses.includes(getCreatorLegendStatusKey(legend))).length;
 }
 
 function CreatorDashboardPage() {
@@ -104,8 +109,8 @@ function CreatorDashboardPage() {
             <CreatorLegendCard
               key={legend.id}
               legend={legend}
+              {...getCreatorLegendCardData(legend, { allowDelete: false })}
               onEdit={openEditor}
-              showDeleteDraft={false}
             />
           ))}
         </div>

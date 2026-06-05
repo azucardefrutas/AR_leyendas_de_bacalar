@@ -4,17 +4,13 @@ import CreatorLegendCard from '../../components/creator/CreatorLegendCard.jsx';
 import Card from '../../components/ui/Card.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
-import { deleteLegendDraft, getCreatorLegends } from '../../services/creatorService.js';
-
-const DELETE_DRAFT_CONFIRMATION = 'Seguro que quieres eliminar este borrador? Se eliminara la leyenda y su contenido asociado. Esta accion no se puede deshacer.';
-
-function getStatusKey(legend) {
-  return String(legend?.status || 'draft').toLowerCase();
-}
-
-function isDraftLegend(legend) {
-  return ['draft', 'borrador'].includes(getStatusKey(legend));
-}
+import {
+  canDeleteCreatorLegend,
+  deleteCreatorLegend,
+  getCreatorLegendCardData,
+  getCreatorLegendStatusKey,
+  getLegendDeleteConfirmation,
+} from '../../services/creatorService.js';
 
 function CreatorLegendsPage() {
   const location = useLocation();
@@ -42,7 +38,7 @@ function CreatorLegendsPage() {
 
   const statusFilter = location.pathname === '/creator/drafts' ? 'draft' : searchParams.get('status');
   const visibleLegends = statusFilter
-    ? legends.filter((legend) => getStatusKey(legend) === statusFilter)
+    ? legends.filter((legend) => getCreatorLegendStatusKey(legend) === statusFilter)
     : legends;
   const isDraftsView = statusFilter === 'draft';
 
@@ -54,8 +50,9 @@ function CreatorLegendsPage() {
     navigate(`/creator/legends/${legend.id}/edit`);
   }
 
-  async function handleDeleteDraft(legend) {
-    if (!isDraftLegend(legend)) {
+  async function handleDeleteLegend(legend) {
+    const statusKey = getCreatorLegendStatusKey(legend);
+    if (!canDeleteCreatorLegend(statusKey)) {
       setDeleteErrors((current) => ({
         ...current,
         [legend.id]: 'Esta obra ya no puede eliminarse porque fue enviada a revision o esta protegida.',
@@ -63,23 +60,26 @@ function CreatorLegendsPage() {
       return;
     }
 
-    const confirmed = window.confirm(DELETE_DRAFT_CONFIRMATION);
+    const confirmed = window.confirm(getLegendDeleteConfirmation(legend));
     if (!confirmed) return;
 
     setDeletingId(legend.id);
     setDeleteErrors((current) => ({ ...current, [legend.id]: '' }));
     setMessage(null);
 
-    const { error: deleteError } = await deleteLegendDraft(legend.id);
+    const { error: deleteError } = await deleteCreatorLegend(legend.id, { status: statusKey });
 
     setDeletingId(null);
 
     if (deleteError) {
       if (import.meta.env.DEV) {
         console.error('[CreatorLegends] Error real:', {
-          operation: 'deleteLegendDraft',
-          table: 'rpc/delete_legend_draft',
+          operation: 'deleteCreatorLegend',
+          table: statusKey === 'draft' || statusKey === 'borrador'
+            ? 'rpc/delete_legend_draft'
+            : 'rpc/delete_creator_legend',
           legendId: legend.id,
+          status: statusKey,
           error: deleteError.supabaseError || deleteError,
         });
       }
@@ -96,7 +96,9 @@ function CreatorLegendsPage() {
       delete nextErrors[legend.id];
       return nextErrors;
     });
-    setMessage('Borrador eliminado correctamente.');
+    setMessage(statusKey === 'draft' || statusKey === 'borrador'
+      ? 'Borrador eliminado correctamente.'
+      : 'Historia eliminada correctamente.');
   }
 
   return (
@@ -126,8 +128,9 @@ function CreatorLegendsPage() {
             <CreatorLegendCard
               key={legend.id}
               legend={legend}
+              {...getCreatorLegendCardData(legend, { allowDelete: true })}
               onEdit={openEditor}
-              onDeleteDraft={handleDeleteDraft}
+              onDelete={handleDeleteLegend}
               deleting={deletingId === legend.id}
               deleteError={deleteErrors[legend.id]}
             />

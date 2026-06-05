@@ -3,7 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import CreatorLegendCard from '../../components/creator/CreatorLegendCard.jsx';
 import Card from '../../components/ui/Card.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
-import { getCreatorLegends } from '../../services/creatorService.js';
+import {
+  getCreatorLegendCardData,
+  getCreatorLegendStatusKey,
+  getCreatorLegends,
+} from '../../services/creatorService.js';
 
 const REVIEW_STATUSES = ['in_review', 'review', 'pending_review', 'submitted', 'changes_requested', 'rejected', 'approved', 'published'];
 
@@ -16,7 +20,7 @@ function CreatorReviewsPage() {
   useEffect(() => {
     async function loadReviews() {
       const { data, error: reviewsError } = await getCreatorLegends();
-      setLegends((data ?? []).filter((legend) => REVIEW_STATUSES.includes(legend.status)));
+      setLegends((data ?? []).filter((legend) => REVIEW_STATUSES.includes(getCreatorLegendStatusKey(legend))));
       setError(reviewsError);
       setLoading(false);
     }
@@ -56,8 +60,8 @@ function CreatorReviewsPage() {
             <CreatorLegendCard
               key={legend.id}
               legend={legend}
+              {...getCreatorLegendCardData(legend, { allowDelete: false })}
               onEdit={openEditor}
-              showDeleteDraft={false}
             />
           ))}
         </div>

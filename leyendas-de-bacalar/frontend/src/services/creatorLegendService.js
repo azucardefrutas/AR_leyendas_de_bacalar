@@ -8,6 +8,7 @@ import { getLegendResources, STORAGE_BUCKETS } from './assetService.js';
 const ACCESS_TYPES = ['free', 'paid', 'subscription', 'code_required', 'mixed'];
 const EDITABLE_VERSION_STATUSES = ['draft', 'rejected'];
 const DELETE_DRAFT_GENERIC_MESSAGE = 'No pudimos eliminar el borrador. Revisa si ya fue enviado a revision o si tiene relaciones protegidas.';
+const DELETE_CREATOR_LEGEND_GENERIC_MESSAGE = 'No pudimos eliminar la historia. Revisa si esta en revision, aprobada, publicada o tiene relaciones protegidas.';
 const SHORT_SYNOPSIS_LENGTH = 220;
 const MEDIA_TYPES = {
   cover: ['cover', 'portada'],
@@ -15,6 +16,28 @@ const MEDIA_TYPES = {
   backdrop: ['backdrop', 'background', 'fondo'],
 };
 const IMAGE_ASSET_TYPES = ['cover', 'portada', 'banner', 'hero', 'backdrop', 'background', 'fondo', 'image', 'imagen'];
+const CREATOR_LEGEND_STATUS_LABELS = {
+  draft: 'Borrador',
+  borrador: 'Borrador',
+  in_review: 'En revision',
+  review: 'En revision',
+  pending_review: 'En revision',
+  submitted: 'En revision',
+  changes_requested: 'Cambios solicitados',
+  rejected: 'Requiere cambios',
+  approved: 'Aprobada',
+  published: 'Publicada',
+};
+const CREATOR_ACCESS_LABELS = {
+  free: 'Gratis',
+  paid: 'Compra',
+  subscription: 'Suscripcion',
+  code_required: 'Codigo fisico',
+  mixed: 'Mixto',
+};
+const CREATOR_EDITABLE_STATUSES = ['draft', 'borrador', 'changes_requested', 'rejected'];
+const CREATOR_DELETABLE_STATUSES = ['draft', 'borrador', 'changes_requested', 'rejected'];
+const CREATOR_DRAFT_STATUSES = ['draft', 'borrador'];
 
 function getClient() {
   if (!supabase) return { data: null, error: getSupabaseConfigError() };
@@ -39,7 +62,7 @@ function debugEditor(label, value) {
 
 function logDeleteSupabaseError(operation, error, context = {}) {
   if (isDev()) {
-    console.error('[deleteLegendDraft] Error real:', {
+    console.error('[CreatorLegendDelete] Error real:', {
       step: operation,
       operation,
       ...context,
@@ -59,6 +82,163 @@ function createDeleteDraftError({
   deleteError.table = table;
   deleteError.supabaseError = error;
   return deleteError;
+}
+
+function createDeleteCreatorLegendError({
+  message = DELETE_CREATOR_LEGEND_GENERIC_MESSAGE,
+  operation = 'deleteCreatorLegend',
+  table = null,
+  error = null,
+} = {}) {
+  const deleteError = friendlyLegendError(message);
+  deleteError.operation = operation;
+  deleteError.table = table;
+  deleteError.supabaseError = error;
+  return deleteError;
+}
+
+function formatCreatorDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat('es-MX', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(date);
+}
+
+function getActionStatusLabel(statusKey) {
+  return CREATOR_LEGEND_STATUS_LABELS[statusKey] || statusKey.replace(/_/g, ' ');
+}
+
+export function getCreatorLegendStatusKey(legendOrStatus) {
+  const rawStatus = typeof legendOrStatus === 'string'
+    ? legendOrStatus
+    : legendOrStatus?.status;
+  return String(rawStatus || 'draft').toLowerCase();
+}
+
+export function isDraftCreatorLegend(legendOrStatus) {
+  return CREATOR_DRAFT_STATUSES.includes(getCreatorLegendStatusKey(legendOrStatus));
+}
+
+export function canDeleteCreatorLegend(legendOrStatus) {
+  return CREATOR_DELETABLE_STATUSES.includes(getCreatorLegendStatusKey(legendOrStatus));
+}
+
+export function canEditCreatorLegend(legendOrStatus) {
+  return CREATOR_EDITABLE_STATUSES.includes(getCreatorLegendStatusKey(legendOrStatus));
+}
+
+export function getLegendDisplayStatus(legendOrStatus) {
+  const statusKey = getCreatorLegendStatusKey(legendOrStatus);
+  return {
+    key: statusKey,
+    label: getActionStatusLabel(statusKey),
+  };
+}
+
+export function getLegendFeedback(legend = {}) {
+  const statusKey = getCreatorLegendStatusKey(legend);
+  const feedback = normalizeText(
+    legend.reviewFeedback
+    || legend.latestReview?.feedback
+    || legend.currentVersion?.review_notes
+    || '',
+  );
+
+  if (feedback) return feedback;
+  if (statusKey === 'changes_requested') return 'El administrador solicito cambios antes de volver a revision.';
+  if (statusKey === 'rejected') return 'Requiere ajustes antes de volver a revision.';
+  return '';
+}
+
+export function getLegendDeleteConfirmation(legend = {}) {
+  const statusKey = getCreatorLegendStatusKey(legend);
+  if (statusKey === 'changes_requested') {
+    return 'Seguro que quieres eliminar esta historia devuelta con cambios? Se eliminara la obra y su contenido asociado. Esta accion no se puede deshacer.';
+  }
+  if (statusKey === 'rejected') {
+    return 'Seguro que quieres eliminar esta historia rechazada? Se eliminara la obra y su contenido asociado. Esta accion no se puede deshacer.';
+  }
+  return 'Seguro que quieres eliminar este borrador? Esta accion no se puede deshacer.';
+}
+
+export function getLegendAccessLabel(legend = {}) {
+  const accessType = String(legend.access_type || '').toLowerCase();
+  return CREATOR_ACCESS_LABELS[accessType] || null;
+}
+
+export function getLegendCoverUrl(legend = {}) {
+  return legend.coverUrl || legend.cover_url || legend.bannerUrl || legend.backdropUrl || '';
+}
+
+export function getLegendGenreNames(legend = {}) {
+  return (legend.genres ?? [])
+    .map((genre) => (typeof genre === 'string' ? genre : genre?.name))
+    .filter(Boolean)
+    .slice(0, 3);
+}
+
+export function getLegendCardActions(legend = {}, { allowDelete = true } = {}) {
+  const statusKey = getCreatorLegendStatusKey(legend);
+  const actions = [];
+
+  if (statusKey === 'published' && legend.slug) {
+    actions.push({
+      key: 'view',
+      type: 'link',
+      label: 'Ver',
+      to: `/legend/${legend.slug}`,
+      variant: 'ghost',
+    });
+  }
+
+  if (canEditCreatorLegend(statusKey)) {
+    actions.push({
+      key: 'edit',
+      type: 'edit',
+      label: statusKey === 'rejected' || statusKey === 'changes_requested' ? 'Editar correcciones' : 'Editar',
+      variant: 'ghost',
+    });
+  } else if (statusKey !== 'published' || !legend.slug) {
+    actions.push({
+      key: 'status',
+      type: 'link',
+      label: statusKey === 'approved' ? 'Lista para publicacion' : 'Ver estado',
+      to: '/creator/reviews',
+      variant: 'ghost',
+    });
+  }
+
+  if (allowDelete && canDeleteCreatorLegend(statusKey)) {
+    actions.push({
+      key: 'delete',
+      type: 'delete',
+      label: isDraftCreatorLegend(statusKey) ? 'Eliminar borrador' : 'Eliminar historia',
+      loadingLabel: 'Eliminando...',
+      variant: 'ghost',
+      danger: true,
+    });
+  }
+
+  return actions;
+}
+
+export function getCreatorLegendCardData(legend = {}, options = {}) {
+  const status = getLegendDisplayStatus(legend);
+  const updatedDate = formatCreatorDate(legend.updated_at || legend.created_at);
+  return {
+    statusKey: status.key,
+    statusLabel: status.label,
+    accessLabel: getLegendAccessLabel(legend),
+    coverUrl: getLegendCoverUrl(legend),
+    genres: getLegendGenreNames(legend),
+    updatedLabel: updatedDate ? `Actualizada ${updatedDate}` : '',
+    feedback: getLegendFeedback(legend),
+    actions: getLegendCardActions(legend, options),
+  };
 }
 
 function isLegendOwnedByCreator(legend, creatorCandidates = []) {
@@ -1110,6 +1290,79 @@ export async function deleteLegendDraft(legendId) {
     return {
       data: null,
       error: createDeleteDraftError({ operation: 'deleteLegendDraft', error }),
+    };
+  }
+}
+
+export async function deleteCreatorLegend(legendId, { status = null } = {}) {
+  if (isInvalidId(legendId)) {
+    return {
+      data: null,
+      error: createDeleteCreatorLegendError({ message: 'No pudimos eliminar la historia porque falta el ID de la leyenda.' }),
+    };
+  }
+
+  const statusKey = getCreatorLegendStatusKey(status || 'draft');
+  if (!canDeleteCreatorLegend(statusKey)) {
+    return {
+      data: null,
+      error: createDeleteCreatorLegendError({
+        message: 'Esta historia no puede eliminarse desde creador por su estado actual.',
+        operation: 'validate status',
+      }),
+    };
+  }
+
+  if (isDraftCreatorLegend(statusKey)) return deleteLegendDraft(legendId);
+
+  const { data: client, error: clientError } = getClient();
+  if (clientError) return { data: null, error: clientError };
+
+  try {
+    const { data, error } = await client.rpc('delete_creator_legend', {
+      p_legend_id: legendId,
+    });
+
+    if (error) {
+      logDeleteSupabaseError('rpc delete_creator_legend', error, {
+        table: 'rpc/delete_creator_legend',
+        legendId,
+        status: statusKey,
+      });
+      return {
+        data: null,
+        error: createDeleteCreatorLegendError({
+          message: error.message || DELETE_CREATOR_LEGEND_GENERIC_MESSAGE,
+          operation: 'rpc',
+          table: 'delete_creator_legend',
+          error,
+        }),
+      };
+    }
+
+    if (data?.success !== true) {
+      const rpcError = createDeleteCreatorLegendError({
+        operation: 'rpc',
+        table: 'delete_creator_legend',
+      });
+      logDeleteSupabaseError('rpc delete_creator_legend returned without success', rpcError, {
+        table: 'rpc/delete_creator_legend',
+        legendId,
+        status: statusKey,
+        data,
+      });
+      return { data: null, error: rpcError };
+    }
+
+    return { data, error: null };
+  } catch (error) {
+    logDeleteSupabaseError('deleteCreatorLegend unexpected error', error, {
+      legendId,
+      status: statusKey,
+    });
+    return {
+      data: null,
+      error: createDeleteCreatorLegendError({ operation: 'deleteCreatorLegend', error }),
     };
   }
 }

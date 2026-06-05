@@ -2336,26 +2336,30 @@ pre {
 
 .creator-editorial-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 22px;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 300px));
+  justify-content: start;
+  gap: 24px;
   align-items: stretch;
 }
 
 .creator-editorial-card {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
   min-width: 0;
   min-height: 0;
   height: 100%;
-  padding: 16px;
+  padding: 12px;
 }
 
 .creator-legend-card {
-  min-height: 340px;
+  width: 100%;
+  max-width: 300px;
+  min-height: 390px;
   overflow: hidden;
   border-color: #d8e4ef;
-  box-shadow: 0 14px 34px rgba(21, 38, 89, 0.08);
+  border-radius: 22px;
+  box-shadow: 0 16px 34px rgba(21, 38, 89, 0.1);
   transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
 }
 
@@ -2366,12 +2370,12 @@ pre {
 }
 
 .creator-legend-cover {
-  height: 176px;
+  height: 172px;
   display: grid;
   place-items: center;
   overflow: hidden;
   border: 1px solid #dbe4ef;
-  border-radius: 14px;
+  border-radius: 18px;
   color: #049dd9;
   background:
     linear-gradient(135deg, rgba(4, 157, 217, 0.08), rgba(48, 207, 242, 0.14)),
@@ -2405,7 +2409,7 @@ pre {
 
 .creator-editorial-card-main {
   display: grid;
-  gap: 10px;
+  gap: 9px;
   min-width: 0;
 }
 
@@ -2468,9 +2472,25 @@ pre {
   font-weight: 900;
 }
 
-.creator-status-pill.status-rejected {
+.creator-status-pill.status-draft,
+.creator-status-pill.status-borrador {
+  color: #155e75;
+  background: #cffafe;
+}
+
+.creator-status-pill.status-changes_requested {
   color: #92400e;
   background: #fef3c7;
+}
+
+.creator-status-pill.status-rejected {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.creator-status-pill.status-approved {
+  color: #854d0e;
+  background: #fef9c3;
 }
 
 .creator-status-pill.status-published {
@@ -2522,6 +2542,21 @@ pre {
   margin: 0;
   font-size: 0.86rem;
   line-height: 1.35;
+  color: #475569;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+@media (max-width: 720px) {
+  .creator-editorial-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .creator-legend-card {
+    max-width: none;
+  }
 }
 
 .creator-empty-card {
