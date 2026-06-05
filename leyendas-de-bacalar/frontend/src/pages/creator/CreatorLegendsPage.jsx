@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import CreatorLegendCard from '../../components/creator/CreatorLegendCard.jsx';
+import CreatorLegendCardSkeleton from '../../components/creator/CreatorLegendCardSkeleton.jsx';
 import Card from '../../components/ui/Card.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
-import LoadingState from '../../components/ui/LoadingState.jsx';
 import {
   canDeleteCreatorLegend,
   deleteCreatorLegend,
@@ -24,17 +24,34 @@ function CreatorLegendsPage() {
   const [message, setMessage] = useState(null);
 
   useEffect(() => {
+    let isMounted = true;
     async function loadLegends() {
-      const { data, error: legendsError } = await getCreatorLegends();
-      setLegends(data ?? []);
-      setError(legendsError);
-      setLoading(false);
+      if (import.meta.env.DEV) console.time('[CreatorModule] load');
+      try {
+        const { data, error: legendsError } = await getCreatorLegends();
+        if (!isMounted) return;
+        setLegends(data ?? []);
+        setError(legendsError);
+      } catch (loadError) {
+        if (isMounted) setError(loadError);
+        if (import.meta.env.DEV) {
+          console.error('[CreatorModule] Error real:', {
+            operation: 'loadCreatorLegendsPage',
+            table: 'legends',
+            error: loadError,
+          });
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+        if (import.meta.env.DEV) console.timeEnd('[CreatorModule] load');
+      }
     }
 
     loadLegends();
+    return () => {
+      isMounted = false;
+    };
   }, []);
-
-  if (loading) return <LoadingState message="Cargando tus leyendas..." />;
 
   const statusFilter = location.pathname === '/creator/drafts' ? 'draft' : searchParams.get('status');
   const visibleLegends = statusFilter
@@ -114,7 +131,9 @@ function CreatorLegendsPage() {
       {error && <p className="error-message">{error.message}</p>}
       {message && <p className="success-message">{message}</p>}
 
-      {visibleLegends.length === 0 ? (
+      {loading ? (
+        <CreatorLegendCardSkeleton count={6} />
+      ) : visibleLegends.length === 0 ? (
         <Card className="creator-empty-card">
           <EmptyState
             title={isDraftsView ? 'No hay borradores' : 'Aun no has creado leyendas'}

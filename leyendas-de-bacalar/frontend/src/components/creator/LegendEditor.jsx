@@ -7,6 +7,7 @@ import {
   canEditVersion,
   deleteLegendPage,
   getAvailableGenres,
+  getLegendDisplayStatus,
   getLegendEditorData,
   saveLegendPages,
   submitLegendForReview,
@@ -119,17 +120,6 @@ function getInitialDeclarations() {
 
 function MaterialIcon({ name }) {
   return <span className="material-symbols-rounded creator-editor-icon" aria-hidden="true">{name}</span>;
-}
-
-function statusLabel(status) {
-  const labels = {
-    draft: 'Borrador',
-    in_review: 'En revision',
-    approved: 'Aprobada',
-    rejected: 'Rechazada',
-    published: 'Publicada',
-  };
-  return labels[status] || status || 'Borrador';
 }
 
 function getResourceAsset(resource = {}) {
@@ -247,12 +237,27 @@ function LegendEditor({ legendId }) {
   async function loadEditor() {
     setLoading(true);
     setGenresLoading(true);
-    const [{ data, error: editorError }, genresResult] = await Promise.all([
+    const [editorSettled, genresSettled] = await Promise.allSettled([
       getLegendEditorData(legendId),
       getAvailableGenres(),
     ]);
+    const editorResult = editorSettled.status === 'fulfilled'
+      ? editorSettled.value
+      : { data: null, error: editorSettled.reason };
+    const genresResult = genresSettled.status === 'fulfilled'
+      ? genresSettled.value
+      : { data: [], error: genresSettled.reason };
+    const { data, error: editorError } = editorResult;
+
     if (editorError) setError(editorError);
-    if (genresResult.error) console.error('getAvailableGenres error', genresResult.error);
+    if (genresResult.error && import.meta.env.DEV) {
+      console.error('[CreatorModule] Error real:', {
+        operation: 'loadLegendEditorGenres',
+        table: 'genres',
+        legendId,
+        error: genresResult.error,
+      });
+    }
     setAvailableGenres(genresResult.data ?? []);
     setGenresLoading(false);
     if (data) {
@@ -485,7 +490,7 @@ function LegendEditor({ legendId }) {
         <div>
           <p className="creator-kicker">Editor editorial</p>
           <h1>{legend.title}</h1>
-          <p>Version {version.version_number || 1} · {statusLabel(version.status)}</p>
+          <p>Version {version.version_number || 1} · {getLegendDisplayStatus(version.status).label}</p>
         </div>
         <div className="creator-editor-actions">
           <Button variant="ghost" onClick={activeTab === 'content' ? handleSavePages : handleSaveGeneral} disabled={saving || isReviewLocked}>
@@ -513,7 +518,7 @@ function LegendEditor({ legendId }) {
 
       {isReviewLocked && (
         <Card className="creator-editor-alert">
-          <strong>Esta version esta en {statusLabel(version.status)}.</strong>
+          <strong>Esta version esta en {getLegendDisplayStatus(version.status).label}.</strong>
           <span>La edicion queda bloqueada hasta que vuelva a borrador o sea rechazada.</span>
         </Card>
       )}

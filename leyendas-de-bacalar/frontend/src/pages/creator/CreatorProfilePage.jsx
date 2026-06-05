@@ -2,7 +2,11 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Card from '../../components/ui/Card.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
 import { useProfile } from '../../hooks/useProfile.js';
-import { getCreatorLegends, getMyCreatorProfile } from '../../services/creatorService.js';
+import {
+  countCreatorLegendsByStatus,
+  getCreatorLegends,
+  getMyCreatorProfile,
+} from '../../services/creatorService.js';
 
 const STATUS_LABELS = {
   draft: 'Borradores',
@@ -45,10 +49,6 @@ function formatDate(value) {
   }).format(date);
 }
 
-function countByStatus(legends, statuses) {
-  return legends.filter((legend) => statuses.includes(String(legend.status || 'draft').toLowerCase())).length;
-}
-
 function CreatorProfilePage() {
   const { profile, loading: profileLoading, error: profileError } = useProfile();
   const [creatorProfile, setCreatorProfile] = useState(null);
@@ -58,10 +58,24 @@ function CreatorProfilePage() {
 
   useEffect(() => {
     async function loadCreatorProfile() {
-      const [creatorResult, legendsResult] = await Promise.all([
+      const [creatorSettled, legendsSettled] = await Promise.allSettled([
         getMyCreatorProfile(),
         getCreatorLegends(),
       ]);
+      const creatorResult = creatorSettled.status === 'fulfilled'
+        ? creatorSettled.value
+        : { data: null, error: creatorSettled.reason };
+      const legendsResult = legendsSettled.status === 'fulfilled'
+        ? legendsSettled.value
+        : { data: [], error: legendsSettled.reason };
+
+      if (import.meta.env.DEV && (creatorSettled.status === 'rejected' || legendsSettled.status === 'rejected')) {
+        console.error('[CreatorModule] Error real:', {
+          operation: 'loadCreatorProfile',
+          table: 'creator_profiles/legends',
+          error: creatorSettled.reason || legendsSettled.reason,
+        });
+      }
 
       setCreatorProfile(creatorResult.data);
       setLegends(legendsResult.data ?? []);
@@ -74,10 +88,10 @@ function CreatorProfilePage() {
 
   const stats = useMemo(() => ([
     { label: 'Total', value: legends.length },
-    { label: STATUS_LABELS.draft, value: countByStatus(legends, ['draft', 'borrador']) },
-    { label: STATUS_LABELS.in_review, value: countByStatus(legends, ['in_review', 'review', 'pending_review']) },
-    { label: STATUS_LABELS.published, value: countByStatus(legends, ['published']) },
-    { label: STATUS_LABELS.rejected, value: countByStatus(legends, ['rejected']) },
+    { label: STATUS_LABELS.draft, value: countCreatorLegendsByStatus(legends, ['draft', 'borrador']) },
+    { label: STATUS_LABELS.in_review, value: countCreatorLegendsByStatus(legends, ['in_review', 'review', 'pending_review']) },
+    { label: STATUS_LABELS.published, value: countCreatorLegendsByStatus(legends, ['published']) },
+    { label: STATUS_LABELS.rejected, value: countCreatorLegendsByStatus(legends, ['rejected']) },
   ]), [legends]);
 
   if (profileLoading || creatorLoading) {

@@ -4,11 +4,39 @@ import {
   getCreatorIdCandidates,
 } from './creatorAccessService.js';
 import { getLegendResources, STORAGE_BUCKETS } from './assetService.js';
+import {
+  canDeleteCreatorLegend,
+  getCreatorLegendCardData,
+  getCreatorLegendStatusKey,
+  isDraftCreatorLegend,
+} from './creatorLegendState.js';
+
+export {
+  canDeleteCreatorLegend,
+  canEditCreatorLegend,
+  canSubmitLegend,
+  canViewLegend,
+  countCreatorLegendsByStatus,
+  getCreatorLegendCardData,
+  getCreatorLegendDeleteLabel,
+  getCreatorLegendPrimaryAction,
+  getCreatorLegendStatusKey,
+  getLegendAccessLabel,
+  getLegendCardActions,
+  getLegendCoverUrl,
+  getLegendDeleteConfirmation,
+  getLegendDisplayStatus,
+  getLegendFeedback,
+  getLegendGenreNames,
+  getLegendStatusBadge,
+  isDraftCreatorLegend,
+} from './creatorLegendState.js';
 
 const ACCESS_TYPES = ['free', 'paid', 'subscription', 'code_required', 'mixed'];
 const EDITABLE_VERSION_STATUSES = ['draft', 'rejected'];
 const DELETE_DRAFT_GENERIC_MESSAGE = 'No pudimos eliminar el borrador. Revisa si ya fue enviado a revision o si tiene relaciones protegidas.';
 const DELETE_CREATOR_LEGEND_GENERIC_MESSAGE = 'No pudimos eliminar la historia. Revisa si esta en revision, aprobada, publicada o tiene relaciones protegidas.';
+const CREATOR_LEGENDS_DEFAULT_LIMIT = 120;
 const SHORT_SYNOPSIS_LENGTH = 220;
 const MEDIA_TYPES = {
   cover: ['cover', 'portada'],
@@ -16,28 +44,6 @@ const MEDIA_TYPES = {
   backdrop: ['backdrop', 'background', 'fondo'],
 };
 const IMAGE_ASSET_TYPES = ['cover', 'portada', 'banner', 'hero', 'backdrop', 'background', 'fondo', 'image', 'imagen'];
-const CREATOR_LEGEND_STATUS_LABELS = {
-  draft: 'Borrador',
-  borrador: 'Borrador',
-  in_review: 'En revision',
-  review: 'En revision',
-  pending_review: 'En revision',
-  submitted: 'En revision',
-  changes_requested: 'Cambios solicitados',
-  rejected: 'Requiere cambios',
-  approved: 'Aprobada',
-  published: 'Publicada',
-};
-const CREATOR_ACCESS_LABELS = {
-  free: 'Gratis',
-  paid: 'Compra',
-  subscription: 'Suscripcion',
-  code_required: 'Codigo fisico',
-  mixed: 'Mixto',
-};
-const CREATOR_EDITABLE_STATUSES = ['draft', 'borrador', 'changes_requested', 'rejected'];
-const CREATOR_DELETABLE_STATUSES = ['draft', 'borrador', 'changes_requested', 'rejected'];
-const CREATOR_DRAFT_STATUSES = ['draft', 'borrador'];
 
 function getClient() {
   if (!supabase) return { data: null, error: getSupabaseConfigError() };
@@ -58,6 +64,15 @@ function isDev() {
 
 function debugEditor(label, value) {
   if (isDev()) console.log(label, value);
+}
+
+function logCreatorServiceError(operation, context = {}) {
+  if (isDev()) {
+    console.error('[CreatorService] Error real:', {
+      operation,
+      ...context,
+    });
+  }
 }
 
 function logDeleteSupabaseError(operation, error, context = {}) {
@@ -95,150 +110,6 @@ function createDeleteCreatorLegendError({
   deleteError.table = table;
   deleteError.supabaseError = error;
   return deleteError;
-}
-
-function formatCreatorDate(value) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat('es-MX', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(date);
-}
-
-function getActionStatusLabel(statusKey) {
-  return CREATOR_LEGEND_STATUS_LABELS[statusKey] || statusKey.replace(/_/g, ' ');
-}
-
-export function getCreatorLegendStatusKey(legendOrStatus) {
-  const rawStatus = typeof legendOrStatus === 'string'
-    ? legendOrStatus
-    : legendOrStatus?.status;
-  return String(rawStatus || 'draft').toLowerCase();
-}
-
-export function isDraftCreatorLegend(legendOrStatus) {
-  return CREATOR_DRAFT_STATUSES.includes(getCreatorLegendStatusKey(legendOrStatus));
-}
-
-export function canDeleteCreatorLegend(legendOrStatus) {
-  return CREATOR_DELETABLE_STATUSES.includes(getCreatorLegendStatusKey(legendOrStatus));
-}
-
-export function canEditCreatorLegend(legendOrStatus) {
-  return CREATOR_EDITABLE_STATUSES.includes(getCreatorLegendStatusKey(legendOrStatus));
-}
-
-export function getLegendDisplayStatus(legendOrStatus) {
-  const statusKey = getCreatorLegendStatusKey(legendOrStatus);
-  return {
-    key: statusKey,
-    label: getActionStatusLabel(statusKey),
-  };
-}
-
-export function getLegendFeedback(legend = {}) {
-  const statusKey = getCreatorLegendStatusKey(legend);
-  const feedback = normalizeText(
-    legend.reviewFeedback
-    || legend.latestReview?.feedback
-    || legend.currentVersion?.review_notes
-    || '',
-  );
-
-  if (feedback) return feedback;
-  if (statusKey === 'changes_requested') return 'El administrador solicito cambios antes de volver a revision.';
-  if (statusKey === 'rejected') return 'Requiere ajustes antes de volver a revision.';
-  return '';
-}
-
-export function getLegendDeleteConfirmation(legend = {}) {
-  const statusKey = getCreatorLegendStatusKey(legend);
-  if (statusKey === 'changes_requested') {
-    return 'Seguro que quieres eliminar esta historia devuelta con cambios? Se eliminara la obra y su contenido asociado. Esta accion no se puede deshacer.';
-  }
-  if (statusKey === 'rejected') {
-    return 'Seguro que quieres eliminar esta historia rechazada? Se eliminara la obra y su contenido asociado. Esta accion no se puede deshacer.';
-  }
-  return 'Seguro que quieres eliminar este borrador? Esta accion no se puede deshacer.';
-}
-
-export function getLegendAccessLabel(legend = {}) {
-  const accessType = String(legend.access_type || '').toLowerCase();
-  return CREATOR_ACCESS_LABELS[accessType] || null;
-}
-
-export function getLegendCoverUrl(legend = {}) {
-  return legend.coverUrl || legend.cover_url || legend.bannerUrl || legend.backdropUrl || '';
-}
-
-export function getLegendGenreNames(legend = {}) {
-  return (legend.genres ?? [])
-    .map((genre) => (typeof genre === 'string' ? genre : genre?.name))
-    .filter(Boolean)
-    .slice(0, 3);
-}
-
-export function getLegendCardActions(legend = {}, { allowDelete = true } = {}) {
-  const statusKey = getCreatorLegendStatusKey(legend);
-  const actions = [];
-
-  if (statusKey === 'published' && legend.slug) {
-    actions.push({
-      key: 'view',
-      type: 'link',
-      label: 'Ver',
-      to: `/legend/${legend.slug}`,
-      variant: 'ghost',
-    });
-  }
-
-  if (canEditCreatorLegend(statusKey)) {
-    actions.push({
-      key: 'edit',
-      type: 'edit',
-      label: statusKey === 'rejected' || statusKey === 'changes_requested' ? 'Editar correcciones' : 'Editar',
-      variant: 'ghost',
-    });
-  } else if (statusKey !== 'published' || !legend.slug) {
-    actions.push({
-      key: 'status',
-      type: 'link',
-      label: statusKey === 'approved' ? 'Lista para publicacion' : 'Ver estado',
-      to: '/creator/reviews',
-      variant: 'ghost',
-    });
-  }
-
-  if (allowDelete && canDeleteCreatorLegend(statusKey)) {
-    actions.push({
-      key: 'delete',
-      type: 'delete',
-      label: isDraftCreatorLegend(statusKey) ? 'Eliminar borrador' : 'Eliminar historia',
-      loadingLabel: 'Eliminando...',
-      variant: 'ghost',
-      danger: true,
-    });
-  }
-
-  return actions;
-}
-
-export function getCreatorLegendCardData(legend = {}, options = {}) {
-  const status = getLegendDisplayStatus(legend);
-  const updatedDate = formatCreatorDate(legend.updated_at || legend.created_at);
-  return {
-    statusKey: status.key,
-    statusLabel: status.label,
-    accessLabel: getLegendAccessLabel(legend),
-    coverUrl: getLegendCoverUrl(legend),
-    genres: getLegendGenreNames(legend),
-    updatedLabel: updatedDate ? `Actualizada ${updatedDate}` : '',
-    feedback: getLegendFeedback(legend),
-    actions: getLegendCardActions(legend, options),
-  };
 }
 
 function isLegendOwnedByCreator(legend, creatorCandidates = []) {
@@ -374,7 +245,7 @@ function normalizeCreatorLegendListItem(legend, {
   const bannerUrl = (bannerMedia ? getMediaUrl(bannerMedia) : null) || legend.banner_url || null;
   const backdropUrl = (backdropMedia ? getMediaUrl(backdropMedia) : null) || legend.backdrop_url || legend.background_url || bannerUrl || null;
 
-  return {
+  const enrichedLegend = {
     ...normalized,
     status: effectiveStatus,
     legendStatus: normalized.status,
@@ -396,6 +267,18 @@ function normalizeCreatorLegendListItem(legend, {
     backdropUrl,
     pagesCount: pagesCountByLegendId.get(legend.id) || 0,
     shortSynopsis: normalizeText(legend.short_synopsis, legend.short_description || legend.synopsis || legend.description || ''),
+  };
+  const cardData = getCreatorLegendCardData(enrichedLegend);
+
+  return {
+    ...enrichedLegend,
+    feedback: cardData.feedback,
+    canEdit: cardData.canEdit,
+    canDelete: cardData.canDelete,
+    canSubmit: cardData.canSubmit,
+    canView: cardData.canView,
+    primaryActionLabel: cardData.primaryActionLabel,
+    deleteActionLabel: cardData.deleteActionLabel,
   };
 }
 
@@ -1069,14 +952,46 @@ async function getCreatorReviewStateByLegendId(client, legendIds = []) {
   return { reviews: reviewByLegendId, versions: versionByLegendId };
 }
 
+function getSettledCreatorData(result, fallback, context = {}) {
+  if (result.status === 'fulfilled') return result.value;
+  if (isDev()) {
+    console.error('[CreatorLegendService] Error real:', {
+      operation: 'enrichCreatorLegends',
+      ...context,
+      error: result.reason,
+    });
+  }
+  return fallback;
+}
+
 async function enrichCreatorLegends(client, legends = [], creatorProfile = null) {
   const legendIds = legends.map((legend) => legend.id).filter(Boolean);
-  const [genresResult, mediaResult, pagesCountResult, reviewState] = await Promise.all([
+  const [genresSettled, mediaSettled, pagesCountSettled, reviewStateSettled] = await Promise.allSettled([
     getCreatorGenresByLegendId(client, legendIds),
     getCreatorMediaByLegendId(client, legendIds),
     getCreatorPagesCountByLegendId(client, legendIds),
     getCreatorReviewStateByLegendId(client, legendIds),
   ]);
+  const genresResult = getSettledCreatorData(
+    genresSettled,
+    { data: new Map(), error: null },
+    { step: 'load genres', table: 'legend_genres' },
+  );
+  const mediaResult = getSettledCreatorData(
+    mediaSettled,
+    { data: new Map(), error: null },
+    { step: 'load media', table: 'legend_media/assets' },
+  );
+  const pagesCountResult = getSettledCreatorData(
+    pagesCountSettled,
+    { data: new Map(), error: null },
+    { step: 'load page counts', table: 'legend_versions/legend_pages' },
+  );
+  const reviewState = getSettledCreatorData(
+    reviewStateSettled,
+    { reviews: new Map(), versions: new Map() },
+    { step: 'load review state', table: 'legend_versions/content_reviews' },
+  );
 
   return legends.map((legend) => normalizeCreatorLegendListItem(legend, {
     genresByLegendId: genresResult.data,
@@ -1194,7 +1109,7 @@ export async function updateLegendGeneralData(legendId, payload) {
   return updateLegendDraft(legendId, payload);
 }
 
-export async function getCreatorLegends() {
+export async function getCreatorLegends({ limit = CREATOR_LEGENDS_DEFAULT_LIMIT } = {}) {
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: [], error: clientError };
 
@@ -1206,21 +1121,34 @@ export async function getCreatorLegends() {
       return { data: [], error: friendlyLegendError('Tu perfil de creador no se encontro. Vuelve a iniciar sesion o contacta al administrador.') };
     }
 
-    const query = client
+    let query = client
       .from('legends')
       .select('*')
       .order('created_at', { ascending: false });
+    if (Number.isFinite(Number(limit)) && Number(limit) > 0) {
+      query = query.limit(Number(limit));
+    }
     const { data, error } = await withCreatorFilter(query, creatorCandidates);
 
     if (error) {
-      console.error('getCreatorLegends error', error);
+      logCreatorServiceError('getCreatorLegends', {
+        table: 'legends',
+        step: 'select creator legends',
+        limit,
+        error,
+      });
       return { data: [], error: friendlyLegendError('No pudimos cargar tus leyendas.') };
     }
 
     const enrichedLegends = await enrichCreatorLegends(client, data ?? [], accessStatus.creatorProfile);
     return { data: enrichedLegends, error: null };
   } catch (error) {
-    console.error('getCreatorLegends error', error);
+    logCreatorServiceError('getCreatorLegends', {
+      table: 'legends',
+      step: 'unexpected',
+      limit,
+      error,
+    });
     return { data: [], error: friendlyLegendError('No pudimos cargar tus leyendas.') };
   }
 }
@@ -1233,7 +1161,7 @@ export async function getDrafts() {
   const { data, error } = await getMyLegends();
   if (error) return { data: [], error };
   return {
-    data: (data ?? []).filter((legend) => (legend.status || 'draft') === 'draft'),
+    data: (data ?? []).filter((legend) => isDraftCreatorLegend(legend)),
     error: null,
   };
 }

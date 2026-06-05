@@ -2,6 +2,9 @@ import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../ui/Button.jsx';
 import Card from '../ui/Card.jsx';
+import AccessBadge from './AccessBadge.jsx';
+import GenreChips from './GenreChips.jsx';
+import StatusBadge from './StatusBadge.jsx';
 
 function renderAction(action, {
   legend,
@@ -95,8 +98,8 @@ function CreatorLegendCard({
 
       <div className="creator-editorial-card-main">
         <div className="creator-card-topline">
-          <span className={`creator-status-pill status-${statusKey}`}>{statusLabel}</span>
-          {accessLabel && <span className="creator-access-pill">{accessLabel}</span>}
+          <StatusBadge statusKey={statusKey} label={statusLabel} />
+          <AccessBadge label={accessLabel} />
         </div>
 
         <h2 title={legend.title}>{legend.title || 'Leyenda sin titulo'}</h2>
@@ -107,11 +110,7 @@ function CreatorLegendCard({
           {Number(legend.pagesCount || 0) > 0 && <span>{legend.pagesCount} paginas</span>}
         </div>
 
-        {genres.length > 0 && (
-          <div className="creator-card-genres" aria-label="Generos">
-            {genres.map((genre) => <span key={genre}>{genre}</span>)}
-          </div>
-        )}
+        <GenreChips genres={genres} />
 
         {feedback && <p className="creator-card-note">{feedback}</p>}
 

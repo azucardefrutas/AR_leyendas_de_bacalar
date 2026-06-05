@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CreatorLegendCard from '../../components/creator/CreatorLegendCard.jsx';
+import CreatorLegendCardSkeleton from '../../components/creator/CreatorLegendCardSkeleton.jsx';
 import Card from '../../components/ui/Card.jsx';
-import LoadingState from '../../components/ui/LoadingState.jsx';
 import {
   getCreatorLegendCardData,
   getCreatorLegendStatusKey,
@@ -18,14 +18,33 @@ function CreatorReviewsPage() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    let isMounted = true;
     async function loadReviews() {
-      const { data, error: reviewsError } = await getCreatorLegends();
-      setLegends((data ?? []).filter((legend) => REVIEW_STATUSES.includes(getCreatorLegendStatusKey(legend))));
-      setError(reviewsError);
-      setLoading(false);
+      if (import.meta.env.DEV) console.time('[CreatorModule] load');
+      try {
+        const { data, error: reviewsError } = await getCreatorLegends();
+        if (!isMounted) return;
+        setLegends((data ?? []).filter((legend) => REVIEW_STATUSES.includes(getCreatorLegendStatusKey(legend))));
+        setError(reviewsError);
+      } catch (loadError) {
+        if (isMounted) setError(loadError);
+        if (import.meta.env.DEV) {
+          console.error('[CreatorModule] Error real:', {
+            operation: 'loadCreatorReviews',
+            table: 'legends/content_reviews',
+            error: loadError,
+          });
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+        if (import.meta.env.DEV) console.timeEnd('[CreatorModule] load');
+      }
     }
 
     loadReviews();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   function openEditor(legend) {
@@ -35,8 +54,6 @@ function CreatorReviewsPage() {
     }
     navigate(`/creator/legends/${legend.id}/edit`);
   }
-
-  if (loading) return <LoadingState message="Cargando revisiones..." />;
 
   return (
     <section className="page-stack creator-panel">
@@ -49,7 +66,9 @@ function CreatorReviewsPage() {
 
       {error && <p className="error-message">{error.message}</p>}
 
-      {legends.length === 0 ? (
+      {loading ? (
+        <CreatorLegendCardSkeleton count={4} />
+      ) : legends.length === 0 ? (
         <Card className="creator-empty-card">
           <h2>Sin revisiones activas</h2>
           <p>Cuando envies una leyenda a revision, su estado y feedback apareceran aqui.</p>

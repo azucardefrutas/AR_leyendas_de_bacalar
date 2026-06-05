@@ -1,23 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import CreatorLegendCard from '../../components/creator/CreatorLegendCard.jsx';
+import CreatorLegendCardSkeleton from '../../components/creator/CreatorLegendCardSkeleton.jsx';
 import Card from '../../components/ui/Card.jsx';
 import { DraftIcon, PublishedIcon, ReviewIcon } from '../../components/ui/CreatorIcons.jsx';
-import LoadingState from '../../components/ui/LoadingState.jsx';
 import { useProfile } from '../../hooks/useProfile.js';
 import {
+  countCreatorLegendsByStatus,
   getCreatorLegendCardData,
-  getCreatorLegendStatusKey,
   getCreatorLegends,
   getMyCreatorProfile,
 } from '../../services/creatorService.js';
 
 function getDisplayName(profile, creatorProfile) {
   return creatorProfile?.pen_name || profile?.full_name || profile?.name || 'creador';
-}
-
-function countByStatus(legends, statuses) {
-  return legends.filter((legend) => statuses.includes(getCreatorLegendStatusKey(legend))).length;
 }
 
 function CreatorDashboardPage() {
@@ -29,26 +25,43 @@ function CreatorDashboardPage() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
+    let isMounted = true;
     async function loadDashboard() {
-      const [creatorResult, legendsResult] = await Promise.all([
-        getMyCreatorProfile(),
-        getCreatorLegends(),
-      ]);
+      if (import.meta.env.DEV) console.time('[CreatorModule] load');
+      try {
+        const [creatorResult, legendsResult] = await Promise.all([
+          getMyCreatorProfile(),
+          getCreatorLegends(),
+        ]);
 
-      setCreatorProfile(creatorResult.data);
-      setLegends(legendsResult.data ?? []);
-      setError(creatorResult.error || legendsResult.error);
-      setLoading(false);
+        if (!isMounted) return;
+        setCreatorProfile(creatorResult.data);
+        setLegends(legendsResult.data ?? []);
+        setError(creatorResult.error || legendsResult.error);
+      } catch (loadError) {
+        if (isMounted) setError(loadError);
+        if (import.meta.env.DEV) {
+          console.error('[CreatorModule] Error real:', {
+            operation: 'loadCreatorDashboard',
+            table: 'creator_profiles/legends',
+            error: loadError,
+          });
+        }
+      } finally {
+        if (isMounted) setLoading(false);
+        if (import.meta.env.DEV) console.timeEnd('[CreatorModule] load');
+      }
     }
 
     loadDashboard();
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  if (loading) return <LoadingState message="Cargando panel de creador..." />;
-
-  const publishedCount = countByStatus(legends, ['published']);
-  const reviewCount = countByStatus(legends, ['in_review', 'review', 'pending_review', 'submitted', 'changes_requested', 'rejected']);
-  const draftCount = countByStatus(legends, ['draft', 'borrador']);
+  const publishedCount = countCreatorLegendsByStatus(legends, ['published']);
+  const reviewCount = countCreatorLegendsByStatus(legends, ['in_review', 'review', 'pending_review', 'submitted', 'changes_requested', 'rejected']);
+  const draftCount = countCreatorLegendsByStatus(legends, ['draft', 'borrador']);
 
   function openEditor(legend) {
     if (!legend?.id) {
@@ -98,11 +111,15 @@ function CreatorDashboardPage() {
       </div>
 
       {legends.length === 0 ? (
+        loading ? (
+          <CreatorLegendCardSkeleton count={3} />
+        ) : (
         <Card className="creator-empty-card">
           <h2>Aun no has creado leyendas</h2>
           <p>Crea tu primera obra para iniciar el flujo editorial.</p>
           <Link to="/creator/legends/new" className="btn btn-primary">Crear primera leyenda</Link>
         </Card>
+        )
       ) : (
         <div className="creator-editorial-grid">
           {legends.slice(0, 6).map((legend) => (

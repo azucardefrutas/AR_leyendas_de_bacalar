@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import StatusBadge from '../../components/creator/StatusBadge.jsx';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
-import { getMyLegends } from '../../services/creatorService.js';
+import { getLegendStatusBadge, getMyLegends } from '../../services/creatorService.js';
 import { getLegendResources } from '../../services/assetService.js';
 
 function UploadAssetsPage() {
@@ -75,14 +76,17 @@ function UploadAssetsPage() {
       {error && <p className="error-message">{error.message}</p>}
 
       <div className="creator-editorial-grid">
-        {legends.map((legend) => (
-          <Card key={legend.id} className="creator-editorial-card">
-            <span className="creator-status-pill">{legend.status || 'draft'}</span>
-            <h2>{legend.title}</h2>
-            <p>{legend.short_synopsis || 'Sin sinopsis breve.'}</p>
-            <Link to={`/creator/legends/${legend.id}/edit`}><Button variant="ghost">Administrar recursos</Button></Link>
-          </Card>
-        ))}
+        {legends.map((legend) => {
+          const statusBadge = getLegendStatusBadge(legend);
+          return (
+            <Card key={legend.id} className="creator-editorial-card">
+              <StatusBadge statusKey={statusBadge.key} label={statusBadge.label} />
+              <h2>{legend.title}</h2>
+              <p>{legend.short_synopsis || 'Sin sinopsis breve.'}</p>
+              <Link to={`/creator/legends/${legend.id}/edit`}><Button variant="ghost">Administrar recursos</Button></Link>
+            </Card>
+          );
+        })}
       </div>
 
       {!legends.length && (

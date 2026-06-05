@@ -8,16 +8,22 @@ import {
 import {
   canDeleteCreatorLegend as canDeleteEditorCreatorLegend,
   canEditCreatorLegend as canEditEditorCreatorLegend,
+  canSubmitLegend as canSubmitEditorLegend,
+  canViewLegend as canViewEditorLegend,
+  countCreatorLegendsByStatus as countEditorCreatorLegendsByStatus,
   createLegendDraft,
   deleteCreatorLegend as deleteEditorCreatorLegend,
   deleteLegendDraft as deleteEditorLegendDraft,
   getCreatorLegendCardData as getEditorCreatorLegendCardData,
+  getCreatorLegendDeleteLabel as getEditorCreatorLegendDeleteLabel,
+  getCreatorLegendPrimaryAction as getEditorCreatorLegendPrimaryAction,
   getCreatorLegendStatusKey as getEditorCreatorLegendStatusKey,
   getCreatorLegends as getEditorCreatorLegends,
   getLegendCardActions as getEditorLegendCardActions,
   getLegendDeleteConfirmation as getEditorLegendDeleteConfirmation,
   getLegendDisplayStatus as getEditorLegendDisplayStatus,
   getLegendFeedback as getEditorLegendFeedback,
+  getLegendStatusBadge as getEditorLegendStatusBadge,
   getMyLegends as getEditorMyLegends,
 } from './creatorLegendService.js';
 
@@ -99,8 +105,20 @@ export function canEditCreatorLegend(legendOrStatus) {
   return canEditEditorCreatorLegend(legendOrStatus);
 }
 
+export function canSubmitLegend(legendOrStatus) {
+  return canSubmitEditorLegend(legendOrStatus);
+}
+
+export function canViewLegend(legendOrStatus) {
+  return canViewEditorLegend(legendOrStatus);
+}
+
 export function getLegendDisplayStatus(legendOrStatus) {
   return getEditorLegendDisplayStatus(legendOrStatus);
+}
+
+export function getLegendStatusBadge(legendOrStatus) {
+  return getEditorLegendStatusBadge(legendOrStatus);
 }
 
 export function getLegendFeedback(legend) {
@@ -111,12 +129,24 @@ export function getLegendCardActions(legend, options = {}) {
   return getEditorLegendCardActions(legend, options);
 }
 
+export function getCreatorLegendPrimaryAction(legend) {
+  return getEditorCreatorLegendPrimaryAction(legend);
+}
+
+export function getCreatorLegendDeleteLabel(legendOrStatus) {
+  return getEditorCreatorLegendDeleteLabel(legendOrStatus);
+}
+
 export function getLegendDeleteConfirmation(legend) {
   return getEditorLegendDeleteConfirmation(legend);
 }
 
 export function getCreatorLegendCardData(legend, options = {}) {
   return getEditorCreatorLegendCardData(legend, options);
+}
+
+export function countCreatorLegendsByStatus(legends, statuses) {
+  return countEditorCreatorLegendsByStatus(legends, statuses);
 }
 
 export async function updateLegend(legendId, payload) {
