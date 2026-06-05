@@ -75,10 +75,29 @@ function logCreatorServiceError(operation, context = {}) {
   }
 }
 
+function logCreateLegendDraftError(step, context = {}) {
+  if (isDev()) {
+    console.error('[createLegendDraft] Error real:', {
+      step,
+      ...context,
+    });
+  }
+}
+
 function logDeleteSupabaseError(operation, error, context = {}) {
   if (isDev()) {
     console.error('[CreatorLegendDelete] Error real:', {
       step: operation,
+      operation,
+      ...context,
+      error,
+    });
+  }
+}
+
+function logDeleteCreatorLegendError(operation, error, context = {}) {
+  if (isDev()) {
+    console.error('[deleteCreatorLegend] Error real:', {
       operation,
       ...context,
       error,
@@ -210,7 +229,6 @@ function normalizeGenresFromRows(rows = []) {
     .map((genre) => ({
       id: genre.id || genre.name,
       name: genre.name || 'Genero',
-      slug: genre.slug || null,
     }));
 }
 
@@ -332,15 +350,6 @@ export function normalizeGenreName(name = '') {
     .replace(/(^|\s|-)([a-záéíóúñü])/g, (match) => match.toUpperCase());
 }
 
-function slugifyGenreName(name = '') {
-  return normalizeGenreName(name)
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
 function normalizeGenres(genres = []) {
   return [...new Set(genres.map((genre) => normalizeGenreName(
     typeof genre === 'string' ? genre : genre?.name,
@@ -357,7 +366,7 @@ export async function getOrCreateGenresByNames(names = [], clientOverride = null
   try {
     const { data: existingGenres, error: existingError } = await client
       .from('genres')
-      .select('id, name, slug')
+      .select('id, name')
       .order('name', { ascending: true });
 
     if (existingError) {
@@ -374,9 +383,8 @@ export async function getOrCreateGenresByNames(names = [], clientOverride = null
     const missing = [];
 
     for (const name of cleanedGenres) {
-      const slug = slugifyGenreName(name);
       const match = existing.find((genre) => (
-        normalizeGenreName(genre.name) === name || genre.slug === slug
+        normalizeGenreName(genre.name) === name
       ));
       if (match?.id) found.push(match);
       else missing.push(name);
@@ -386,8 +394,8 @@ export async function getOrCreateGenresByNames(names = [], clientOverride = null
     for (const name of missing) {
       const { data, error } = await client
         .from('genres')
-        .insert({ name, slug: slugifyGenreName(name) })
-        .select('id, name, slug')
+        .insert({ name })
+        .select('id, name')
         .single();
 
       if (error) {
@@ -480,7 +488,7 @@ async function getLegendGenres(client, legendId) {
 
   const { data, error } = await client
     .from('legend_genres')
-    .select('genres(id, name, slug)')
+    .select('genres(id, name)')
     .eq('legend_id', legendId);
 
   if (error) {
@@ -501,7 +509,7 @@ export async function getAvailableGenres() {
   try {
     const { data, error } = await client
       .from('genres')
-      .select('id, name, slug')
+      .select('id, name')
       .order('name', { ascending: true });
 
     if (error) {
@@ -726,21 +734,79 @@ async function validateLegendOwnership(client, legend, accessStatus, creatorCand
   return false;
 }
 
+async function getAvailableLegendSlug(client, requestedSlug) {
+  const baseSlug = String(requestedSlug || '')
+    .trim()
+    .replace(/^-+|-+$/g, '')
+    || `leyenda-${Date.now()}`;
+
+  const { data, error } = await client
+    .from('legends')
+    .select('slug')
+    .ilike('slug', `${baseSlug}%`);
+
+  if (error) {
+    logCreateLegendDraftError('check unique slug', {
+      table: 'legends',
+      payload: { slug: baseSlug },
+      error,
+    });
+    return baseSlug;
+  }
+
+  const existingSlugs = new Set((data ?? []).map((legend) => legend.slug).filter(Boolean));
+  if (!existingSlugs.has(baseSlug)) return baseSlug;
+
+  let suffix = 2;
+  let candidate = `${baseSlug}-${suffix}`;
+  while (existingSlugs.has(candidate)) {
+    suffix += 1;
+    candidate = `${baseSlug}-${suffix}`;
+  }
+
+  return candidate;
+}
+
+function isDuplicateLegendSlugError(error) {
+  return error?.code === '23505'
+    && String(error?.message || error?.details || '').toLowerCase().includes('slug');
+}
+
+function getNextSlugCandidate(slug) {
+  const match = String(slug || '').match(/^(.*?)-(\d+)$/);
+  if (!match) return `${slug}-2`;
+  return `${match[1]}-${Number(match[2]) + 1}`;
+}
+
 async function insertLegendWithCreatorCandidates(client, payload, creatorCandidates) {
   let lastError = null;
 
   for (const creatorId of creatorCandidates) {
-    const { data, error } = await client
-      .from('legends')
-      .insert({ ...payload, creator_id: creatorId, status: 'draft' })
-      .select()
-      .single();
+    let nextPayload = { ...payload };
 
-    if (!error && data?.id) return { data, error: null };
-    lastError = error;
+    for (let attempt = 1; attempt <= 5; attempt += 1) {
+      const insertPayload = { ...nextPayload, creator_id: creatorId, status: 'draft' };
+      const { data, error } = await client
+        .from('legends')
+        .insert(insertPayload)
+        .select()
+        .single();
+
+      if (!error && data?.id) return { data, error: null };
+      lastError = error;
+      logCreateLegendDraftError('insert legends', {
+        table: 'legends',
+        creatorId,
+        attempt,
+        payload: insertPayload,
+        error,
+      });
+
+      if (!isDuplicateLegendSlugError(error)) break;
+      nextPayload = { ...nextPayload, slug: getNextSlugCandidate(nextPayload.slug) };
+    }
   }
 
-  console.error(lastError);
   return { data: null, error: lastError };
 }
 
@@ -754,7 +820,7 @@ async function getCreatorGenresByLegendId(client, legendIds = []) {
 
   const { data, error } = await client
     .from('legend_genres')
-    .select('legend_id, genres(id, name, slug)')
+    .select('legend_id, genres(id, name)')
     .in('legend_id', legendIds);
 
   if (error) {
@@ -1004,7 +1070,7 @@ async function enrichCreatorLegends(client, legends = [], creatorProfile = null)
 }
 
 export async function createLegendDraft(payload, pages = []) {
-  const cleanedPayload = cleanLegendPayload(payload);
+  let cleanedPayload = cleanLegendPayload(payload);
   const genres = normalizeGenres(payload.genres ?? []);
   const validationError = validateLegendPayload(cleanedPayload);
   if (validationError) return { data: null, error: validationError };
@@ -1024,10 +1090,17 @@ export async function createLegendDraft(payload, pages = []) {
       return { data: null, error: friendlyLegendError('Tu perfil de creador no se encontro. Vuelve a iniciar sesion o contacta al administrador.') };
     }
 
+    const availableSlug = await getAvailableLegendSlug(client, cleanedPayload.slug);
+    cleanedPayload = { ...cleanedPayload, slug: availableSlug };
     const { data: legend, error: legendError } = await insertLegendWithCreatorCandidates(client, cleanedPayload, creatorCandidates);
 
     if (legendError || !legend?.id) {
-      console.error('createLegendDraft error', legendError);
+      logCreateLegendDraftError('insert legends failed', {
+        table: 'legends',
+        payload: cleanedPayload,
+        creatorCandidates,
+        error: legendError,
+      });
       return { data: null, error: friendlyLegendError('No pudimos guardar la leyenda.') };
     }
 
@@ -1035,18 +1108,45 @@ export async function createLegendDraft(payload, pages = []) {
     const { data: version, error: versionError } = await createDraftVersion(client, legend.id, null, userId);
 
     if (versionError || !version?.id) {
-      console.error('createLegendDraft versionError', versionError);
+      logCreateLegendDraftError('insert legend_versions failed', {
+        table: 'legend_versions',
+        payload: {
+          legend_id: legend.id,
+          version_number: 1,
+          status: 'draft',
+          created_by: userId,
+        },
+        error: versionError,
+      });
       return { data: { legend, version: null, pages: [] }, error: friendlyLegendError('No pudimos crear la version inicial.') };
     }
 
     const genreResult = await saveLegendGenres(client, legend.id, genres);
+    if (genreResult.error) {
+      logCreateLegendDraftError('save genres warning', {
+        table: 'legend_genres/genres',
+        payload: { legendId: legend.id, genres },
+        error: genreResult.error,
+      });
+    }
 
     const pagesResult = await saveLegendPages({ versionId: version.id, pages });
-    if (pagesResult.error) return { data: { legend, version, pages: [] }, error: pagesResult.error };
+    if (pagesResult.error) {
+      logCreateLegendDraftError('save pages failed', {
+        table: 'legend_pages',
+        payload: { versionId: version.id, pages },
+        error: pagesResult.error,
+      });
+      return { data: { legend, version, pages: [] }, error: pagesResult.error };
+    }
 
     return { data: { legend, version, pages: pagesResult.data, genreError: genreResult.error }, error: null };
   } catch (error) {
-    console.error('createLegendDraft error', error);
+    logCreateLegendDraftError('unexpected', {
+      table: 'legends',
+      payload: cleanedPayload,
+      error,
+    });
     return { data: null, error: friendlyLegendError('No pudimos guardar la leyenda.') };
   }
 }
@@ -1241,8 +1341,6 @@ export async function deleteCreatorLegend(legendId, { status = null } = {}) {
     };
   }
 
-  if (isDraftCreatorLegend(statusKey)) return deleteLegendDraft(legendId);
-
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: null, error: clientError };
 
@@ -1252,6 +1350,10 @@ export async function deleteCreatorLegend(legendId, { status = null } = {}) {
     });
 
     if (error) {
+      logDeleteCreatorLegendError('rpc delete_creator_legend', error, {
+        legendId,
+        status: statusKey,
+      });
       logDeleteSupabaseError('rpc delete_creator_legend', error, {
         table: 'rpc/delete_creator_legend',
         legendId,
@@ -1273,6 +1375,11 @@ export async function deleteCreatorLegend(legendId, { status = null } = {}) {
         operation: 'rpc',
         table: 'delete_creator_legend',
       });
+      logDeleteCreatorLegendError('rpc delete_creator_legend returned without success', rpcError, {
+        legendId,
+        status: statusKey,
+        data,
+      });
       logDeleteSupabaseError('rpc delete_creator_legend returned without success', rpcError, {
         table: 'rpc/delete_creator_legend',
         legendId,
@@ -1284,6 +1391,10 @@ export async function deleteCreatorLegend(legendId, { status = null } = {}) {
 
     return { data, error: null };
   } catch (error) {
+    logDeleteCreatorLegendError('deleteCreatorLegend unexpected error', error, {
+      legendId,
+      status: statusKey,
+    });
     logDeleteSupabaseError('deleteCreatorLegend unexpected error', error, {
       legendId,
       status: statusKey,

@@ -77,8 +77,8 @@ export async function getMyLegends() {
   return getEditorMyLegends();
 }
 
-export async function getCreatorLegends() {
-  return getEditorCreatorLegends();
+export async function getCreatorLegends(options) {
+  return getEditorCreatorLegends(options);
 }
 
 export async function createLegend(payload) {

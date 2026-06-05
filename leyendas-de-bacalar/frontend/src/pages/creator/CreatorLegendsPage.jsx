@@ -9,6 +9,7 @@ import {
   deleteCreatorLegend,
   getCreatorLegendCardData,
   getCreatorLegendStatusKey,
+  getCreatorLegends,
   getLegendDeleteConfirmation,
 } from '../../services/creatorService.js';
 
@@ -92,9 +93,7 @@ function CreatorLegendsPage() {
       if (import.meta.env.DEV) {
         console.error('[CreatorLegends] Error real:', {
           operation: 'deleteCreatorLegend',
-          table: statusKey === 'draft' || statusKey === 'borrador'
-            ? 'rpc/delete_legend_draft'
-            : 'rpc/delete_creator_legend',
+          table: 'rpc/delete_creator_legend',
           legendId: legend.id,
           status: statusKey,
           error: deleteError.supabaseError || deleteError,

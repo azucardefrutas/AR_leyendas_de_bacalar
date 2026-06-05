@@ -1,12 +1,12 @@
 const STATUS_LABELS = {
   draft: 'Borrador',
   borrador: 'Borrador',
-  in_review: 'En revision',
-  review: 'En revision',
-  pending_review: 'En revision',
-  submitted: 'En revision',
-  changes_requested: 'Cambios solicitados',
-  rejected: 'Requiere cambios',
+  in_review: 'En revisión',
+  review: 'En revisión',
+  pending_review: 'En revisión',
+  submitted: 'En revisión',
+  changes_requested: 'Requiere cambios',
+  rejected: 'Rechazada',
   approved: 'Aprobada',
   published: 'Publicada',
 };
