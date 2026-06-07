@@ -152,6 +152,10 @@ function shouldUseBackendUpload(assetType) {
   return assetType === 'cover' || assetType === 'banner';
 }
 
+function isBackendRegisteredMedia(assetResult) {
+  return assetResult.data?.relation?.type === 'legend_media';
+}
+
 function safeFileName(name = 'asset') {
   const extension = getExtension(name);
   const baseName = String(name)
@@ -522,16 +526,39 @@ export async function linkLegendMedia({ legendId, assetId, mediaType }) {
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: null, error: clientError };
 
+  const usageContext = mediaType === 'cover' ? 'catalog' : 'detail';
   const payload = {
     legend_id: legendId,
     asset_id: assetId,
     media_type: mediaType,
-    usage_context: mediaType === 'cover' ? 'catalog' : 'detail',
-    is_primary: mediaType === 'cover',
+    usage_context: usageContext,
+    is_primary: true,
   };
-  const { data, error } = await client.from('legend_media').insert(payload).select().single();
+
+  const { data: existing, error: existingError } = await client
+    .from('legend_media')
+    .select('id')
+    .eq('legend_id', legendId)
+    .eq('media_type', mediaType)
+    .eq('usage_context', usageContext)
+    .maybeSingle();
+
+  if (existingError) {
+    logStorageError('select legend media relation', {
+      table: 'legend_media',
+      payload,
+      error: existingError,
+    });
+    return { data: null, error: friendlyAssetError('No pudimos vincular el recurso.', { supabaseError: existingError, table: 'legend_media' }) };
+  }
+
+  const query = existing?.id
+    ? client.from('legend_media').update({ asset_id: assetId, is_primary: true }).eq('id', existing.id)
+    : client.from('legend_media').insert(payload);
+  const { data, error } = await query.select().single();
+
   if (error) {
-    logStorageError('insert legend media relation', {
+    logStorageError(existing?.id ? 'update legend media relation' : 'insert legend media relation', {
       table: 'legend_media',
       payload,
       error,
@@ -708,7 +735,11 @@ export async function saveLegendResource({ legendId, pageId, resource }) {
   const uploadedAsset = assetResult.data?.asset || assetResult.data;
   if (assetResult.error || !uploadedAsset?.id) return assetResult;
 
-  if (resource.kind === 'media' && assetResult.data?.relation?.type !== 'legend_media') {
+  if (resource.kind === 'media' && isBackendRegisteredMedia(assetResult)) {
+    return assetResult;
+  }
+
+  if (resource.kind === 'media') {
     const linkResult = await linkLegendMedia({
       legendId,
       assetId: uploadedAsset.id,
