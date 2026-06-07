@@ -122,3 +122,56 @@ export function validateLegendFileMetadata({ legendId, filename, mimeType, sizeB
     },
   });
 }
+
+export function prepareLegendUpload({ legendId, filename, mimeType, sizeBytes, purpose }) {
+  return requestBackend('/api/v1/documents/prepare-upload', {
+    method: 'POST',
+    body: {
+      legendId,
+      filename,
+      mimeType,
+      sizeBytes,
+      purpose,
+    },
+  });
+}
+
+export function registerLegendUpload({ legendId, bucket, path, filename, mimeType, sizeBytes, purpose }) {
+  return requestBackend('/api/v1/documents/register-upload', {
+    method: 'POST',
+    body: {
+      legendId,
+      bucket,
+      path,
+      filename,
+      mimeType,
+      sizeBytes,
+      purpose,
+    },
+  });
+}
+
+export async function uploadFileToSignedUrl({ signedUrl, file }) {
+  if (!signedUrl || !file) {
+    throw new BackendApiError('No pudimos preparar la subida del archivo.', { status: 400 });
+  }
+
+  const response = await fetch(signedUrl, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': file.type || 'application/octet-stream',
+    },
+    body: file,
+  });
+
+  if (!response.ok) {
+    throw new BackendApiError('No pudimos subir el archivo a Storage.', {
+      status: response.status,
+    });
+  }
+
+  return {
+    ok: true,
+    status: response.status,
+  };
+}

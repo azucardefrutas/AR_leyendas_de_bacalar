@@ -43,6 +43,14 @@ const getDocumentType = ({ filename, mimeType }) => {
 
 const getMediaUsageContext = (purpose) => (purpose === 'cover' ? 'catalog' : 'detail');
 
+const buildLegendMediaPayload = ({ legendId, assetId, purpose }) => ({
+  legend_id: legendId,
+  asset_id: assetId,
+  media_type: purpose,
+  usage_context: getMediaUsageContext(purpose),
+  is_primary: true,
+});
+
 const insertAsset = async ({
   userId,
   legendId,
@@ -87,15 +95,68 @@ const insertAsset = async ({
   return data;
 };
 
-const linkLegendMedia = async ({ legendId, assetId, purpose }) => {
+const findLegendMedia = async ({ legendId, purpose }) => {
+  const mediaType = purpose;
+  const usageContext = getMediaUsageContext(purpose);
+
+  const { data, error } = await supabaseAdmin
+    .from('legend_media')
+    .select('id')
+    .eq('legend_id', legendId)
+    .eq('media_type', mediaType)
+    .eq('usage_context', usageContext)
+    .maybeSingle();
+
+  if (error) {
+    throw new AssetRegistryError('Could not load legend media relation.', 500, {
+      table: 'legend_media',
+      code: error.code,
+      reason: error.message,
+      details: error.details,
+      hint: error.hint,
+      payload: {
+        legend_id: legendId,
+        media_type: mediaType,
+        usage_context: usageContext,
+      },
+    });
+  }
+
+  return data;
+};
+
+const updateLegendMedia = async ({ relationId, assetId }) => {
   const payload = {
-    legend_id: legendId,
     asset_id: assetId,
-    media_type: purpose,
-    usage_context: getMediaUsageContext(purpose),
     is_primary: true,
   };
 
+  const { data, error } = await supabaseAdmin
+    .from('legend_media')
+    .update(payload)
+    .eq('id', relationId)
+    .select()
+    .single();
+
+  if (error || !data) {
+    throw new AssetRegistryError('Could not update legend media.', 500, {
+      table: 'legend_media',
+      code: error?.code,
+      reason: error?.message,
+      details: error?.details,
+      hint: error?.hint,
+      payload,
+    });
+  }
+
+  return {
+    type: 'legend_media',
+    id: data.id,
+    action: 'updated',
+  };
+};
+
+const insertLegendMedia = async (payload) => {
   const { data, error } = await supabaseAdmin.from('legend_media').insert(payload).select().single();
 
   if (error || !data) {
@@ -112,7 +173,19 @@ const linkLegendMedia = async ({ legendId, assetId, purpose }) => {
   return {
     type: 'legend_media',
     id: data.id,
+    action: 'inserted',
   };
+};
+
+const linkLegendMedia = async ({ legendId, assetId, purpose }) => {
+  const payload = buildLegendMediaPayload({ legendId, assetId, purpose });
+  const existingRelation = await findLegendMedia({ legendId, purpose });
+
+  if (existingRelation?.id) {
+    return updateLegendMedia({ relationId: existingRelation.id, assetId });
+  }
+
+  return insertLegendMedia(payload);
 };
 
 const linkSourceDocument = async ({ legendId, assetId, userId, filename, mimeType }) => {

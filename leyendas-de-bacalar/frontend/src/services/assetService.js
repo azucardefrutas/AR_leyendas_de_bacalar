@@ -1,15 +1,23 @@
 import { getCurrentUser } from './authService.js';
 import { getSupabaseConfigError, supabase } from '../lib/supabaseClient.js';
+import {
+  prepareLegendUpload,
+  registerLegendUpload,
+  uploadFileToSignedUrl,
+} from './backendApiService.js';
 
 export const STORAGE_BUCKETS = {
   assets: import.meta.env.VITE_SUPABASE_STORAGE_BUCKET || 'legend-assets',
   documents: import.meta.env.VITE_SUPABASE_DOCUMENT_BUCKET || 'legend-documents',
 };
 
+const MB = 1024 * 1024;
+
 const FILE_RULES_BY_TYPE = {
   cover: {
     extensions: ['png', 'jpg', 'jpeg', 'webp'],
     mimeTypes: ['image/png', 'image/jpeg', 'image/webp'],
+    maxBytes: 10 * MB,
     bucket: STORAGE_BUCKETS.assets,
     folder: 'cover',
     dbAssetType: 'cover',
@@ -17,6 +25,7 @@ const FILE_RULES_BY_TYPE = {
   banner: {
     extensions: ['png', 'jpg', 'jpeg', 'webp'],
     mimeTypes: ['image/png', 'image/jpeg', 'image/webp'],
+    maxBytes: 10 * MB,
     bucket: STORAGE_BUCKETS.assets,
     folder: 'banner',
     dbAssetType: 'banner',
@@ -120,6 +129,9 @@ function validateFile(file, assetType) {
   if (rules.mimeTypes?.length && !rules.mimeTypes.includes(mimeType) && !octetStreamGlb) {
     return friendlyAssetError('El tipo MIME del archivo no es compatible.');
   }
+  if (rules.maxBytes && file.size > rules.maxBytes) {
+    return friendlyAssetError('El archivo supera el tamano maximo permitido.');
+  }
   return null;
 }
 
@@ -134,6 +146,10 @@ function getStorageBucket(assetType) {
 
 function getStorageFolder(assetType) {
   return FILE_RULES_BY_TYPE[assetType]?.folder || assetType || 'asset';
+}
+
+function shouldUseBackendUpload(assetType) {
+  return assetType === 'cover' || assetType === 'banner';
 }
 
 function safeFileName(name = 'asset') {
@@ -210,6 +226,40 @@ async function tryInsertAsset(client, payloads) {
       supabaseError: lastError,
       table: 'assets',
     }),
+  };
+}
+
+async function uploadVisualAssetWithBackend({ file, legendId, assetType }) {
+  const mimeType = getFileContentType(file, assetType);
+  const prepareResult = await prepareLegendUpload({
+    legendId,
+    filename: file.name,
+    mimeType,
+    sizeBytes: file.size,
+    purpose: assetType,
+  });
+
+  await uploadFileToSignedUrl({
+    signedUrl: prepareResult.upload?.signedUrl,
+    file,
+  });
+
+  const registerResult = await registerLegendUpload({
+    legendId,
+    bucket: prepareResult.upload?.bucket,
+    path: prepareResult.upload?.path,
+    filename: file.name,
+    mimeType,
+    sizeBytes: file.size,
+    purpose: assetType,
+  });
+
+  return {
+    data: {
+      asset: registerResult.asset,
+      relation: registerResult.relation,
+    },
+    error: null,
   };
 }
 
@@ -364,6 +414,17 @@ export async function uploadProjectAsset({ file, legendId, kind, userId: provide
   const assetType = kind || 'other';
   const validationError = validateFile(file, assetType);
   if (validationError) return { data: null, error: validationError };
+
+  if (shouldUseBackendUpload(assetType)) {
+    try {
+      return await uploadVisualAssetWithBackend({ file, legendId, assetType });
+    } catch (error) {
+      return {
+        data: null,
+        error: friendlyAssetError(error.message || 'No pudimos subir el archivo.', { supabaseError: error }),
+      };
+    }
+  }
 
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: null, error: clientError };
@@ -644,12 +705,13 @@ export async function saveLegendResource({ legendId, pageId, resource }) {
     ? await uploadLegendAsset({ file: resource.file, legendId, assetType: resource.assetType })
     : await createExternalAsset({ url: resource.url, legendId, assetType: resource.assetType });
 
-  if (assetResult.error || !assetResult.data?.id) return assetResult;
+  const uploadedAsset = assetResult.data?.asset || assetResult.data;
+  if (assetResult.error || !uploadedAsset?.id) return assetResult;
 
-  if (resource.kind === 'media') {
+  if (resource.kind === 'media' && assetResult.data?.relation?.type !== 'legend_media') {
     const linkResult = await linkLegendMedia({
       legendId,
-      assetId: assetResult.data.id,
+      assetId: uploadedAsset.id,
       mediaType: resource.mediaType,
     });
     if (linkResult.error) return linkResult;
@@ -658,7 +720,7 @@ export async function saveLegendResource({ legendId, pageId, resource }) {
   if (resource.kind === 'document') {
     const linkResult = await linkSourceDocument({
       legendId,
-      assetId: assetResult.data.id,
+      assetId: uploadedAsset.id,
       documentType: getDocumentType(resource.file, resource.documentType || 'pdf'),
     });
     if (linkResult.error) return linkResult;
