@@ -1,0 +1,200 @@
+import { supabaseAdmin } from '../config/supabaseAdmin.js';
+
+class AssetRegistryError extends Error {
+  constructor(message, statusCode = 500, details = {}) {
+    super(message);
+    this.name = 'AssetRegistryError';
+    this.statusCode = statusCode;
+    this.details = details;
+  }
+}
+
+const getExtension = (filename) => {
+  const parts = String(filename || '').split('.');
+  return parts.length > 1 ? parts.pop().toLowerCase() : '';
+};
+
+const getAssetType = ({ purpose, filename }) => {
+  if (purpose === 'source_document') {
+    const extension = getExtension(filename);
+    if (extension === 'pdf') return 'pdf';
+    if (extension === 'doc' || extension === 'docx') return 'docx';
+    return 'other';
+  }
+
+  return purpose;
+};
+
+const getDocumentType = ({ filename, mimeType }) => {
+  const extension = getExtension(filename);
+
+  if (extension === 'pdf' || mimeType === 'application/pdf') return 'pdf';
+  if (
+    extension === 'doc' ||
+    extension === 'docx' ||
+    mimeType === 'application/msword' ||
+    mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ) {
+    return 'docx';
+  }
+
+  return 'other';
+};
+
+const getMediaUsageContext = (purpose) => (purpose === 'cover' ? 'catalog' : 'detail');
+
+const insertAsset = async ({
+  userId,
+  legendId,
+  purpose,
+  bucket,
+  path,
+  filename,
+  mimeType,
+  sizeBytes,
+  publicUrl,
+}) => {
+  const payload = {
+    uploaded_by: userId,
+    asset_type: getAssetType({ purpose, filename }),
+    source_type: 'upload',
+    file_url: bucket === 'legend-assets' ? publicUrl || null : null,
+    storage_path: path,
+    external_url: null,
+    mime_type: mimeType,
+    file_size: sizeBytes,
+    metadata: {
+      bucket,
+      legend_id: legendId,
+      kind: purpose,
+      original_name: filename,
+      public: bucket === 'legend-assets',
+    },
+  };
+
+  const { data, error } = await supabaseAdmin.from('assets').insert(payload).select().single();
+
+  if (error || !data) {
+    throw new AssetRegistryError('Could not register asset.', 500, {
+      table: 'assets',
+      code: error?.code,
+      reason: error?.message,
+      details: error?.details,
+      hint: error?.hint,
+    });
+  }
+
+  return data;
+};
+
+const linkLegendMedia = async ({ legendId, assetId, purpose }) => {
+  const payload = {
+    legend_id: legendId,
+    asset_id: assetId,
+    media_type: purpose,
+    usage_context: getMediaUsageContext(purpose),
+    is_primary: true,
+  };
+
+  const { data, error } = await supabaseAdmin.from('legend_media').insert(payload).select().single();
+
+  if (error || !data) {
+    throw new AssetRegistryError('Could not link legend media.', 500, {
+      table: 'legend_media',
+      code: error?.code,
+      reason: error?.message,
+      details: error?.details,
+      hint: error?.hint,
+      payload,
+    });
+  }
+
+  return {
+    type: 'legend_media',
+    id: data.id,
+  };
+};
+
+const linkSourceDocument = async ({ legendId, assetId, userId, filename, mimeType }) => {
+  const payload = {
+    legend_id: legendId,
+    asset_id: assetId,
+    uploaded_by: userId,
+    document_type: getDocumentType({ filename, mimeType }),
+    is_primary_source: true,
+    extraction_status: 'not_required',
+  };
+
+  const { data, error } = await supabaseAdmin
+    .from('legend_source_documents')
+    .insert(payload)
+    .select()
+    .single();
+
+  if (error || !data) {
+    throw new AssetRegistryError('Could not link source document.', 500, {
+      table: 'legend_source_documents',
+      code: error?.code,
+      reason: error?.message,
+      details: error?.details,
+      hint: error?.hint,
+    });
+  }
+
+  return {
+    type: 'legend_source_documents',
+    id: data.id,
+  };
+};
+
+export const registerUploadedAsset = async ({
+  userId,
+  legendId,
+  purpose,
+  bucket,
+  path,
+  filename,
+  mimeType,
+  sizeBytes,
+  publicUrl,
+}) => {
+  const asset = await insertAsset({
+    userId,
+    legendId,
+    purpose,
+    bucket,
+    path,
+    filename,
+    mimeType,
+    sizeBytes,
+    publicUrl,
+  });
+
+  if (purpose === 'cover' || purpose === 'banner') {
+    try {
+      const relation = await linkLegendMedia({ legendId, assetId: asset.id, purpose });
+      return { asset, relation };
+    } catch (error) {
+      await supabaseAdmin.from('assets').delete().eq('id', asset.id);
+      throw error;
+    }
+  }
+
+  if (purpose === 'source_document') {
+    const relation = await linkSourceDocument({
+      legendId,
+      assetId: asset.id,
+      userId,
+      filename,
+      mimeType,
+    });
+    return { asset, relation };
+  }
+
+  return {
+    asset,
+    relation: {
+      type: 'assets_only',
+    },
+  };
+};
