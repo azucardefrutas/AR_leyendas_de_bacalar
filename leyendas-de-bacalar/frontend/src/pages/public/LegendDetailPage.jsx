@@ -57,7 +57,7 @@ function LegendDetailPage() {
       setError(null);
       const { data, error: legendError } = await getPublishedLegendBySlug(slug);
       if (legendError || !data) {
-        setError(legendError ?? new Error('Leyenda no encontrada.'));
+        setError(legendError ?? new Error('Esta leyenda no esta disponible publicamente.'));
         setLoading(false);
         return;
       }
@@ -77,7 +77,7 @@ function LegendDetailPage() {
   }, [isAuthenticated, slug]);
 
   if (loading) return <LoadingState message="Cargando detalle..." />;
-  if (error) return <EmptyState title="No se pudo cargar la leyenda" message={error.message} />;
+  if (error) return <EmptyState title="Leyenda no disponible" message={error.message} />;
 
   const accessType = legend.access_type ?? 'free';
   const isFree = accessType === 'free';
