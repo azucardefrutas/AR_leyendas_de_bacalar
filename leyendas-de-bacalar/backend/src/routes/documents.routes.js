@@ -9,6 +9,7 @@ import {
 } from '../services/documentExtraction.service.js';
 import { validateFileMetadata } from '../services/fileValidation.service.js';
 import { getLegendAccessContext } from '../services/legendAccess.service.js';
+import { generatePagesFromExtraction } from '../services/legendPagesFromExtraction.service.js';
 import {
   assertStoragePathMatchesUpload,
   buildStoragePath,
@@ -31,6 +32,7 @@ const serializeExtraction = (extraction) => ({
   createdAt: extraction.created_at,
   hasExtractedText: Boolean(extraction.extracted_text),
   textLength: extraction.extracted_text?.length ?? 0,
+  preview: extraction.extracted_text ? extraction.extracted_text.slice(0, 240) : null,
 });
 
 const serializeSourceDocument = (sourceDocument) => ({
@@ -224,6 +226,35 @@ router.post('/:sourceDocumentId/extraction/start', requireCreatorOrAdmin, async 
       extractionResult: extractionResult ?? null,
       reusedExistingExtraction,
       nextStep: 'legend_pages_not_generated_yet',
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/:sourceDocumentId/pages/generate', requireCreatorOrAdmin, async (req, res, next) => {
+  try {
+    const result = await generatePagesFromExtraction({
+      sourceDocumentId: req.params.sourceDocumentId,
+      requestedBy: {
+        userId: req.user.id,
+        roles: req.user.roles,
+      },
+    });
+
+    res.status(201).json({
+      ok: true,
+      legendId: result.legendId,
+      versionId: result.versionId,
+      extractionId: result.extractionId,
+      pagesCreated: result.pagesCreated,
+      pages: result.pages.map((page) => ({
+        id: page.id,
+        pageNumber: page.page_number,
+        title: page.title,
+        textLength: page.text_content?.length ?? 0,
+      })),
+      nextStep: 'pages_generated_without_ai',
     });
   } catch (error) {
     next(error);

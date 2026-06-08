@@ -140,6 +140,30 @@ const loadLatestExtractionJob = async (sourceDocumentId) => {
   return data?.[0] ?? null;
 };
 
+export const getLatestCompletedExtractionForSourceDocument = async (sourceDocumentId) => {
+  if (!sourceDocumentId) {
+    throw new DocumentExtractionError('Source document id is required.', 400);
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('document_extractions')
+    .select(EXTRACTION_SELECT)
+    .eq('source_document_id', sourceDocumentId)
+    .eq('status', 'completed')
+    .order('created_at', { ascending: false })
+    .limit(1);
+
+  if (error) {
+    throw new DocumentExtractionError(
+      'Could not load completed extraction.',
+      500,
+      getDatabaseErrorDetails('document_extractions', error),
+    );
+  }
+
+  return data?.[0] ?? null;
+};
+
 const updateSourceDocumentExtractionStatus = async ({ sourceDocumentId, extractionStatus }) => {
   const { data, error } = await supabaseAdmin
     .from('legend_source_documents')
@@ -203,9 +227,9 @@ export const getSourceDocumentAccessContext = async ({ sourceDocumentId, userId,
 
 export const startExtractionForSourceDocument = async ({ sourceDocumentId, userId, roles }) => {
   const context = await getSourceDocumentAccessContext({ sourceDocumentId, userId, roles });
-  const existingExtraction = await loadLatestExtractionJob(context.sourceDocument.id);
+  const completedExtraction = await getLatestCompletedExtractionForSourceDocument(context.sourceDocument.id);
 
-  if (existingExtraction?.status === 'completed' && existingExtraction.extracted_text) {
+  if (completedExtraction?.extracted_text) {
     const sourceDocument =
       context.sourceDocument.extraction_status === 'extracted'
         ? context.sourceDocument
@@ -215,13 +239,19 @@ export const startExtractionForSourceDocument = async ({ sourceDocumentId, userI
           });
 
     return {
-      extraction: existingExtraction,
+      extraction: completedExtraction,
       sourceDocument,
       legend: context.legend,
+      extractionResult: {
+        documentKind: sourceDocument.document_type,
+        byteLength: sourceDocument.asset?.file_size ?? null,
+        textLength: completedExtraction.extracted_text.length,
+      },
       reusedExistingExtraction: true,
     };
   }
 
+  const existingExtraction = await loadLatestExtractionJob(context.sourceDocument.id);
   let extraction = existingExtraction?.status === 'pending' ? existingExtraction : null;
 
   try {
@@ -275,6 +305,33 @@ export const startExtractionForSourceDocument = async ({ sourceDocumentId, userI
       details: error.details,
     });
   }
+};
+
+export const getExtractionReadyForPages = async (sourceDocumentId) => {
+  const sourceDocument = await loadSourceDocument(sourceDocumentId);
+
+  if (sourceDocument.extraction_status !== 'extracted') {
+    throw new DocumentExtractionError('Source document is not extracted yet.', 409, {
+      sourceDocumentId,
+      extractionStatus: sourceDocument.extraction_status,
+    });
+  }
+
+  const extraction = await getLatestCompletedExtractionForSourceDocument(sourceDocument.id);
+
+  if (!extraction?.extracted_text) {
+    throw new DocumentExtractionError('Completed extraction text was not found.', 409, {
+      sourceDocumentId,
+    });
+  }
+
+  return {
+    sourceDocument,
+    legendId: sourceDocument.legend_id,
+    extractionId: extraction.id,
+    extractedText: extraction.extracted_text,
+    textLength: extraction.extracted_text.length,
+  };
 };
 
 export const getExtractionJob = async ({ extractionId, userId, roles }) => {
