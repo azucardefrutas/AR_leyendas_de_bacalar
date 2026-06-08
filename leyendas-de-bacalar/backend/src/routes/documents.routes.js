@@ -4,8 +4,8 @@ import { requireAuth } from '../middlewares/requireAuth.js';
 import { requireRole } from '../middlewares/requireRole.js';
 import { registerUploadedAsset } from '../services/assetRegistry.service.js';
 import {
-  createExtractionJob,
   getExtractionJob,
+  startExtractionForSourceDocument,
 } from '../services/documentExtraction.service.js';
 import { validateFileMetadata } from '../services/fileValidation.service.js';
 import { getLegendAccessContext } from '../services/legendAccess.service.js';
@@ -30,6 +30,7 @@ const serializeExtraction = (extraction) => ({
   errorMessage: extraction.error_message,
   createdAt: extraction.created_at,
   hasExtractedText: Boolean(extraction.extracted_text),
+  textLength: extraction.extracted_text?.length ?? 0,
 });
 
 const serializeSourceDocument = (sourceDocument) => ({
@@ -198,13 +199,20 @@ router.post('/register-upload', requireCreatorOrAdmin, async (req, res, next) =>
 
 router.post('/:sourceDocumentId/extraction/start', requireCreatorOrAdmin, async (req, res, next) => {
   try {
-    const { extraction, sourceDocument, legend } = await createExtractionJob({
-      sourceDocumentId: req.params.sourceDocumentId,
-      userId: req.user.id,
-      roles: req.user.roles,
-    });
+    const { extraction, sourceDocument, legend, extractionResult, reusedExistingExtraction } =
+      await startExtractionForSourceDocument({
+        sourceDocumentId: req.params.sourceDocumentId,
+        userId: req.user.id,
+        roles: req.user.roles,
+      });
 
-    res.status(202).json({
+    if (extraction.status !== 'completed') {
+      const error = new Error('Extraction did not complete.');
+      error.statusCode = 500;
+      throw error;
+    }
+
+    res.json({
       ok: true,
       extraction: serializeExtraction(extraction),
       sourceDocument: serializeSourceDocument(sourceDocument),
@@ -213,7 +221,9 @@ router.post('/:sourceDocumentId/extraction/start', requireCreatorOrAdmin, async 
         title: legend.title,
         status: legend.status,
       },
-      nextStep: 'extraction_not_implemented_yet',
+      extractionResult: extractionResult ?? null,
+      reusedExistingExtraction,
+      nextStep: 'legend_pages_not_generated_yet',
     });
   } catch (error) {
     next(error);
@@ -237,7 +247,7 @@ router.get('/extractions/:extractionId', requireCreatorOrAdmin, async (req, res,
         title: legend.title,
         status: legend.status,
       },
-      nextStep: extraction.status === 'pending' ? 'extraction_not_implemented_yet' : null,
+      nextStep: extraction.status === 'completed' ? 'legend_pages_not_generated_yet' : null,
     });
   } catch (error) {
     next(error);
