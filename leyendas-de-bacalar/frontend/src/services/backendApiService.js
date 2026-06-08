@@ -20,10 +20,27 @@ export class BackendApiError extends Error {
 
 function getBackendUrl() {
   if (!backendUrl) {
-    throw new BackendApiError('Configura VITE_BACKEND_URL para usar el backend.');
+    throw new BackendApiError('Backend URL no configurada. Configura VITE_BACKEND_URL para usar el backend.');
   }
 
   return backendUrl;
+}
+
+function buildBackendUrl(path) {
+  const baseUrl = getBackendUrl();
+  const normalizedPath = String(path || '').startsWith('/') ? path : `/${path || ''}`;
+  return `${baseUrl}${normalizedPath}`;
+}
+
+function logBackendError(operation, { url, method, status, error } = {}) {
+  if (!import.meta.env.DEV) return;
+  console.error('[BackendAPI] Error real:', {
+    operation,
+    url,
+    method,
+    status,
+    error,
+  });
 }
 
 async function getAccessToken() {
@@ -53,6 +70,7 @@ export async function requestBackend(path, options = {}) {
     body,
     headers,
     method = body ? 'POST' : 'GET',
+    operation = 'backend-request',
     ...fetchOptions
   } = options;
 
@@ -70,17 +88,42 @@ export async function requestBackend(path, options = {}) {
     requestHeaders.Authorization = `Bearer ${accessToken}`;
   }
 
-  const response = await fetch(`${getBackendUrl()}${path}`, {
-    method,
-    headers: requestHeaders,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-    ...fetchOptions,
-  });
+  const url = buildBackendUrl(path);
+  let response;
+
+  try {
+    response = await fetch(url, {
+      method,
+      headers: requestHeaders,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      ...fetchOptions,
+    });
+  } catch (error) {
+    logBackendError(operation, {
+      url,
+      method,
+      status: 0,
+      error: error?.message || error,
+    });
+    throw new BackendApiError('No se pudo conectar con el backend. Verifica que este activo.', {
+      status: 0,
+      data: {
+        operation,
+        url,
+      },
+    });
+  }
 
   const data = await parseResponse(response);
 
   if (!response.ok) {
     const message = data?.error || STATUS_MESSAGES[response.status] || 'No pudimos completar la solicitud.';
+    logBackendError(operation, {
+      url,
+      method,
+      status: response.status,
+      error: message,
+    });
     throw new BackendApiError(message, {
       status: response.status,
       data,
@@ -126,6 +169,7 @@ export function validateLegendFileMetadata({ legendId, filename, mimeType, sizeB
 export function prepareLegendUpload({ legendId, filename, mimeType, sizeBytes, purpose }) {
   return requestBackend('/api/v1/documents/prepare-upload', {
     method: 'POST',
+    operation: 'prepare-upload',
     body: {
       legendId,
       filename,
@@ -139,6 +183,7 @@ export function prepareLegendUpload({ legendId, filename, mimeType, sizeBytes, p
 export function registerLegendUpload({ legendId, bucket, path, filename, mimeType, sizeBytes, purpose }) {
   return requestBackend('/api/v1/documents/register-upload', {
     method: 'POST',
+    operation: 'register-upload',
     body: {
       legendId,
       bucket,
@@ -151,18 +196,46 @@ export function registerLegendUpload({ legendId, bucket, path, filename, mimeTyp
   });
 }
 
+export function startDocumentExtraction(sourceDocumentId) {
+  return requestBackend(`/api/v1/documents/${encodeURIComponent(sourceDocumentId)}/extraction/start`, {
+    method: 'POST',
+    operation: 'start-document-extraction',
+  });
+}
+
+export function generatePagesFromDocument(sourceDocumentId) {
+  return requestBackend(`/api/v1/documents/${encodeURIComponent(sourceDocumentId)}/pages/generate`, {
+    method: 'POST',
+    operation: 'generate-pages-from-document',
+  });
+}
+
 export async function uploadFileToSignedUrl({ signedUrl, file }) {
   if (!signedUrl || !file) {
     throw new BackendApiError('No pudimos preparar la subida del archivo.', { status: 400 });
   }
 
-  const response = await fetch(signedUrl, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': file.type || 'application/octet-stream',
-    },
-    body: file,
-  });
+  let response;
+
+  try {
+    response = await fetch(signedUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': file.type || 'application/octet-stream',
+      },
+      body: file,
+    });
+  } catch (error) {
+    logBackendError('signed-upload', {
+      url: 'signed-upload-url',
+      method: 'PUT',
+      status: 0,
+      error: error?.message || error,
+    });
+    throw new BackendApiError('Error al subir archivo a Storage. No se pudo conectar con la URL firmada.', {
+      status: 0,
+    });
+  }
 
   if (!response.ok) {
     throw new BackendApiError('No pudimos subir el archivo a Storage.', {

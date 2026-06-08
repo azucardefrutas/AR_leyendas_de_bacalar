@@ -2,6 +2,7 @@ import { Router } from 'express';
 
 import { requireAuth } from '../middlewares/requireAuth.js';
 import { requireRole } from '../middlewares/requireRole.js';
+import { prepareAiPageProposal } from '../services/ai/aiPageProposal.service.js';
 import { registerUploadedAsset } from '../services/assetRegistry.service.js';
 import {
   getExtractionJob,
@@ -256,6 +257,22 @@ router.post('/:sourceDocumentId/pages/generate', requireCreatorOrAdmin, async (r
       })),
       nextStep: 'pages_generated_without_ai',
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/:sourceDocumentId/pages/propose-ai', requireCreatorOrAdmin, async (req, res, next) => {
+  try {
+    const result = await prepareAiPageProposal({
+      sourceDocumentId: req.params.sourceDocumentId,
+      requestedBy: {
+        userId: req.user.id,
+        roles: req.user.roles,
+      },
+    });
+
+    res.json(result);
   } catch (error) {
     next(error);
   }

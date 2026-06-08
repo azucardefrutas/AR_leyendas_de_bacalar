@@ -206,6 +206,52 @@ function logStorageError(operation, { bucket, path, file, error, payload, table 
   });
 }
 
+function logBackendUploadPhase(phase, error) {
+  if (!import.meta.env.DEV) return;
+  console.error('[BackendUpload] Error real:', {
+    phase,
+    status: error?.status,
+    message: error?.message,
+    data: error?.data,
+  });
+}
+
+function getBackendUploadMessage(phase, error) {
+  if (error?.message?.includes('Backend URL no configurada')) {
+    return error.message;
+  }
+
+  if (phase === 'prepare') {
+    return error?.status === 0
+      ? 'No se pudo conectar con el backend. Verifica que este activo.'
+      : `Error al preparar subida. ${error?.message || ''}`.trim();
+  }
+
+  if (phase === 'upload') {
+    return error?.message || 'Error al subir archivo a Storage.';
+  }
+
+  if (phase === 'register') {
+    return error?.status === 0
+      ? 'No se pudo conectar con el backend para registrar el recurso.'
+      : `Error al registrar recurso. ${error?.message || ''}`.trim();
+  }
+
+  return error?.message || 'No pudimos subir el archivo.';
+}
+
+async function runBackendUploadPhase(phase, action) {
+  try {
+    return await action();
+  } catch (error) {
+    logBackendUploadPhase(phase, error);
+    throw friendlyAssetError(getBackendUploadMessage(phase, error), {
+      supabaseError: error,
+      phase,
+    });
+  }
+}
+
 function cleanUrl(url) {
   return url?.trim() || '';
 }
@@ -235,20 +281,20 @@ async function tryInsertAsset(client, payloads) {
 
 async function uploadVisualAssetWithBackend({ file, legendId, assetType }) {
   const mimeType = getFileContentType(file, assetType);
-  const prepareResult = await prepareLegendUpload({
+  const prepareResult = await runBackendUploadPhase('prepare', () => prepareLegendUpload({
     legendId,
     filename: file.name,
     mimeType,
     sizeBytes: file.size,
     purpose: assetType,
-  });
+  }));
 
-  await uploadFileToSignedUrl({
+  await runBackendUploadPhase('upload', () => uploadFileToSignedUrl({
     signedUrl: prepareResult.upload?.signedUrl,
     file,
-  });
+  }));
 
-  const registerResult = await registerLegendUpload({
+  const registerResult = await runBackendUploadPhase('register', () => registerLegendUpload({
     legendId,
     bucket: prepareResult.upload?.bucket,
     path: prepareResult.upload?.path,
@@ -256,7 +302,7 @@ async function uploadVisualAssetWithBackend({ file, legendId, assetType }) {
     mimeType,
     sizeBytes: file.size,
     purpose: assetType,
-  });
+  }));
 
   return {
     data: {

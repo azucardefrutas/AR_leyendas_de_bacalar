@@ -18,6 +18,10 @@ import {
   createArMarker,
   saveLegendResource,
 } from '../../services/assetService.js';
+import {
+  generatePagesFromDocument,
+  startDocumentExtraction,
+} from '../../services/backendApiService.js';
 
 const tabs = [
   { key: 'general', label: 'Datos generales', icon: 'contract_edit' },
@@ -277,10 +281,38 @@ function ResourceCard({ definition, value, existing, disabled, saving, onChange,
   );
 }
 
-function SourceDocumentContentState({ sourceDocument, disabled, onAddPage }) {
+function getDocumentProcessingErrorMessage(error, fallbackMessage) {
+  const message = error?.message || fallbackMessage;
+
+  if (error?.status === 409 || /already has pages|ya tiene paginas/i.test(message)) {
+    return 'Esta version ya tiene paginas generadas.';
+  }
+
+  if (/extract/i.test(message)) {
+    return 'No se pudo extraer el texto del documento.';
+  }
+
+  if (error?.status === 0) {
+    return 'No se pudo conectar con el backend. Verifica que este activo.';
+  }
+
+  return message || fallbackMessage;
+}
+
+function SourceDocumentContentState({
+  sourceDocument,
+  disabled,
+  onAddPage,
+  onProcessDocument,
+  processing,
+  processingMessage,
+}) {
   const asset = getSourceDocumentAsset(sourceDocument);
   const statusCopy = getSourceDocumentStatusCopy(sourceDocument.extraction_status);
   const safeError = sourceDocument.error_message || sourceDocument.extraction_error || '';
+  const normalizedStatus = String(sourceDocument.extraction_status || '').toLowerCase();
+  const canProcessDocument = normalizedStatus === 'pending' || normalizedStatus === 'extracted';
+  const actionLabel = normalizedStatus === 'pending' ? 'Procesar documento' : 'Generar paginas';
 
   return (
     <div className="creator-empty-editor">
@@ -296,8 +328,14 @@ function SourceDocumentContentState({ sourceDocument, disabled, onAddPage }) {
       {asset.mime_type && <p className="creator-muted">MIME: {asset.mime_type}</p>}
       {asset.storage_path && <p className="creator-muted">Archivo: {asset.storage_path}</p>}
       {safeError && <p className="error-message">{safeError}</p>}
+      {processingMessage && <p className="creator-muted">{processingMessage}</p>}
+      {canProcessDocument && (
+        <Button type="button" onClick={onProcessDocument} disabled={disabled || processing}>
+          {processing ? (processingMessage || 'Procesando documento...') : actionLabel}
+        </Button>
+      )}
       {statusCopy.allowManualPages && (
-        <Button type="button" variant="ghost" onClick={onAddPage} disabled={disabled}>
+        <Button type="button" variant="ghost" onClick={onAddPage} disabled={disabled || processing}>
           Anadir pagina manualmente
         </Button>
       )}
@@ -323,6 +361,8 @@ function LegendEditor({ legendId }) {
   const [saving, setSaving] = useState(false);
   const [savingResourceKey, setSavingResourceKey] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [processingDocument, setProcessingDocument] = useState(false);
+  const [documentProcessingMessage, setDocumentProcessingMessage] = useState('');
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
   // TODO: Persist editorial declarations when the schema exposes per-legend acceptance columns.
@@ -478,6 +518,61 @@ function LegendEditor({ legendId }) {
     setSelectedPageKey(savedPages[0]?.client_id ?? null);
     setMessage('Paginas guardadas.');
     return true;
+  }
+
+  async function handleProcessSourceDocument(sourceDocument) {
+    if (visiblePages.length > 0) {
+      setError(new Error('Esta version ya tiene paginas generadas.'));
+      return;
+    }
+
+    if (!sourceDocument?.id) {
+      setError(new Error('No se encontro el documento fuente.'));
+      return;
+    }
+
+    const extractionStatus = String(sourceDocument.extraction_status || '').toLowerCase();
+
+    setProcessingDocument(true);
+    setDocumentProcessingMessage(extractionStatus === 'pending' ? 'Procesando documento...' : 'Generando paginas...');
+    setError(null);
+    setMessage(null);
+
+    try {
+      if (extractionStatus === 'pending') {
+        const extractionResponse = await startDocumentExtraction(sourceDocument.id);
+        const responseStatus = String(
+          extractionResponse?.sourceDocument?.extractionStatus
+            || extractionResponse?.sourceDocument?.extraction_status
+            || '',
+        ).toLowerCase();
+        const extractionJobStatus = String(extractionResponse?.extraction?.status || '').toLowerCase();
+
+        if (responseStatus === 'failed' || responseStatus === 'manual_required' || extractionJobStatus === 'failed') {
+          throw new Error('No se pudo extraer el texto del documento.');
+        }
+      } else if (extractionStatus !== 'extracted') {
+        throw new Error('El documento fuente todavia no esta listo para generar paginas.');
+      }
+
+      setDocumentProcessingMessage('Generando paginas...');
+      await generatePagesFromDocument(sourceDocument.id);
+      await loadEditor();
+      setActiveTab('content');
+      setMessage('Paginas generadas desde el documento.');
+    } catch (processError) {
+      if (processError?.status === 409) {
+        await loadEditor();
+      }
+
+      setError(new Error(getDocumentProcessingErrorMessage(
+        processError,
+        'No se pudo procesar el documento.',
+      )));
+    } finally {
+      setProcessingDocument(false);
+      setDocumentProcessingMessage('');
+    }
   }
 
   async function handleSaveResource(definition) {
@@ -713,6 +808,9 @@ function LegendEditor({ legendId }) {
                 sourceDocument={primarySourceDocument}
                 disabled={isReviewLocked}
                 onAddPage={addPage}
+                onProcessDocument={() => handleProcessSourceDocument(primarySourceDocument)}
+                processing={processingDocument}
+                processingMessage={documentProcessingMessage}
               />
             ) : (
               <div className="creator-empty-editor">
