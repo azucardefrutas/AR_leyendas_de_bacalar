@@ -195,7 +195,7 @@ const linkSourceDocument = async ({ legendId, assetId, userId, filename, mimeTyp
     uploaded_by: userId,
     document_type: getDocumentType({ filename, mimeType }),
     is_primary_source: true,
-    extraction_status: 'not_required',
+    extraction_status: 'pending',
   };
 
   const { data, error } = await supabaseAdmin

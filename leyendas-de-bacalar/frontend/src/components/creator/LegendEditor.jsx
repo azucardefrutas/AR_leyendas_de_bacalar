@@ -131,6 +131,72 @@ function getResourceUrl(resource = {}) {
   return asset?.public_url || asset?.file_url || asset?.url || asset?.external_url || '';
 }
 
+function getPrimarySourceDocument(documents = []) {
+  return documents.find((document) => document.is_primary_source) || documents[0] || null;
+}
+
+function getSourceDocumentAsset(sourceDocument = {}) {
+  return sourceDocument.assets || sourceDocument.asset || {};
+}
+
+function formatFileSize(size) {
+  const bytes = Number(size || 0);
+  if (!bytes) return 'Tamano no disponible';
+  if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatDocumentDate(value) {
+  if (!value) return 'Fecha no disponible';
+  try {
+    return new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
+  } catch {
+    return 'Fecha no disponible';
+  }
+}
+
+function getSourceDocumentStatusCopy(status) {
+  const normalizedStatus = String(status || '').toLowerCase();
+  const statusMap = {
+    pending: {
+      icon: 'pending_actions',
+      title: 'Documento fuente cargado',
+      statusLabel: 'pendiente de extraccion',
+      description: 'Las paginas se generaran automaticamente cuando se procese el documento.',
+      allowManualPages: true,
+    },
+    extracted: {
+      icon: 'task_alt',
+      title: 'Documento extraido',
+      statusLabel: 'pendiente de generar paginas',
+      description: 'El documento ya fue extraido, pero todavia no hay paginas generadas para esta version.',
+      allowManualPages: true,
+    },
+    failed: {
+      icon: 'error',
+      title: 'No se pudo procesar el documento',
+      statusLabel: 'fallo de extraccion',
+      description: 'La extraccion fallo. Puedes revisar el documento o crear paginas manuales.',
+      allowManualPages: true,
+    },
+    manual_required: {
+      icon: 'edit_note',
+      title: 'Requiere revision manual',
+      statusLabel: 'revision manual requerida',
+      description: 'El documento necesita revision manual antes de generar contenido automaticamente.',
+      allowManualPages: true,
+    },
+  };
+
+  return statusMap[normalizedStatus] || {
+    icon: 'description',
+    title: 'Documento fuente cargado',
+    statusLabel: normalizedStatus || 'estado no disponible',
+    description: 'El documento esta asociado a esta leyenda, pero no hay paginas generadas todavia.',
+    allowManualPages: true,
+  };
+}
+
 function getExistingResource(resources, key) {
   if (!resources) return null;
   if (key === 'cover' || key === 'banner') {
@@ -208,6 +274,34 @@ function ResourceCard({ definition, value, existing, disabled, saving, onChange,
         {saving ? 'Guardando...' : 'Guardar recurso'}
       </Button>
     </Card>
+  );
+}
+
+function SourceDocumentContentState({ sourceDocument, disabled, onAddPage }) {
+  const asset = getSourceDocumentAsset(sourceDocument);
+  const statusCopy = getSourceDocumentStatusCopy(sourceDocument.extraction_status);
+  const safeError = sourceDocument.error_message || sourceDocument.extraction_error || '';
+
+  return (
+    <div className="creator-empty-editor">
+      <MaterialIcon name={statusCopy.icon} />
+      <h3>{statusCopy.title}</h3>
+      <p>{statusCopy.description}</p>
+      <div className="creator-review-grid compact">
+        <span className="ready">Estado: {statusCopy.statusLabel}</span>
+        <span>Tipo: {sourceDocument.document_type || asset.asset_type || 'documento'}</span>
+        <span>{formatFileSize(asset.file_size || sourceDocument.file_size)}</span>
+        <span>{formatDocumentDate(sourceDocument.created_at)}</span>
+      </div>
+      {asset.mime_type && <p className="creator-muted">MIME: {asset.mime_type}</p>}
+      {asset.storage_path && <p className="creator-muted">Archivo: {asset.storage_path}</p>}
+      {safeError && <p className="error-message">{safeError}</p>}
+      {statusCopy.allowManualPages && (
+        <Button type="button" variant="ghost" onClick={onAddPage} disabled={disabled}>
+          Anadir pagina manualmente
+        </Button>
+      )}
+    </div>
   );
 }
 
@@ -302,6 +396,7 @@ function LegendEditor({ legendId }) {
   const declarationsAccepted = Object.values(declarations).every(Boolean);
   const declarationError = declarationsAccepted ? null : new Error('Acepta las declaraciones editoriales antes de enviar a revision.');
   const reviewError = validateReadyForReview({ legend: form, pages }) || declarationError;
+  const primarySourceDocument = getPrimarySourceDocument(existingResources.documents);
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -613,12 +708,20 @@ function LegendEditor({ legendId }) {
           </div>
 
           {visiblePages.length === 0 ? (
-            <div className="creator-empty-editor">
+            primarySourceDocument ? (
+              <SourceDocumentContentState
+                sourceDocument={primarySourceDocument}
+                disabled={isReviewLocked}
+                onAddPage={addPage}
+              />
+            ) : (
+              <div className="creator-empty-editor">
               <MaterialIcon name="note_add" />
               <h3>Aun no has agregado paginas.</h3>
               <p>Empieza creando la primera pagina de tu leyenda.</p>
               <Button type="button" onClick={addPage} disabled={isReviewLocked}>Anadir pagina</Button>
-            </div>
+              </div>
+            )
           ) : (
             <div className="creator-pages-layout">
               <aside className="creator-page-rail">

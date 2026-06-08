@@ -599,7 +599,7 @@ export async function linkSourceDocument({ legendId, assetId, documentType = 'pd
     uploaded_by: userId,
     document_type: normalizedDocumentType,
     is_primary_source: true,
-    extraction_status: 'not_required',
+    extraction_status: 'pending',
   };
 
   const { data, error } = await client.from('legend_source_documents').insert(payload).select().single();
