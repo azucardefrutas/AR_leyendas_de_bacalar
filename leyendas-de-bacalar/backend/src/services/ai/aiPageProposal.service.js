@@ -46,7 +46,7 @@ export const prepareAiPageProposal = async ({ sourceDocumentId, requestedBy }) =
       reason: aiResult.reason,
       nextStep: aiResult.provider === 'disabled'
         ? 'ai_provider_disabled'
-        : 'ai_provider_not_implemented',
+        : 'ai_provider_error',
     };
   }
 
@@ -57,7 +57,10 @@ export const prepareAiPageProposal = async ({ sourceDocumentId, requestedBy }) =
     extractionId: ready.extractionId,
     textLength: ready.textLength,
     provider: aiResult.provider,
-    proposal: aiResult.proposal,
+    model: aiResult.model ?? null,
+    pagesProposal: aiResult.proposal.pages,
+    warnings: aiResult.proposal.warnings,
+    summary: aiResult.proposal.summary,
     nextStep: 'review_ai_page_proposal',
   };
 };

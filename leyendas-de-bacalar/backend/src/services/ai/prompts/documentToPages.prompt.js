@@ -21,6 +21,7 @@ export const buildDocumentToPagesPrompt = ({ extractedText }) => {
       'Preserve proper names and the cultural meaning of the original text.',
       'Improve only organization, cleanup, and page separation.',
       'Return strict JSON only.',
+      'Do not include markdown, code fences, or prose outside the JSON object.',
     ].join('\n'),
     user: [
       'Convert the extracted source text into a proposal of readable pages.',
@@ -31,6 +32,7 @@ export const buildDocumentToPagesPrompt = ({ extractedText }) => {
       '- Keep page text faithful to the source.',
       '- Use short, neutral titles when useful.',
       '- Put any uncertainty in warnings or page notes.',
+      '- Return valid JSON only, without markdown.',
       '',
       'Expected JSON shape:',
       JSON.stringify(DOCUMENT_TO_PAGES_RESPONSE_SHAPE, null, 2),

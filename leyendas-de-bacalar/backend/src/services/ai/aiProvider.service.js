@@ -1,4 +1,5 @@
 import { disabledProvider } from './disabledProvider.service.js';
+import { geminiProvider } from './geminiProvider.service.js';
 import { buildDocumentToPagesPrompt } from './prompts/documentToPages.prompt.js';
 
 const getProviderName = () => {
@@ -12,23 +13,29 @@ const getProvider = () => {
     return disabledProvider;
   }
 
+  if (providerName === 'gemini') {
+    return geminiProvider;
+  }
+
   return {
-    name: providerName,
+    name: 'disabled',
     proposePages: async () => ({
       ok: false,
-      provider: providerName,
-      reason: 'AI provider not implemented',
+      provider: 'disabled',
+      reason: `AI provider "${providerName}" is not supported.`,
     }),
   };
 };
 
-export const proposeDocumentPagesWithAi = async ({ extractedText }) => {
+export const proposeDocumentPagesWithAi = async ({ extractedText, sourceDocument, extractionId }) => {
   const provider = getProvider();
   const prompt = buildDocumentToPagesPrompt({ extractedText });
 
   const result = await provider.proposePages({
     prompt,
     extractedText,
+    sourceDocument,
+    extractionId,
   });
 
   return {
