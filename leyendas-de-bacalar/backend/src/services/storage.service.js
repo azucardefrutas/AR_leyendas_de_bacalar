@@ -85,6 +85,23 @@ export const createSignedUploadUrl = async ({ bucket, path }) => {
   };
 };
 
+export const createSignedReadUrl = async ({ bucket, path, expiresIn }) => {
+  const { data, error } = await supabaseAdmin.storage.from(bucket).createSignedUrl(path, expiresIn);
+
+  if (error || !data?.signedUrl) {
+    throw new StorageServiceError('Could not create signed read URL.', 500, {
+      bucket,
+      path,
+      reason: error?.message,
+    });
+  }
+
+  return {
+    signedUrl: data.signedUrl,
+    path: data.path || path,
+  };
+};
+
 export const getPublicUrlForAsset = ({ bucket, path }) => {
   if (bucket !== 'legend-assets') {
     return null;

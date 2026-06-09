@@ -6,6 +6,7 @@ const STATUS_MESSAGES = {
   400: 'No pudimos validar la solicitud.',
   401: 'Inicia sesion para continuar.',
   403: 'No tienes permisos para realizar esta accion.',
+  503: 'El servicio no esta disponible temporalmente.',
   500: 'No pudimos conectar con el servidor.',
 };
 
@@ -117,7 +118,7 @@ export async function requestBackend(path, options = {}) {
   const data = await parseResponse(response);
 
   if (!response.ok) {
-    const message = data?.error || STATUS_MESSAGES[response.status] || 'No pudimos completar la solicitud.';
+    const message = data?.error || data?.message || STATUS_MESSAGES[response.status] || 'No pudimos completar la solicitud.';
     logBackendError(operation, {
       url,
       method,
@@ -207,6 +208,20 @@ export function generatePagesFromDocument(sourceDocumentId) {
   return requestBackend(`/api/v1/documents/${encodeURIComponent(sourceDocumentId)}/pages/generate`, {
     method: 'POST',
     operation: 'generate-pages-from-document',
+  });
+}
+
+export function getSourceDocumentViewUrl(sourceDocumentId) {
+  return requestBackend(`/api/v1/documents/${encodeURIComponent(sourceDocumentId)}/view-url`, {
+    method: 'GET',
+    operation: 'get-source-document-view-url',
+  });
+}
+
+export function proposeAiPagesFromDocument(sourceDocumentId) {
+  return requestBackend(`/api/v1/documents/${encodeURIComponent(sourceDocumentId)}/pages/propose-ai`, {
+    method: 'POST',
+    operation: 'propose-ai-pages-from-document',
   });
 }
 

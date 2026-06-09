@@ -6,6 +6,7 @@ import { prepareAiPageProposal } from '../services/ai/aiPageProposal.service.js'
 import { registerUploadedAsset } from '../services/assetRegistry.service.js';
 import {
   getExtractionJob,
+  getSourceDocumentAccessContext,
   startExtractionForSourceDocument,
 } from '../services/documentExtraction.service.js';
 import { validateFileMetadata } from '../services/fileValidation.service.js';
@@ -14,6 +15,7 @@ import { generatePagesFromExtraction } from '../services/legendPagesFromExtracti
 import {
   assertStoragePathMatchesUpload,
   buildStoragePath,
+  createSignedReadUrl,
   createSignedUploadUrl,
   getBucketForPurpose,
   getPublicUrlForAsset,
@@ -24,6 +26,7 @@ import {
 const router = Router();
 
 const requireCreatorOrAdmin = [requireAuth, requireRole(['creator', 'admin'])];
+const SOURCE_DOCUMENT_VIEW_URL_TTL_SECONDS = 300;
 
 const serializeExtraction = (extraction) => ({
   id: extraction.id,
@@ -200,6 +203,56 @@ router.post('/register-upload', requireCreatorOrAdmin, async (req, res, next) =>
   }
 });
 
+router.get('/:sourceDocumentId/view-url', requireCreatorOrAdmin, async (req, res, next) => {
+  try {
+    const { sourceDocument } = await getSourceDocumentAccessContext({
+      sourceDocumentId: req.params.sourceDocumentId,
+      userId: req.user.id,
+      roles: req.user.roles,
+    });
+
+    const asset = sourceDocument.asset ?? {};
+    const expectedBucket = getBucketForPurpose('source_document');
+    const bucket = asset.metadata?.bucket || expectedBucket;
+
+    if (bucket !== expectedBucket) {
+      const error = new Error('Invalid source document bucket.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const storagePath = normalizeStoragePath({
+      bucket,
+      path: asset.storage_path,
+    });
+
+    if (!storagePath) {
+      const error = new Error('Source document storage path not found.');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const { signedUrl } = await createSignedReadUrl({
+      bucket,
+      path: storagePath,
+      expiresIn: SOURCE_DOCUMENT_VIEW_URL_TTL_SECONDS,
+    });
+
+    res.json({
+      ok: true,
+      sourceDocumentId: sourceDocument.id,
+      signedUrl,
+      documentType: sourceDocument.document_type,
+      mimeType: asset.mime_type,
+      fileSize: asset.file_size,
+      expiresIn: SOURCE_DOCUMENT_VIEW_URL_TTL_SECONDS,
+      storagePath,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post('/:sourceDocumentId/extraction/start', requireCreatorOrAdmin, async (req, res, next) => {
   try {
     const { extraction, sourceDocument, legend, extractionResult, reusedExistingExtraction } =
@@ -274,6 +327,14 @@ router.post('/:sourceDocumentId/pages/propose-ai', requireCreatorOrAdmin, async 
 
     res.json(result);
   } catch (error) {
+    if (error.name === 'AiPageProposalError' && error.details?.reason) {
+      res.status(error.statusCode || error.details.status || 500).json({
+        ok: false,
+        ...error.details,
+      });
+      return;
+    }
+
     next(error);
   }
 });

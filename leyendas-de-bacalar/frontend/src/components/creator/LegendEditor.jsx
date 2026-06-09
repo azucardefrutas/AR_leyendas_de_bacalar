@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Button from '../ui/Button.jsx';
 import Card from '../ui/Card.jsx';
 import LoadingState from '../ui/LoadingState.jsx';
+import SourceDocumentPreview from './SourceDocumentPreview.jsx';
 import {
   canEditVersion,
   deleteLegendPage,
@@ -20,6 +21,8 @@ import {
 } from '../../services/assetService.js';
 import {
   generatePagesFromDocument,
+  getSourceDocumentViewUrl,
+  proposeAiPagesFromDocument,
   startDocumentExtraction,
 } from '../../services/backendApiService.js';
 
@@ -139,68 +142,6 @@ function getPrimarySourceDocument(documents = []) {
   return documents.find((document) => document.is_primary_source) || documents[0] || null;
 }
 
-function getSourceDocumentAsset(sourceDocument = {}) {
-  return sourceDocument.assets || sourceDocument.asset || {};
-}
-
-function formatFileSize(size) {
-  const bytes = Number(size || 0);
-  if (!bytes) return 'Tamano no disponible';
-  if (bytes < 1024 * 1024) return `${Math.ceil(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDocumentDate(value) {
-  if (!value) return 'Fecha no disponible';
-  try {
-    return new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value));
-  } catch {
-    return 'Fecha no disponible';
-  }
-}
-
-function getSourceDocumentStatusCopy(status) {
-  const normalizedStatus = String(status || '').toLowerCase();
-  const statusMap = {
-    pending: {
-      icon: 'pending_actions',
-      title: 'Documento fuente cargado',
-      statusLabel: 'pendiente de extraccion',
-      description: 'Las paginas se generaran automaticamente cuando se procese el documento.',
-      allowManualPages: true,
-    },
-    extracted: {
-      icon: 'task_alt',
-      title: 'Documento extraido',
-      statusLabel: 'pendiente de generar paginas',
-      description: 'El documento ya fue extraido, pero todavia no hay paginas generadas para esta version.',
-      allowManualPages: true,
-    },
-    failed: {
-      icon: 'error',
-      title: 'No se pudo procesar el documento',
-      statusLabel: 'fallo de extraccion',
-      description: 'La extraccion fallo. Puedes revisar el documento o crear paginas manuales.',
-      allowManualPages: true,
-    },
-    manual_required: {
-      icon: 'edit_note',
-      title: 'Requiere revision manual',
-      statusLabel: 'revision manual requerida',
-      description: 'El documento necesita revision manual antes de generar contenido automaticamente.',
-      allowManualPages: true,
-    },
-  };
-
-  return statusMap[normalizedStatus] || {
-    icon: 'description',
-    title: 'Documento fuente cargado',
-    statusLabel: normalizedStatus || 'estado no disponible',
-    description: 'El documento esta asociado a esta leyenda, pero no hay paginas generadas todavia.',
-    allowManualPages: true,
-  };
-}
-
 function getExistingResource(resources, key) {
   if (!resources) return null;
   if (key === 'cover' || key === 'banner') {
@@ -299,48 +240,97 @@ function getDocumentProcessingErrorMessage(error, fallbackMessage) {
   return message || fallbackMessage;
 }
 
-function SourceDocumentContentState({
-  sourceDocument,
-  disabled,
-  onAddPage,
-  onProcessDocument,
-  processing,
-  processingMessage,
-}) {
-  const asset = getSourceDocumentAsset(sourceDocument);
-  const statusCopy = getSourceDocumentStatusCopy(sourceDocument.extraction_status);
-  const safeError = sourceDocument.error_message || sourceDocument.extraction_error || '';
-  const normalizedStatus = String(sourceDocument.extraction_status || '').toLowerCase();
-  const canProcessDocument = normalizedStatus === 'pending' || normalizedStatus === 'extracted';
-  const actionLabel = normalizedStatus === 'pending' ? 'Procesar documento' : 'Generar paginas';
+function normalizeAiProposalResponse(response) {
+  const provider = response?.provider || response?.data?.provider || 'disabled';
+  const proposal = response?.proposal || response?.pagesProposal || response?.data?.proposal || null;
+  const pages = Array.isArray(proposal?.pages) ? proposal.pages : [];
+  const warnings = Array.isArray(proposal?.warnings) ? proposal.warnings : [];
+  const summary = typeof proposal?.summary === 'string' ? proposal.summary : '';
+  const disabled = provider === 'disabled'
+    || response?.nextStep === 'ai_provider_disabled'
+    || response?.reason === 'AI provider disabled';
 
-  return (
-    <div className="creator-empty-editor">
-      <MaterialIcon name={statusCopy.icon} />
-      <h3>{statusCopy.title}</h3>
-      <p>{statusCopy.description}</p>
-      <div className="creator-review-grid compact">
-        <span className="ready">Estado: {statusCopy.statusLabel}</span>
-        <span>Tipo: {sourceDocument.document_type || asset.asset_type || 'documento'}</span>
-        <span>{formatFileSize(asset.file_size || sourceDocument.file_size)}</span>
-        <span>{formatDocumentDate(sourceDocument.created_at)}</span>
-      </div>
-      {asset.mime_type && <p className="creator-muted">MIME: {asset.mime_type}</p>}
-      {asset.storage_path && <p className="creator-muted">Archivo: {asset.storage_path}</p>}
-      {safeError && <p className="error-message">{safeError}</p>}
-      {processingMessage && <p className="creator-muted">{processingMessage}</p>}
-      {canProcessDocument && (
-        <Button type="button" onClick={onProcessDocument} disabled={disabled || processing}>
-          {processing ? (processingMessage || 'Procesando documento...') : actionLabel}
-        </Button>
-      )}
-      {statusCopy.allowManualPages && (
-        <Button type="button" variant="ghost" onClick={onAddPage} disabled={disabled || processing}>
-          Anadir pagina manualmente
-        </Button>
-      )}
-    </div>
-  );
+  if (disabled) {
+    return {
+      disabled: true,
+      provider: 'disabled',
+      summary: '',
+      warnings: [],
+      pages: [],
+      raw: response,
+    };
+  }
+
+  if (!pages.length) {
+    throw new Error('No se pudo generar una propuesta valida.');
+  }
+
+  return {
+    disabled: false,
+    provider,
+    summary,
+    warnings,
+    pages,
+    raw: response,
+  };
+}
+
+function getAiProposalErrorMessage(error) {
+  const message = error?.message || '';
+  const dataMessage = error?.data?.error || error?.data?.message || '';
+  const reason = error?.data?.reason || '';
+  const code = error?.data?.code || '';
+  const combinedMessage = `${message} ${dataMessage}`;
+
+  if (
+    error?.status === 501
+    || error?.data?.provider === 'disabled'
+    || error?.data?.nextStep === 'ai_provider_disabled'
+    || /provider disabled|ai_provider_disabled/i.test(combinedMessage)
+  ) {
+    return {
+      disabled: true,
+      provider: 'disabled',
+      summary: '',
+      warnings: [],
+      pages: [],
+      raw: error?.data || null,
+    };
+  }
+
+  if (reason === 'missing_api_key') {
+    return 'La IA no esta configurada en este entorno.';
+  }
+
+  if (reason === 'invalid_ai_response') {
+    return 'La IA respondio en un formato invalido. Intenta de nuevo.';
+  }
+
+  if (
+    error?.status === 503
+    || code === 'UNAVAILABLE'
+    || /503|unavailable|overloaded|high demand|saturad/i.test(`${code} ${combinedMessage}`)
+  ) {
+    return 'El modelo de IA esta saturado temporalmente. Intenta de nuevo mas tarde.';
+  }
+
+  if (reason === 'model_error') {
+    return dataMessage || 'El modelo de IA configurado no esta disponible.';
+  }
+
+  if (reason === 'gemini_request_failed') {
+    return 'No se pudo generar la propuesta con IA.';
+  }
+
+  if (/json|proposal|pages|valida|invalid/i.test(combinedMessage)) {
+    return 'No se pudo generar una propuesta valida.';
+  }
+
+  if (error?.status === 0) {
+    return 'No se pudo conectar con el backend para generar la propuesta IA.';
+  }
+
+  return message || 'No se pudo generar una propuesta valida.';
 }
 
 function LegendEditor({ legendId }) {
@@ -363,6 +353,21 @@ function LegendEditor({ legendId }) {
   const [submitting, setSubmitting] = useState(false);
   const [processingDocument, setProcessingDocument] = useState(false);
   const [documentProcessingMessage, setDocumentProcessingMessage] = useState('');
+  const [sourceDocumentView, setSourceDocumentView] = useState({
+    sourceDocumentId: null,
+    data: null,
+    error: '',
+    loading: false,
+  });
+  const [aiProposalState, setAiProposalState] = useState({
+    sourceDocumentId: null,
+    data: null,
+    error: '',
+    errorDetails: null,
+    loading: false,
+  });
+  const [isSourceDocumentOpen, setIsSourceDocumentOpen] = useState(true);
+  const [isInteractiveReadingOpen, setIsInteractiveReadingOpen] = useState(true);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
   // TODO: Persist editorial declarations when the schema exposes per-legend acceptance columns.
@@ -437,6 +442,26 @@ function LegendEditor({ legendId }) {
   const declarationError = declarationsAccepted ? null : new Error('Acepta las declaraciones editoriales antes de enviar a revision.');
   const reviewError = validateReadyForReview({ legend: form, pages }) || declarationError;
   const primarySourceDocument = getPrimarySourceDocument(existingResources.documents);
+  const versionStatusLabel = getLegendDisplayStatus(version?.status).label;
+  const interactiveReadingPanelId = `interactive-reading-panel-${version?.id || 'current'}`;
+
+  useEffect(() => {
+    setSourceDocumentView({
+      sourceDocumentId: primarySourceDocument?.id ?? null,
+      data: null,
+      error: '',
+      loading: false,
+    });
+    setAiProposalState({
+      sourceDocumentId: primarySourceDocument?.id ?? null,
+      data: null,
+      error: '',
+      errorDetails: null,
+      loading: false,
+    });
+    setIsSourceDocumentOpen(Boolean(primarySourceDocument));
+    setIsInteractiveReadingOpen(!primarySourceDocument || visiblePages.length > 0);
+  }, [primarySourceDocument?.id]);
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -520,6 +545,114 @@ function LegendEditor({ legendId }) {
     return true;
   }
 
+  async function handleViewSourceDocument(sourceDocument) {
+    if (!sourceDocument?.id) {
+      setSourceDocumentView((current) => ({
+        ...current,
+        error: 'No se encontro el documento fuente.',
+        loading: false,
+      }));
+      return;
+    }
+
+    setSourceDocumentView({
+      sourceDocumentId: sourceDocument.id,
+      data: null,
+      error: '',
+      loading: true,
+    });
+
+    try {
+      const data = await getSourceDocumentViewUrl(sourceDocument.id);
+      setSourceDocumentView({
+        sourceDocumentId: sourceDocument.id,
+        data,
+        error: '',
+        loading: false,
+      });
+    } catch (viewError) {
+      const message = viewError?.status === 0
+        ? 'No se pudo conectar con el backend para abrir el documento.'
+        : 'No se pudo abrir el documento original.';
+
+      setSourceDocumentView({
+        sourceDocumentId: sourceDocument.id,
+        data: null,
+        error: message,
+        loading: false,
+      });
+    }
+  }
+
+  async function handleRequestAiProposal(sourceDocument) {
+    if (!sourceDocument?.id) {
+      setAiProposalState({
+        sourceDocumentId: null,
+        data: null,
+        error: 'No se encontro el documento fuente.',
+        errorDetails: null,
+        loading: false,
+      });
+      return;
+    }
+
+    const extractionStatus = String(sourceDocument.extraction_status || '').toLowerCase();
+    if (extractionStatus !== 'extracted') {
+      setAiProposalState({
+        sourceDocumentId: sourceDocument.id,
+        data: null,
+        error: 'El documento debe estar extraido antes de generar una propuesta IA.',
+        errorDetails: null,
+        loading: false,
+      });
+      return;
+    }
+
+    setAiProposalState((current) => ({
+      sourceDocumentId: sourceDocument.id,
+      data: current.sourceDocumentId === sourceDocument.id ? current.data : null,
+      error: '',
+      errorDetails: null,
+      loading: true,
+    }));
+
+    try {
+      const response = await proposeAiPagesFromDocument(sourceDocument.id);
+      const data = normalizeAiProposalResponse(response);
+      setAiProposalState({
+        sourceDocumentId: sourceDocument.id,
+        data,
+        error: '',
+        errorDetails: null,
+        loading: false,
+      });
+    } catch (proposalError) {
+      const safeError = getAiProposalErrorMessage(proposalError);
+      if (typeof safeError === 'string') {
+        setAiProposalState((current) => ({
+          sourceDocumentId: sourceDocument.id,
+          data: current.sourceDocumentId === sourceDocument.id ? current.data : null,
+          error: safeError,
+          errorDetails: proposalError?.data || {
+            provider: 'gemini',
+            reason: 'frontend_ai_error',
+            status: proposalError?.status || 0,
+          },
+          loading: false,
+        }));
+        return;
+      }
+
+      setAiProposalState({
+        sourceDocumentId: sourceDocument.id,
+        data: safeError,
+        error: '',
+        errorDetails: null,
+        loading: false,
+      });
+    }
+  }
+
   async function handleProcessSourceDocument(sourceDocument) {
     if (visiblePages.length > 0) {
       setError(new Error('Esta version ya tiene paginas generadas.'));
@@ -559,6 +692,7 @@ function LegendEditor({ legendId }) {
       await generatePagesFromDocument(sourceDocument.id);
       await loadEditor();
       setActiveTab('content');
+      setIsInteractiveReadingOpen(true);
       setMessage('Paginas generadas desde el documento.');
     } catch (processError) {
       if (processError?.status === 409) {
@@ -798,21 +932,39 @@ function LegendEditor({ legendId }) {
             <span>2</span>
             <div>
               <h2>Contenido de la leyenda</h2>
-              <p>{visiblePages.length} paginas en esta version.</p>
+              <p>
+                {primarySourceDocument
+                  ? 'Documento original y lectura interactiva opcional.'
+                  : `${visiblePages.length} paginas en esta version.`}
+              </p>
             </div>
           </div>
 
+          {primarySourceDocument && (
+            <SourceDocumentPreview
+              sourceDocument={primarySourceDocument}
+              viewUrl={sourceDocumentView.sourceDocumentId === primarySourceDocument.id ? sourceDocumentView.data : null}
+              viewLoading={sourceDocumentView.sourceDocumentId === primarySourceDocument.id && sourceDocumentView.loading}
+              viewError={sourceDocumentView.sourceDocumentId === primarySourceDocument.id ? sourceDocumentView.error : ''}
+              disabled={isReviewLocked}
+              hasInteractivePages={visiblePages.length > 0}
+              processing={processingDocument}
+              processingMessage={documentProcessingMessage}
+              aiProposal={aiProposalState.sourceDocumentId === primarySourceDocument.id ? aiProposalState.data : null}
+              aiProposalLoading={aiProposalState.sourceDocumentId === primarySourceDocument.id && aiProposalState.loading}
+              aiProposalError={aiProposalState.sourceDocumentId === primarySourceDocument.id ? aiProposalState.error : ''}
+              aiProposalErrorDetails={aiProposalState.sourceDocumentId === primarySourceDocument.id ? aiProposalState.errorDetails : null}
+              onViewDocument={() => handleViewSourceDocument(primarySourceDocument)}
+              onConvertToInteractive={() => handleProcessSourceDocument(primarySourceDocument)}
+              onRequestAiProposal={() => handleRequestAiProposal(primarySourceDocument)}
+              onAddManualPage={addPage}
+              isOpen={isSourceDocumentOpen}
+              onToggle={() => setIsSourceDocumentOpen((current) => !current)}
+            />
+          )}
+
           {visiblePages.length === 0 ? (
-            primarySourceDocument ? (
-              <SourceDocumentContentState
-                sourceDocument={primarySourceDocument}
-                disabled={isReviewLocked}
-                onAddPage={addPage}
-                onProcessDocument={() => handleProcessSourceDocument(primarySourceDocument)}
-                processing={processingDocument}
-                processingMessage={documentProcessingMessage}
-              />
-            ) : (
+            primarySourceDocument ? null : (
               <div className="creator-empty-editor">
               <MaterialIcon name="note_add" />
               <h3>Aun no has agregado paginas.</h3>
@@ -821,58 +973,90 @@ function LegendEditor({ legendId }) {
               </div>
             )
           ) : (
-            <div className="creator-pages-layout">
-              <aside className="creator-page-rail">
-                {visiblePages.map((page) => (
-                  <button
-                    type="button"
-                    key={page.client_id}
-                    className={page.client_id === selectedPage?.client_id ? 'active' : ''}
-                    onClick={() => setSelectedPageKey(page.client_id)}
-                  >
-                    <MaterialIcon name="article" />
-                    <span>Pag. {page.page_number}</span>
-                  </button>
-                ))}
-                <button type="button" className="creator-add-page" onClick={addPage} disabled={isReviewLocked}>
-                  <MaterialIcon name="add" />
-                  <span>Anadir pagina</span>
-                </button>
-              </aside>
+            <section className="creator-section-block">
+              <button
+                type="button"
+                className="creator-accordion-header"
+                onClick={() => setIsInteractiveReadingOpen((current) => !current)}
+                aria-expanded={isInteractiveReadingOpen}
+                aria-controls={interactiveReadingPanelId}
+              >
+                <span className="creator-accordion-icon">LI</span>
+                <div className="creator-accordion-copy">
+                  <h2>Lectura interactiva</h2>
+                  <p>Edita las paginas generadas o creadas manualmente.</p>
+                </div>
+                <span className="creator-accordion-badges">
+                  <span className="creator-accordion-badge">{visiblePages.length} paginas</span>
+                  <span className="creator-accordion-badge">Version {version.version_number || 1}</span>
+                  <span className="creator-accordion-badge">{versionStatusLabel}</span>
+                </span>
+                <span className={`creator-accordion-chevron ${isInteractiveReadingOpen ? 'open' : ''}`} aria-hidden="true">&rsaquo;</span>
+              </button>
 
-              <div className="creator-page-editor">
-                <div className="creator-page-toolbar">
-                  <label className="field" htmlFor="page-number">
-                    <span>Numero</span>
-                    <input id="page-number" className="standalone-input" type="number" min="1" value={selectedPage?.page_number || 1} onChange={(event) => updatePage('page_number', event.target.value)} disabled={isReviewLocked} />
-                  </label>
-                  <label className="field" htmlFor="page-title">
-                    <span>Titulo de pagina</span>
-                    <input id="page-title" className="standalone-input" value={selectedPage?.title || ''} onChange={(event) => updatePage('title', event.target.value)} disabled={isReviewLocked} placeholder="Opcional" />
-                  </label>
-                  <Button variant="ghost" onClick={() => removePage(selectedPage)} disabled={isReviewLocked || visiblePages.length <= 1}>Quitar</Button>
-                </div>
-                <label className="field" htmlFor="page-content">
-                  <span>Texto de la historia</span>
-                  <textarea
-                    id="page-content"
-                    className="textarea creator-story-textarea"
-                    value={selectedPage?.text_content || ''}
-                    onChange={(event) => updatePage('text_content', event.target.value)}
-                    disabled={isReviewLocked}
-                    placeholder="Erase una vez en Bacalar..."
-                  />
-                </label>
-                <div className="creator-page-stats">
-                  <span>{(selectedPage?.text_content || '').trim().split(/\s+/).filter(Boolean).length} palabras</span>
-                  <span>{(selectedPage?.text_content || '').length} caracteres</span>
+              <div id={interactiveReadingPanelId} className={`creator-accordion-panel ${isInteractiveReadingOpen ? 'open' : 'closed'}`}>
+                <div className="creator-review-grid compact">
+                  <span className="ready">Total de paginas: {visiblePages.length}</span>
                   <span>Version {version.version_number || 1}</span>
+                  <span>Estado: {versionStatusLabel}</span>
                 </div>
-                <div className="creator-review-actions">
-                  <Button type="button" onClick={handleSavePages} disabled={saving || isReviewLocked}>{saving ? 'Guardando...' : 'Guardar paginas'}</Button>
+
+                {isInteractiveReadingOpen && (
+                <div className="creator-pages-layout">
+                <aside className="creator-page-rail">
+                  {visiblePages.map((page) => (
+                    <button
+                      type="button"
+                      key={page.client_id}
+                      className={page.client_id === selectedPage?.client_id ? 'active' : ''}
+                      onClick={() => setSelectedPageKey(page.client_id)}
+                    >
+                      <MaterialIcon name="article" />
+                      <span>Pag. {page.page_number}</span>
+                    </button>
+                  ))}
+                  <button type="button" className="creator-add-page" onClick={addPage} disabled={isReviewLocked}>
+                    <MaterialIcon name="add" />
+                    <span>Anadir pagina</span>
+                  </button>
+                </aside>
+
+                <div className="creator-page-editor">
+                  <div className="creator-page-toolbar">
+                    <label className="field" htmlFor="page-number">
+                      <span>Numero</span>
+                      <input id="page-number" className="standalone-input" type="number" min="1" value={selectedPage?.page_number || 1} onChange={(event) => updatePage('page_number', event.target.value)} disabled={isReviewLocked} />
+                    </label>
+                    <label className="field" htmlFor="page-title">
+                      <span>Titulo de pagina</span>
+                      <input id="page-title" className="standalone-input" value={selectedPage?.title || ''} onChange={(event) => updatePage('title', event.target.value)} disabled={isReviewLocked} placeholder="Opcional" />
+                    </label>
+                    <Button variant="ghost" onClick={() => removePage(selectedPage)} disabled={isReviewLocked || visiblePages.length <= 1}>Quitar</Button>
+                  </div>
+                  <label className="field" htmlFor="page-content">
+                    <span>Texto de la historia</span>
+                    <textarea
+                      id="page-content"
+                      className="textarea creator-story-textarea"
+                      value={selectedPage?.text_content || ''}
+                      onChange={(event) => updatePage('text_content', event.target.value)}
+                      disabled={isReviewLocked}
+                      placeholder="Erase una vez en Bacalar..."
+                    />
+                  </label>
+                  <div className="creator-page-stats">
+                    <span>{(selectedPage?.text_content || '').trim().split(/\s+/).filter(Boolean).length} palabras</span>
+                    <span>{(selectedPage?.text_content || '').length} caracteres</span>
+                    <span>Version {version.version_number || 1}</span>
+                  </div>
+                  <div className="creator-review-actions">
+                    <Button type="button" onClick={handleSavePages} disabled={saving || isReviewLocked}>{saving ? 'Guardando...' : 'Guardar paginas'}</Button>
+                  </div>
                 </div>
+                </div>
+                )}
               </div>
-            </div>
+            </section>
           )}
         </Card>
       )}

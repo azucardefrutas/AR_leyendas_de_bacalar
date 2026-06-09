@@ -29,11 +29,38 @@ export const prepareAiPageProposal = async ({ sourceDocumentId, requestedBy }) =
   });
 
   const ready = await getExtractionReadyForPages(sourceDocumentId);
-  const aiResult = await proposeDocumentPagesWithAi({
-    extractedText: ready.extractedText,
-    sourceDocument: ready.sourceDocument,
-    extractionId: ready.extractionId,
-  });
+  let aiResult;
+
+  try {
+    aiResult = await proposeDocumentPagesWithAi({
+      extractedText: ready.extractedText,
+      sourceDocument: ready.sourceDocument,
+      extractionId: ready.extractionId,
+    });
+  } catch (error) {
+    const details = error.details && typeof error.details === 'object'
+      ? error.details
+      : {
+          ok: false,
+          provider: 'gemini',
+          reason: 'ai_provider_error',
+          status: error.statusCode || 500,
+          message: error.message || 'AI provider request failed.',
+          nextStep: 'inspect_backend_logs',
+        };
+
+    throw new AiPageProposalError(
+      details.message || error.message || 'AI provider request failed.',
+      details.status || error.statusCode || 500,
+      {
+        ...details,
+        legendId: ready.legendId,
+        sourceDocumentId,
+        extractionId: ready.extractionId,
+        textLength: ready.textLength,
+      },
+    );
+  }
 
   if (!aiResult.ok) {
     return {
@@ -58,9 +85,11 @@ export const prepareAiPageProposal = async ({ sourceDocumentId, requestedBy }) =
     textLength: ready.textLength,
     provider: aiResult.provider,
     model: aiResult.model ?? null,
-    pagesProposal: aiResult.proposal.pages,
-    warnings: aiResult.proposal.warnings,
-    summary: aiResult.proposal.summary,
+    proposal: {
+      pages: aiResult.proposal.pages,
+      summary: aiResult.proposal.summary,
+      warnings: aiResult.proposal.warnings,
+    },
     nextStep: 'review_ai_page_proposal',
   };
 };

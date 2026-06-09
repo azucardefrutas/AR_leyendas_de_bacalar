@@ -5,7 +5,13 @@ class GeminiProviderError extends Error {
     super(message);
     this.name = 'GeminiProviderError';
     this.statusCode = statusCode;
-    this.details = details;
+    this.details = {
+      ok: false,
+      provider: 'gemini',
+      status: statusCode,
+      message,
+      ...details,
+    };
   }
 }
 
@@ -63,31 +69,107 @@ const stripJsonFences = (value) => {
     .trim();
 };
 
+const getEmbeddedGeminiError = (message) => {
+  const rawMessage = String(message ?? '');
+  const firstBrace = rawMessage.indexOf('{');
+  const lastBrace = rawMessage.lastIndexOf('}');
+
+  if (firstBrace < 0 || lastBrace <= firstBrace) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(rawMessage.slice(firstBrace, lastBrace + 1));
+  } catch {
+    return null;
+  }
+};
+
+const sanitizeGeminiMessage = (message) => {
+  return String(message || 'Gemini request failed.')
+    .replace(/key=([^&\s]+)/gi, 'key=[redacted]')
+    .replace(/api[_-]?key["']?\s*[:=]\s*["']?[^"',\s}]+/gi, 'api_key=[redacted]')
+    .replace(/bearer\s+[a-z0-9._-]+/gi, 'bearer [redacted]');
+};
+
+const getGeminiRequestFailureDetails = (error) => {
+  const embedded = getEmbeddedGeminiError(error?.message);
+  const embeddedError = embedded?.error && typeof embedded.error === 'object' ? embedded.error : null;
+  const rawStatus = Number(error?.status ?? error?.statusCode ?? embeddedError?.code);
+  const status = Number.isInteger(rawStatus) ? rawStatus : 502;
+  const code = String(error?.code || embeddedError?.status || (status === 503 ? 'UNAVAILABLE' : 'GEMINI_REQUEST_FAILED'));
+  const message = sanitizeGeminiMessage(embeddedError?.message || error?.message);
+
+  if (status === 400 || /INVALID_ARGUMENT|model|not found|not supported/i.test(`${code} ${message}`)) {
+    return {
+      reason: 'model_error',
+      code,
+      status,
+      message,
+      nextStep: 'check_gemini_model',
+    };
+  }
+
+  if (status === 503 || code === 'UNAVAILABLE' || /unavailable|overloaded|high demand/i.test(message)) {
+    return {
+      reason: 'gemini_request_failed',
+      code: code || 'UNAVAILABLE',
+      status: 503,
+      message,
+      nextStep: 'try_again_later',
+    };
+  }
+
+  return {
+    reason: 'gemini_request_failed',
+    code,
+    status,
+    message,
+    nextStep: 'inspect_backend_logs',
+  };
+};
+
 const parseJsonResponse = (value) => {
   const text = stripJsonFences(value);
 
   if (!text) {
-    throw new GeminiProviderError('Gemini returned an empty response.');
+    throw new GeminiProviderError('Gemini did not return valid JSON.', 502, {
+      reason: 'invalid_ai_response',
+      code: 'INVALID_AI_RESPONSE',
+      nextStep: 'try_again_or_adjust_prompt',
+    });
   }
 
   try {
     return JSON.parse(text);
   } catch (error) {
-    throw new GeminiProviderError('Gemini returned invalid JSON.', 502, {
-      reason: error.message,
+    throw new GeminiProviderError('Gemini did not return valid JSON.', 502, {
+      reason: 'invalid_ai_response',
+      code: 'INVALID_AI_RESPONSE',
+      nextStep: 'try_again_or_adjust_prompt',
     });
   }
 };
 
 const assertStringArray = (value, fieldName) => {
   if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) {
-    throw new GeminiProviderError(`Gemini response field ${fieldName} must be an array of strings.`);
+    throw new GeminiProviderError('Gemini did not return a valid page proposal.', 502, {
+      reason: 'invalid_ai_response',
+      code: 'INVALID_AI_RESPONSE',
+      nextStep: 'try_again_or_adjust_prompt',
+      field: fieldName,
+    });
   }
 };
 
 const validatePage = (page, index) => {
   if (!page || typeof page !== 'object' || Array.isArray(page)) {
-    throw new GeminiProviderError(`Gemini response page ${index + 1} is invalid.`);
+    throw new GeminiProviderError('Gemini did not return a valid page proposal.', 502, {
+      reason: 'invalid_ai_response',
+      code: 'INVALID_AI_RESPONSE',
+      nextStep: 'try_again_or_adjust_prompt',
+      pageIndex: index,
+    });
   }
 
   const pageNumber = Number(page.page_number);
@@ -95,15 +177,33 @@ const validatePage = (page, index) => {
   const textContent = String(page.text_content ?? '').trim();
 
   if (!Number.isFinite(pageNumber) || pageNumber <= 0) {
-    throw new GeminiProviderError(`Gemini response page ${index + 1} has an invalid page_number.`);
+    throw new GeminiProviderError('Gemini did not return a valid page proposal.', 502, {
+      reason: 'invalid_ai_response',
+      code: 'INVALID_AI_RESPONSE',
+      nextStep: 'try_again_or_adjust_prompt',
+      field: 'page_number',
+      pageIndex: index,
+    });
   }
 
   if (!title) {
-    throw new GeminiProviderError(`Gemini response page ${index + 1} has an empty title.`);
+    throw new GeminiProviderError('Gemini did not return a valid page proposal.', 502, {
+      reason: 'invalid_ai_response',
+      code: 'INVALID_AI_RESPONSE',
+      nextStep: 'try_again_or_adjust_prompt',
+      field: 'title',
+      pageIndex: index,
+    });
   }
 
   if (!textContent) {
-    throw new GeminiProviderError(`Gemini response page ${index + 1} has empty text_content.`);
+    throw new GeminiProviderError('Gemini did not return a valid page proposal.', 502, {
+      reason: 'invalid_ai_response',
+      code: 'INVALID_AI_RESPONSE',
+      nextStep: 'try_again_or_adjust_prompt',
+      field: 'text_content',
+      pageIndex: index,
+    });
   }
 
   assertStringArray(page.notes, `pages[${index}].notes`);
@@ -118,17 +218,31 @@ const validatePage = (page, index) => {
 
 const validateProposal = (proposal) => {
   if (!proposal || typeof proposal !== 'object' || Array.isArray(proposal)) {
-    throw new GeminiProviderError('Gemini response must be a JSON object.');
+    throw new GeminiProviderError('Gemini did not return valid JSON.', 502, {
+      reason: 'invalid_ai_response',
+      code: 'INVALID_AI_RESPONSE',
+      nextStep: 'try_again_or_adjust_prompt',
+    });
   }
 
   if (!Array.isArray(proposal.pages) || proposal.pages.length === 0) {
-    throw new GeminiProviderError('Gemini response must include at least one page.');
+    throw new GeminiProviderError('Gemini did not return a valid page proposal.', 502, {
+      reason: 'invalid_ai_response',
+      code: 'INVALID_AI_RESPONSE',
+      nextStep: 'try_again_or_adjust_prompt',
+      field: 'pages',
+    });
   }
 
   assertStringArray(proposal.warnings, 'warnings');
 
   if (typeof proposal.summary !== 'string') {
-    throw new GeminiProviderError('Gemini response field summary must be a string.');
+    throw new GeminiProviderError('Gemini did not return a valid page proposal.', 502, {
+      reason: 'invalid_ai_response',
+      code: 'INVALID_AI_RESPONSE',
+      nextStep: 'try_again_or_adjust_prompt',
+      field: 'summary',
+    });
   }
 
   return {
@@ -145,7 +259,11 @@ export const geminiProvider = {
     const apiKey = getGeminiApiKey();
 
     if (!apiKey) {
-      throw new GeminiProviderError('Gemini provider is not configured.', 503);
+      throw new GeminiProviderError('Gemini API key is not configured.', 503, {
+        reason: 'missing_api_key',
+        code: 'MISSING_API_KEY',
+        nextStep: 'configure_gemini_api_key',
+      });
     }
 
     const model = getGeminiModel();
@@ -168,9 +286,8 @@ export const geminiProvider = {
         },
       });
     } catch (error) {
-      throw new GeminiProviderError('Gemini request failed.', 502, {
-        reason: error.message,
-      });
+      const details = getGeminiRequestFailureDetails(error);
+      throw new GeminiProviderError(details.message, details.status, details);
     }
 
     const parsed = parseJsonResponse(getResponseText(response));
