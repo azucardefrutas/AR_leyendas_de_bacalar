@@ -1,6 +1,10 @@
-import React from 'react';
+import React, { Suspense, lazy, useState } from 'react';
 import Modal from '../ui/Modal.jsx';
 import Button from '../ui/Button.jsx';
+
+// Lazy-loaded so the heavy three.js / react-three bundle is only fetched when the
+// user actually opens the 3D viewer.
+const Model3DViewer = lazy(() => import('./Model3DViewer.jsx'));
 
 function getModelAsset(scene = {}) {
   return scene.assets || scene.asset || scene.model_asset || null;
@@ -35,6 +39,8 @@ function formatFileSize(size) {
  * No new dependencies are introduced.
  */
 function ArSceneModal({ scene, marker = null, pageNumber = null, onClose }) {
+  const [showViewer, setShowViewer] = useState(false);
+
   if (!scene) return null;
 
   const modelAsset = getModelAsset(scene);
@@ -52,10 +58,15 @@ function ArSceneModal({ scene, marker = null, pageNumber = null, onClose }) {
           {pageNumber != null && <span className="ar-scene-badge">Pagina {pageNumber}</span>}
         </div>
 
-        <p className="ar-scene-modal-note">
-          El visor 3D interactivo esta en preparacion. Por ahora puedes revisar los datos de la
-          escena y abrir o descargar el modelo asociado.
-        </p>
+        {modelUrl ? (
+          <p className="ar-scene-modal-note">
+            Abre el modelo en el visor 3D interactivo o descarga el archivo original.
+          </p>
+        ) : (
+          <p className="ar-scene-modal-note">
+            Esta escena todavia no tiene un modelo 3D disponible para cargar.
+          </p>
+        )}
 
         {scene.description && <p className="ar-scene-modal-description">{scene.description}</p>}
 
@@ -82,19 +93,33 @@ function ArSceneModal({ scene, marker = null, pageNumber = null, onClose }) {
 
         <div className="ar-scene-modal-actions">
           {modelUrl ? (
-            <a className="btn" href={modelUrl} target="_blank" rel="noreferrer">
-              Abrir modelo 3D
-            </a>
+            <>
+              <Button type="button" onClick={() => setShowViewer(true)}>
+                Ver modelo 3D
+              </Button>
+              <a className="btn btn-ghost" href={modelUrl} target="_blank" rel="noreferrer">
+                Abrir / descargar
+              </a>
+            </>
           ) : (
-            <Button type="button" variant="ghost" disabled>
-              Modelo no disponible
-            </Button>
+            <span className="ar-scene-modal-empty">Esta escena todavia no tiene un modelo 3D asociado.</span>
           )}
           <Button type="button" variant="ghost" onClick={onClose}>
             Cerrar
           </Button>
         </div>
       </div>
+
+      {showViewer && modelUrl && (
+        <Suspense fallback={null}>
+          <Model3DViewer
+            scene={scene}
+            modelUrl={modelUrl}
+            title={scene.name}
+            onClose={() => setShowViewer(false)}
+          />
+        </Suspense>
+      )}
     </Modal>
   );
 }

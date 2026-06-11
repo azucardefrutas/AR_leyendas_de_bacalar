@@ -5936,3 +5936,109 @@ pre {
 .reader-3d-button:hover {
   background: rgba(48, 207, 242, 0.28);
 }
+
+/* FASE 5: real 3D model viewer (GLB/GLTF) */
+.ar-scene-modal-empty {
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.model3d-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(2, 8, 20, 0.82);
+}
+
+.model3d-overlay.expanded {
+  padding: 0;
+}
+
+.model3d-panel {
+  width: min(880px, 100%);
+  height: min(620px, 90vh);
+  display: flex;
+  flex-direction: column;
+  background: #0b1220;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.model3d-overlay.expanded .model3d-panel {
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
+  border: 0;
+}
+
+.model3d-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.model3d-heading h3 {
+  margin: 0;
+  color: #f1f5f9;
+}
+
+.model3d-heading p {
+  margin: 4px 0 0;
+  color: #94a3b8;
+  font-size: 0.85rem;
+}
+
+.model3d-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.model3d-stage {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: radial-gradient(circle at 50% 40%, #1e293b, #0b1220);
+}
+
+.model3d-stage canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.model3d-message {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 24px;
+  color: #cbd5e1;
+}
+
+.model3d-message.error {
+  color: #fca5a5;
+}
+
+.model3d-loading {
+  color: #e2e8f0;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.model3d-hint {
+  margin: 0;
+  padding: 10px 18px;
+  color: #94a3b8;
+  font-size: 0.78rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+  text-align: center;
+}
