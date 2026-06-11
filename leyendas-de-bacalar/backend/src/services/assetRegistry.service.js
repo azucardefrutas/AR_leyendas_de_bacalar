@@ -1,4 +1,7 @@
+import { Buffer } from 'node:buffer';
+
 import { supabaseAdmin } from '../config/supabaseAdmin.js';
+import { getPdfPageCountFromBuffer } from './documentTextExtractor.service.js';
 
 class AssetRegistryError extends Error {
   constructor(message, statusCode = 500, details = {}) {
@@ -50,6 +53,18 @@ const buildLegendMediaPayload = ({ legendId, assetId, purpose }) => ({
   usage_context: getMediaUsageContext(purpose),
   is_primary: true,
 });
+
+const logAssetRegistryDebug = (message, payload = {}) => {
+  if (process.env.NODE_ENV === 'production') return;
+
+  console.info('[asset-registry]', message, payload);
+};
+
+const logAssetRegistryError = (message, payload = {}) => {
+  if (process.env.NODE_ENV === 'production') return;
+
+  console.error('[asset-registry]', message, payload);
+};
 
 const insertAsset = async ({
   userId,
@@ -188,7 +203,38 @@ const linkLegendMedia = async ({ legendId, assetId, purpose }) => {
   return insertLegendMedia(payload);
 };
 
-const linkSourceDocument = async ({ legendId, assetId, userId, filename, mimeType }) => {
+const detectPdfPageCount = async ({ bucket, path, filename, mimeType }) => {
+  if (getDocumentType({ filename, mimeType }) !== 'pdf') {
+    return null;
+  }
+
+  try {
+    const { data, error } = await supabaseAdmin.storage.from(bucket).download(path);
+
+    if (error || !data) {
+      console.warn('[warn] Could not download PDF to detect page_count.', {
+        bucket,
+        path,
+        reason: error?.message,
+      });
+      return null;
+    }
+
+    const arrayBuffer = await data.arrayBuffer();
+    // IMPORTANT: await here so a pdf-parse rejection is caught below instead of
+    // escaping this best-effort helper and turning register-upload into a 500.
+    return await getPdfPageCountFromBuffer(Buffer.from(arrayBuffer));
+  } catch (error) {
+    console.warn('[warn] Could not detect PDF page_count.', {
+      bucket,
+      path,
+      reason: error?.message,
+    });
+    return null;
+  }
+};
+
+const linkSourceDocument = async ({ legendId, assetId, userId, filename, mimeType, pageCount }) => {
   const payload = {
     legend_id: legendId,
     asset_id: assetId,
@@ -196,6 +242,7 @@ const linkSourceDocument = async ({ legendId, assetId, userId, filename, mimeTyp
     document_type: getDocumentType({ filename, mimeType }),
     is_primary_source: true,
     extraction_status: 'pending',
+    page_count: pageCount,
   };
 
   const { data, error } = await supabaseAdmin
@@ -205,18 +252,37 @@ const linkSourceDocument = async ({ legendId, assetId, userId, filename, mimeTyp
     .single();
 
   if (error || !data) {
+    logAssetRegistryError('source_document relation insert failed', {
+      payload,
+      code: error?.code,
+      reason: error?.message,
+      details: error?.details,
+      hint: error?.hint,
+    });
+
     throw new AssetRegistryError('Could not link source document.', 500, {
       table: 'legend_source_documents',
       code: error?.code,
       reason: error?.message,
       details: error?.details,
       hint: error?.hint,
+      payload,
     });
   }
+
+  logAssetRegistryDebug('source_document relation inserted', {
+    id: data.id,
+    legend_id: data.legend_id,
+    asset_id: data.asset_id,
+    document_type: data.document_type,
+    extraction_status: data.extraction_status,
+    page_count: data.page_count ?? null,
+  });
 
   return {
     type: 'legend_source_documents',
     id: data.id,
+    pageCount: data.page_count ?? null,
   };
 };
 
@@ -254,14 +320,28 @@ export const registerUploadedAsset = async ({
   }
 
   if (purpose === 'source_document') {
-    const relation = await linkSourceDocument({
-      legendId,
-      assetId: asset.id,
-      userId,
-      filename,
-      mimeType,
-    });
-    return { asset, relation };
+    try {
+      const pageCount = await detectPdfPageCount({
+        bucket,
+        path,
+        filename,
+        mimeType,
+      });
+      const relation = await linkSourceDocument({
+        legendId,
+        assetId: asset.id,
+        userId,
+        filename,
+        mimeType,
+        pageCount,
+      });
+      return { asset, relation };
+    } catch (error) {
+      // Avoid leaving an orphan asset row if linking the source document fails,
+      // matching the cover/banner cleanup behavior above.
+      await supabaseAdmin.from('assets').delete().eq('id', asset.id);
+      throw error;
+    }
   }
 
   return {

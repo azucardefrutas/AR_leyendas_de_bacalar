@@ -4,6 +4,7 @@ import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
 import {
   createArMarker,
+  getLegendSourceDocuments,
   saveLegendResource,
   uploadSourceDocument,
 } from '../../services/assetService.js';
@@ -679,7 +680,10 @@ function CreateLegendPage() {
 
   async function ensureDraft() {
     const validationError = validateEditorialStep();
-    if (validationError) return { ok: false, error: validationError };
+    if (validationError) {
+      setError(validationError);
+      return { ok: false, error: validationError };
+    }
 
     setSaving(true);
     setError(null);
@@ -770,31 +774,50 @@ function CreateLegendPage() {
       file: value.file,
     });
 
+    // The register step can report a misleading error (for example a non-fatal
+    // page_count side-effect) even when the document was actually registered.
+    // Verify against the real source documents before deciding success/failure,
+    // so we never show a load error when the document already exists.
+    const verify = await getLegendSourceDocuments(draftOverride.legend.id);
+    const registeredDoc = !verify.error
+      ? (verify.data || []).find((document) => document.is_primary_source) || (verify.data || [])[0]
+      : null;
+
     setSavingResourceKey(null);
 
-    if (result.error) {
-      updateResource(sourceDocumentDefinition.key, { ...value, error: result.error.message });
-      setError(result.error);
-      return { ok: false, error: result.error };
+    if (!result.error || registeredDoc) {
+      const hydratedAsset = registeredDoc?.assets || registeredDoc?.asset || null;
+      const fallbackAsset = result.data?.asset || result.data || null;
+      const asset = hydratedAsset || fallbackAsset;
+      updateResource(sourceDocumentDefinition.key, {
+        ...value,
+        url: '',
+        file: null,
+        saved: true,
+        message: 'Documento cargado correctamente.',
+        error: '',
+        record: registeredDoc ? { ...registeredDoc, asset: hydratedAsset } : result.data,
+        sourceDocumentId: registeredDoc?.id || result.data?.relation?.id || null,
+        fileName: value.file?.name || asset?.metadata?.original_name || asset?.name || value.fileName,
+        fileSize: value.file?.size || asset?.file_size || asset?.size_bytes || value.fileSize,
+        fileType: value.file?.type || asset?.mime_type || value.fileType || documentType,
+        documentType,
+        previewUrl: getAssetUrl(asset),
+      });
+      setMessage(result.error
+        ? 'Documento cargado correctamente. La extraccion de texto queda como paso posterior.'
+        : 'Documento fuente guardado.');
+      return { ok: true };
     }
 
-    const asset = result.data?.asset || result.data;
-    updateResource(sourceDocumentDefinition.key, {
-      ...value,
-      url: '',
-      file: null,
-      saved: true,
-      message: 'Documento guardado como fuente. La extraccion automatica aun no esta disponible.',
-      error: '',
-      record: result.data,
-      fileName: value.file?.name || asset?.name || value.fileName,
-      fileSize: value.file?.size || asset?.size_bytes || asset?.file_size || value.fileSize,
-      fileType: value.file?.type || asset?.mime_type || value.fileType || documentType,
-      documentType,
-      previewUrl: getAssetUrl(asset),
-    });
-    setMessage('Documento fuente guardado.');
-    return { ok: true };
+    const detail = result.error.message || 'Intenta guardar el documento nuevamente desde este borrador.';
+    const documentError = new Error(`El borrador se creo, pero no se pudo registrar el documento. ${detail}`);
+    documentError.cause = result.error;
+    documentError.details = detail;
+    documentError.phase = result.error.phase || result.error.supabaseError?.phase || null;
+    updateResource(sourceDocumentDefinition.key, { ...value, error: documentError.message });
+    setError(documentError);
+    return { ok: false, error: documentError };
   }
 
   async function saveResource(definition) {
@@ -870,7 +893,9 @@ function CreateLegendPage() {
       if (!result.ok) return;
       if (sourceMode === 'upload') {
         const sourceResult = await saveSourceDocument(result.draft);
-        if (!sourceResult.ok) return;
+        if (!sourceResult.ok) {
+          setMessage('Borrador editorial creado. Puedes reintentar la carga del documento.');
+        }
       }
     }
 

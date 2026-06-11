@@ -46,7 +46,20 @@ const serializeSourceDocument = (sourceDocument) => ({
   documentType: sourceDocument.document_type,
   extractionStatus: sourceDocument.extraction_status,
   isPrimarySource: sourceDocument.is_primary_source,
+  pageCount: sourceDocument.page_count ?? null,
 });
+
+const logRegisterUploadDebug = (message, payload = {}) => {
+  if (process.env.NODE_ENV === 'production') return;
+
+  console.info('[documents/register-upload]', message, payload);
+};
+
+const logRegisterUploadError = (message, payload = {}) => {
+  if (process.env.NODE_ENV === 'production') return;
+
+  console.error('[documents/register-upload]', message, payload);
+};
 
 router.get('/legend/:legendId/context', requireCreatorOrAdmin, async (req, res, next) => {
   try {
@@ -142,6 +155,16 @@ router.post('/prepare-upload', requireCreatorOrAdmin, async (req, res, next) => 
 });
 
 router.post('/register-upload', requireCreatorOrAdmin, async (req, res, next) => {
+  const debugContext = {
+    legendId: req.body?.legendId,
+    bucket: req.body?.bucket,
+    path: req.body?.path,
+    filename: req.body?.filename,
+    mimeType: req.body?.mimeType,
+    sizeBytes: req.body?.sizeBytes,
+    purpose: req.body?.purpose,
+  };
+
   try {
     const { legendId, bucket, path, filename, mimeType, sizeBytes, purpose } = req.body ?? {};
 
@@ -166,6 +189,12 @@ router.post('/register-upload', requireCreatorOrAdmin, async (req, res, next) =>
     }
 
     const normalizedPath = normalizeStoragePath({ bucket, path });
+    debugContext.normalizedPath = normalizedPath;
+    debugContext.normalizedPurpose = normalized.purpose;
+    debugContext.normalizedMimeType = normalized.mimeType;
+    debugContext.normalizedSizeBytes = normalized.sizeBytes;
+
+    logRegisterUploadDebug('validating uploaded object', debugContext);
 
     assertStoragePathMatchesUpload({
       path: normalizedPath,
@@ -177,6 +206,12 @@ router.post('/register-upload', requireCreatorOrAdmin, async (req, res, next) =>
     await verifyStorageObjectExists({ bucket, path: normalizedPath });
 
     const publicUrl = getPublicUrlForAsset({ bucket, path: normalizedPath });
+    logRegisterUploadDebug('registering uploaded asset', {
+      ...debugContext,
+      assetType: normalized.purpose,
+      publicAsset: Boolean(publicUrl),
+    });
+
     const { asset, relation } = await registerUploadedAsset({
       userId: req.user.id,
       legendId,
@@ -189,16 +224,37 @@ router.post('/register-upload', requireCreatorOrAdmin, async (req, res, next) =>
       publicUrl,
     });
 
+    logRegisterUploadDebug('registered uploaded asset', {
+      ...debugContext,
+      assetId: asset.id,
+      assetType: asset.asset_type,
+      relationType: relation?.type,
+      relationId: relation?.id,
+      pageCount: relation?.pageCount ?? null,
+    });
+
     res.json({
       ok: true,
       asset: {
         id: asset.id,
         asset_type: asset.asset_type,
+        source_type: asset.source_type,
+        file_url: asset.file_url,
         storage_path: asset.storage_path,
+        mime_type: asset.mime_type,
+        file_size: asset.file_size,
+        metadata: asset.metadata,
+        created_at: asset.created_at,
       },
       relation,
     });
   } catch (error) {
+    logRegisterUploadError('failed', {
+      ...debugContext,
+      error: error.message,
+      statusCode: error.statusCode,
+      details: error.details,
+    });
     next(error);
   }
 });
@@ -245,6 +301,7 @@ router.get('/:sourceDocumentId/view-url', requireCreatorOrAdmin, async (req, res
       documentType: sourceDocument.document_type,
       mimeType: asset.mime_type,
       fileSize: asset.file_size,
+      pageCount: sourceDocument.page_count ?? null,
       expiresIn: SOURCE_DOCUMENT_VIEW_URL_TTL_SECONDS,
       storagePath,
     });

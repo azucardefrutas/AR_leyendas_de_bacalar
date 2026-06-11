@@ -149,11 +149,15 @@ function getStorageFolder(assetType) {
 }
 
 function shouldUseBackendUpload(assetType) {
-  return assetType === 'cover' || assetType === 'banner';
+  return assetType === 'cover' || assetType === 'banner' || assetType === 'source_document';
 }
 
 function isBackendRegisteredMedia(assetResult) {
   return assetResult.data?.relation?.type === 'legend_media';
+}
+
+function isBackendRegisteredSourceDocument(assetResult) {
+  return assetResult.data?.relation?.type === 'legend_source_documents';
 }
 
 function safeFileName(name = 'asset') {
@@ -279,7 +283,7 @@ async function tryInsertAsset(client, payloads) {
   };
 }
 
-async function uploadVisualAssetWithBackend({ file, legendId, assetType }) {
+async function uploadAssetWithBackend({ file, legendId, assetType }) {
   const mimeType = getFileContentType(file, assetType);
   const prepareResult = await runBackendUploadPhase('prepare', () => prepareLegendUpload({
     legendId,
@@ -292,6 +296,7 @@ async function uploadVisualAssetWithBackend({ file, legendId, assetType }) {
   await runBackendUploadPhase('upload', () => uploadFileToSignedUrl({
     signedUrl: prepareResult.upload?.signedUrl,
     file,
+    contentType: mimeType,
   }));
 
   const registerResult = await runBackendUploadPhase('register', () => registerLegendUpload({
@@ -467,7 +472,7 @@ export async function uploadProjectAsset({ file, legendId, kind, userId: provide
 
   if (shouldUseBackendUpload(assetType)) {
     try {
-      return await uploadVisualAssetWithBackend({ file, legendId, assetType });
+      return await uploadAssetWithBackend({ file, legendId, assetType });
     } catch (error) {
       return {
         data: null,
@@ -795,6 +800,10 @@ export async function saveLegendResource({ legendId, pageId, resource }) {
   }
 
   if (resource.kind === 'document') {
+    if (isBackendRegisteredSourceDocument(assetResult)) {
+      return assetResult;
+    }
+
     const linkResult = await linkSourceDocument({
       legendId,
       assetId: uploadedAsset.id,

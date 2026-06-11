@@ -22,7 +22,6 @@ import {
 import {
   generatePagesFromDocument,
   getSourceDocumentViewUrl,
-  proposeAiPagesFromDocument,
   startDocumentExtraction,
 } from '../../services/backendApiService.js';
 
@@ -240,99 +239,6 @@ function getDocumentProcessingErrorMessage(error, fallbackMessage) {
   return message || fallbackMessage;
 }
 
-function normalizeAiProposalResponse(response) {
-  const provider = response?.provider || response?.data?.provider || 'disabled';
-  const proposal = response?.proposal || response?.pagesProposal || response?.data?.proposal || null;
-  const pages = Array.isArray(proposal?.pages) ? proposal.pages : [];
-  const warnings = Array.isArray(proposal?.warnings) ? proposal.warnings : [];
-  const summary = typeof proposal?.summary === 'string' ? proposal.summary : '';
-  const disabled = provider === 'disabled'
-    || response?.nextStep === 'ai_provider_disabled'
-    || response?.reason === 'AI provider disabled';
-
-  if (disabled) {
-    return {
-      disabled: true,
-      provider: 'disabled',
-      summary: '',
-      warnings: [],
-      pages: [],
-      raw: response,
-    };
-  }
-
-  if (!pages.length) {
-    throw new Error('No se pudo generar una propuesta valida.');
-  }
-
-  return {
-    disabled: false,
-    provider,
-    summary,
-    warnings,
-    pages,
-    raw: response,
-  };
-}
-
-function getAiProposalErrorMessage(error) {
-  const message = error?.message || '';
-  const dataMessage = error?.data?.error || error?.data?.message || '';
-  const reason = error?.data?.reason || '';
-  const code = error?.data?.code || '';
-  const combinedMessage = `${message} ${dataMessage}`;
-
-  if (
-    error?.status === 501
-    || error?.data?.provider === 'disabled'
-    || error?.data?.nextStep === 'ai_provider_disabled'
-    || /provider disabled|ai_provider_disabled/i.test(combinedMessage)
-  ) {
-    return {
-      disabled: true,
-      provider: 'disabled',
-      summary: '',
-      warnings: [],
-      pages: [],
-      raw: error?.data || null,
-    };
-  }
-
-  if (reason === 'missing_api_key') {
-    return 'La IA no esta configurada en este entorno.';
-  }
-
-  if (reason === 'invalid_ai_response') {
-    return 'La IA respondio en un formato invalido. Intenta de nuevo.';
-  }
-
-  if (
-    error?.status === 503
-    || code === 'UNAVAILABLE'
-    || /503|unavailable|overloaded|high demand|saturad/i.test(`${code} ${combinedMessage}`)
-  ) {
-    return 'El modelo de IA esta saturado temporalmente. Intenta de nuevo mas tarde.';
-  }
-
-  if (reason === 'model_error') {
-    return dataMessage || 'El modelo de IA configurado no esta disponible.';
-  }
-
-  if (reason === 'gemini_request_failed') {
-    return 'No se pudo generar la propuesta con IA.';
-  }
-
-  if (/json|proposal|pages|valida|invalid/i.test(combinedMessage)) {
-    return 'No se pudo generar una propuesta valida.';
-  }
-
-  if (error?.status === 0) {
-    return 'No se pudo conectar con el backend para generar la propuesta IA.';
-  }
-
-  return message || 'No se pudo generar una propuesta valida.';
-}
-
 function LegendEditor({ legendId }) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('content');
@@ -357,13 +263,6 @@ function LegendEditor({ legendId }) {
     sourceDocumentId: null,
     data: null,
     error: '',
-    loading: false,
-  });
-  const [aiProposalState, setAiProposalState] = useState({
-    sourceDocumentId: null,
-    data: null,
-    error: '',
-    errorDetails: null,
     loading: false,
   });
   const [isSourceDocumentOpen, setIsSourceDocumentOpen] = useState(true);
@@ -450,13 +349,6 @@ function LegendEditor({ legendId }) {
       sourceDocumentId: primarySourceDocument?.id ?? null,
       data: null,
       error: '',
-      loading: false,
-    });
-    setAiProposalState({
-      sourceDocumentId: primarySourceDocument?.id ?? null,
-      data: null,
-      error: '',
-      errorDetails: null,
       loading: false,
     });
     setIsSourceDocumentOpen(Boolean(primarySourceDocument));
@@ -579,75 +471,6 @@ function LegendEditor({ legendId }) {
         sourceDocumentId: sourceDocument.id,
         data: null,
         error: message,
-        loading: false,
-      });
-    }
-  }
-
-  async function handleRequestAiProposal(sourceDocument) {
-    if (!sourceDocument?.id) {
-      setAiProposalState({
-        sourceDocumentId: null,
-        data: null,
-        error: 'No se encontro el documento fuente.',
-        errorDetails: null,
-        loading: false,
-      });
-      return;
-    }
-
-    const extractionStatus = String(sourceDocument.extraction_status || '').toLowerCase();
-    if (extractionStatus !== 'extracted') {
-      setAiProposalState({
-        sourceDocumentId: sourceDocument.id,
-        data: null,
-        error: 'El documento debe estar extraido antes de generar una propuesta IA.',
-        errorDetails: null,
-        loading: false,
-      });
-      return;
-    }
-
-    setAiProposalState((current) => ({
-      sourceDocumentId: sourceDocument.id,
-      data: current.sourceDocumentId === sourceDocument.id ? current.data : null,
-      error: '',
-      errorDetails: null,
-      loading: true,
-    }));
-
-    try {
-      const response = await proposeAiPagesFromDocument(sourceDocument.id);
-      const data = normalizeAiProposalResponse(response);
-      setAiProposalState({
-        sourceDocumentId: sourceDocument.id,
-        data,
-        error: '',
-        errorDetails: null,
-        loading: false,
-      });
-    } catch (proposalError) {
-      const safeError = getAiProposalErrorMessage(proposalError);
-      if (typeof safeError === 'string') {
-        setAiProposalState((current) => ({
-          sourceDocumentId: sourceDocument.id,
-          data: current.sourceDocumentId === sourceDocument.id ? current.data : null,
-          error: safeError,
-          errorDetails: proposalError?.data || {
-            provider: 'gemini',
-            reason: 'frontend_ai_error',
-            status: proposalError?.status || 0,
-          },
-          loading: false,
-        }));
-        return;
-      }
-
-      setAiProposalState({
-        sourceDocumentId: sourceDocument.id,
-        data: safeError,
-        error: '',
-        errorDetails: null,
         loading: false,
       });
     }
@@ -950,13 +773,8 @@ function LegendEditor({ legendId }) {
               hasInteractivePages={visiblePages.length > 0}
               processing={processingDocument}
               processingMessage={documentProcessingMessage}
-              aiProposal={aiProposalState.sourceDocumentId === primarySourceDocument.id ? aiProposalState.data : null}
-              aiProposalLoading={aiProposalState.sourceDocumentId === primarySourceDocument.id && aiProposalState.loading}
-              aiProposalError={aiProposalState.sourceDocumentId === primarySourceDocument.id ? aiProposalState.error : ''}
-              aiProposalErrorDetails={aiProposalState.sourceDocumentId === primarySourceDocument.id ? aiProposalState.errorDetails : null}
               onViewDocument={() => handleViewSourceDocument(primarySourceDocument)}
               onConvertToInteractive={() => handleProcessSourceDocument(primarySourceDocument)}
-              onRequestAiProposal={() => handleRequestAiProposal(primarySourceDocument)}
               onAddManualPage={addPage}
               isOpen={isSourceDocumentOpen}
               onToggle={() => setIsSourceDocumentOpen((current) => !current)}

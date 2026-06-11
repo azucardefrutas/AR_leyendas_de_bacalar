@@ -92,7 +92,21 @@ const extractPdfText = async (buffer) => {
 
   try {
     const result = await parser.getText();
-    return result.text;
+    return {
+      text: result.text,
+      pageCount: Number.isInteger(result.total) && result.total > 0 ? result.total : null,
+    };
+  } finally {
+    await parser.destroy().catch(() => {});
+  }
+};
+
+export const getPdfPageCountFromBuffer = async (buffer) => {
+  const parser = new PDFParse({ data: buffer });
+
+  try {
+    const result = await parser.getInfo();
+    return Number.isInteger(result.total) && result.total > 0 ? result.total : null;
   } finally {
     await parser.destroy().catch(() => {});
   }
@@ -108,9 +122,12 @@ export const extractTextFromSourceDocument = async ({ sourceDocument }) => {
   const documentKind = getDocumentKind(sourceDocument);
 
   let rawText = '';
+  let pageCount = null;
 
   if (documentKind === 'pdf') {
-    rawText = await extractPdfText(buffer);
+    const pdfExtraction = await extractPdfText(buffer);
+    rawText = pdfExtraction.text;
+    pageCount = pdfExtraction.pageCount;
   } else if (documentKind === 'docx') {
     rawText = await extractDocxText(buffer);
   } else if (documentKind === 'doc') {
@@ -138,5 +155,6 @@ export const extractTextFromSourceDocument = async ({ sourceDocument }) => {
     documentKind,
     text,
     byteLength: buffer.length,
+    pageCount,
   };
 };

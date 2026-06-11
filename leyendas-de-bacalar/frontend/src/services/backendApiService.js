@@ -225,7 +225,7 @@ export function proposeAiPagesFromDocument(sourceDocumentId) {
   });
 }
 
-export async function uploadFileToSignedUrl({ signedUrl, file }) {
+export async function uploadFileToSignedUrl({ signedUrl, file, contentType }) {
   if (!signedUrl || !file) {
     throw new BackendApiError('No pudimos preparar la subida del archivo.', { status: 400 });
   }
@@ -236,7 +236,7 @@ export async function uploadFileToSignedUrl({ signedUrl, file }) {
     response = await fetch(signedUrl, {
       method: 'PUT',
       headers: {
-        'Content-Type': file.type || 'application/octet-stream',
+        'Content-Type': contentType || file.type || 'application/octet-stream',
       },
       body: file,
     });

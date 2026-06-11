@@ -14,7 +14,7 @@ class DocumentExtractionError extends Error {
   }
 }
 
-const SOURCE_DOCUMENT_SELECT = 'id, legend_id, asset_id, document_type, extraction_status, is_primary_source';
+const SOURCE_DOCUMENT_SELECT = 'id, legend_id, asset_id, document_type, extraction_status, is_primary_source, page_count';
 const ASSET_SELECT = 'id, asset_type, source_type, storage_path, file_url, mime_type, file_size, metadata';
 const EXTRACTION_SELECT = 'id, source_document_id, extracted_text, status, error_message, created_at';
 const EXTRACTION_SUMMARY_SELECT = 'id, source_document_id, status, error_message, created_at';
@@ -164,10 +164,16 @@ export const getLatestCompletedExtractionForSourceDocument = async (sourceDocume
   return data?.[0] ?? null;
 };
 
-const updateSourceDocumentExtractionStatus = async ({ sourceDocumentId, extractionStatus }) => {
+const updateSourceDocumentExtractionStatus = async ({ sourceDocumentId, extractionStatus, pageCount }) => {
+  const payload = { extraction_status: extractionStatus };
+
+  if (Number.isInteger(pageCount) && pageCount >= 0) {
+    payload.page_count = pageCount;
+  }
+
   const { data, error } = await supabaseAdmin
     .from('legend_source_documents')
-    .update({ extraction_status: extractionStatus })
+    .update(payload)
     .eq('id', sourceDocumentId)
     .select(SOURCE_DOCUMENT_SELECT)
     .single();
@@ -271,6 +277,7 @@ export const startExtractionForSourceDocument = async ({ sourceDocumentId, userI
     const sourceDocument = await updateSourceDocumentExtractionStatus({
       sourceDocumentId: context.sourceDocument.id,
       extractionStatus: 'extracted',
+      pageCount: extracted.pageCount,
     });
 
     return {

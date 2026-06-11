@@ -12,6 +12,12 @@ function formatFileSize(size) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function formatPageCount(pageCount) {
+  const pages = Number(pageCount);
+  if (!Number.isInteger(pages) || pages <= 0) return '';
+  return pages === 1 ? '1 pagina' : `${pages} paginas`;
+}
+
 function getStatusLabel(status) {
   const labels = {
     pending: 'pendiente de extraccion',
@@ -46,13 +52,6 @@ function isDocxDocument({ sourceDocument, viewUrl }) {
   return documentType === 'docx' || mimeType.includes('wordprocessingml') || mimeType === 'application/msword';
 }
 
-function getPagePreview(text) {
-  const normalized = String(text || '').replace(/\s+/g, ' ').trim();
-  if (!normalized) return 'Sin texto propuesto.';
-  if (normalized.length <= 220) return normalized;
-  return `${normalized.slice(0, 220)}...`;
-}
-
 function SourceDocumentPreview({
   sourceDocument,
   viewUrl,
@@ -62,13 +61,8 @@ function SourceDocumentPreview({
   hasInteractivePages,
   processing,
   processingMessage,
-  aiProposal,
-  aiProposalLoading,
-  aiProposalError,
-  aiProposalErrorDetails,
   onViewDocument,
   onConvertToInteractive,
-  onRequestAiProposal,
   onAddManualPage,
   isOpen,
   onToggle,
@@ -80,6 +74,8 @@ function SourceDocumentPreview({
   const mimeType = viewUrl?.mimeType || asset.mime_type || 'MIME no disponible';
   const fileSize = viewUrl?.fileSize || asset.file_size || sourceDocument.file_size;
   const formattedFileSize = formatFileSize(fileSize);
+  const pageCount = viewUrl?.pageCount ?? sourceDocument.page_count ?? sourceDocument.pageCount;
+  const pageCountLabel = formatPageCount(pageCount);
   const documentType = viewUrl?.documentType || sourceDocument.document_type || asset.asset_type || 'documento';
   const documentTypeLabel = getDocumentTypeLabel({ sourceDocument, viewUrl });
   const statusLabel = getStatusLabel(sourceDocument.extraction_status);
@@ -87,19 +83,8 @@ function SourceDocumentPreview({
   const isPdf = isPdfDocument({ sourceDocument, viewUrl });
   const isDocx = isDocxDocument({ sourceDocument, viewUrl });
   const canConvert = !hasInteractivePages && ['pending', 'extracted'].includes(extractionStatus);
-  const canRequestAiProposal = extractionStatus === 'extracted';
   const contentId = `source-document-panel-${sourceDocument?.id || 'current'}`;
   const filename = storagePath.split('/').pop() || 'Documento original';
-  const proposalProvider = aiProposal?.provider || aiProposalErrorDetails?.provider || (aiProposalLoading ? 'pendiente' : 'gemini');
-  const proposalStatus = aiProposalLoading
-    ? 'generando'
-    : aiProposalError
-      ? 'error'
-      : aiProposal?.disabled
-        ? 'desactivado'
-        : aiProposal
-          ? 'propuesta generada'
-          : 'pendiente';
 
   useEffect(() => {
     setPreviewExpanded(false);
@@ -109,7 +94,7 @@ function SourceDocumentPreview({
     <section className="creator-section-block source-document-preview">
       <button
         type="button"
-        className="creator-accordion-header"
+        className="creator-accordion-header source-document-header"
         onClick={onToggle}
         aria-expanded={isOpen}
         aria-controls={contentId}
@@ -122,58 +107,50 @@ function SourceDocumentPreview({
         <span className="creator-accordion-badges">
           <span className="creator-accordion-badge">{documentTypeLabel}</span>
           <span className="creator-accordion-badge">{statusLabel}</span>
+          {pageCountLabel && <span className="creator-accordion-badge">{pageCountLabel}</span>}
           <span className="creator-accordion-badge">{formattedFileSize}</span>
         </span>
         <span className={`creator-accordion-chevron ${isOpen ? 'open' : ''}`} aria-hidden="true">&rsaquo;</span>
       </button>
 
-      <div id={contentId} className={`creator-accordion-panel ${isOpen ? 'open' : 'closed'}`}>
-        <div className="creator-review-grid compact">
-          <span className="ready">Estado de extraccion: {statusLabel}</span>
-          <span>Tipo: {documentType}</span>
-          <span>{formattedFileSize}</span>
-          <span>MIME: {mimeType}</span>
-        </div>
-
-        {storagePath && <p className="creator-muted">Archivo: {storagePath}</p>}
+      <div id={contentId} className={`creator-accordion-panel source-document-panel ${isOpen ? 'open' : 'closed'}`}>
         {viewError && <p className="error-message">{viewError}</p>}
         {processingMessage && <p className="creator-muted">{processingMessage}</p>}
 
-        <div className="creator-review-actions source-document-actions">
+        <div className="source-document-primary-actions">
           <Button type="button" onClick={onViewDocument} disabled={disabled || viewLoading}>
-            {viewLoading ? 'Preparando vista...' : 'Ver documento'}
+            {viewLoading ? 'Preparando preview...' : 'Ver preview'}
           </Button>
-          {signedUrl && (
+          {signedUrl ? (
             <a className="btn btn-ghost" href={signedUrl} target="_blank" rel="noreferrer">
-              Abrir en nueva pestana
+              Abrir completo
             </a>
-          )}
-          {signedUrl && isPdf && (
-            <Button type="button" variant="ghost" onClick={() => setPreviewExpanded(true)}>
-              Expandir preview
+          ) : (
+            <Button type="button" variant="ghost" disabled>
+              Abrir completo
             </Button>
           )}
-          {canConvert && (
-            <Button type="button" variant="ghost" onClick={onConvertToInteractive} disabled={disabled || processing}>
-              {processing ? (processingMessage || 'Procesando documento...') : 'Convertir a lectura interactiva'}
-            </Button>
-          )}
-          {canRequestAiProposal && (
-            <Button type="button" variant="ghost" onClick={onRequestAiProposal} disabled={disabled || aiProposalLoading}>
-              {aiProposalLoading ? 'Generando propuesta con IA...' : 'Generar propuesta con IA'}
-            </Button>
-          )}
-          <Button type="button" variant="ghost" onClick={onAddManualPage} disabled={disabled || processing}>
-            Anadir pagina manualmente
-          </Button>
         </div>
 
         {isOpen && signedUrl && isPdf && (
-          <iframe
-            className="source-document-preview-frame"
-            title="Vista previa del documento original"
-            src={signedUrl}
-          />
+          <div className="source-document-viewer">
+            <div className="source-document-viewer-toolbar">
+              <span>Preview PDF</span>
+              <div>
+                <Button type="button" variant="ghost" onClick={() => setPreviewExpanded(true)}>
+                  Pantalla completa
+                </Button>
+                <a className="btn btn-ghost" href={signedUrl} target="_blank" rel="noreferrer">
+                  Abrir completo
+                </a>
+              </div>
+            </div>
+            <iframe
+              className="source-document-preview-frame"
+              title="Vista previa del documento original"
+              src={signedUrl}
+            />
+          </div>
         )}
 
         {isOpen && signedUrl && isDocx && (
@@ -186,72 +163,62 @@ function SourceDocumentPreview({
           <p className="creator-muted">Lectura interactiva disponible abajo.</p>
         )}
 
-        {(aiProposal || aiProposalError || aiProposalLoading) && (
-          <div className="ai-proposal-panel">
-            <div className="ai-proposal-heading">
-              <div>
-                <h3>Propuesta IA - No aplicada</h3>
-                <p>Revisa esta propuesta editorial antes de guardarla. No modifica paginas ni base de datos.</p>
-              </div>
-              <span className="creator-accordion-badge">
-                Provider: {proposalProvider}
-              </span>
-              <span className="creator-accordion-badge">
-                Estado: {proposalStatus}
-              </span>
-            </div>
+        <p className="creator-muted source-document-future-note">
+          Los marcadores y modelos 3D podran vincularse por pagina en una fase posterior.
+        </p>
 
-            {aiProposalLoading && <p className="creator-muted">Generando propuesta con IA...</p>}
-            {aiProposalError && <p className="error-message">{aiProposalError}</p>}
-
-            {aiProposal?.disabled && (
-              <p className="creator-muted">La IA esta desactivada en este entorno.</p>
+        <details className="source-document-advanced">
+          <summary>Opciones avanzadas</summary>
+          <div className="source-document-advanced-body">
+            {canConvert && (
+              <Button type="button" variant="ghost" onClick={onConvertToInteractive} disabled={disabled || processing}>
+                {processing ? (processingMessage || 'Procesando documento...') : 'Convertir a lectura interactiva'}
+              </Button>
             )}
-
-            {!aiProposal?.disabled && aiProposal?.summary && (
-              <div className="ai-proposal-summary">
-                <strong>Resumen</strong>
-                <p>{aiProposal.summary}</p>
-              </div>
-            )}
-
-            {!aiProposal?.disabled && aiProposal?.warnings?.length > 0 && (
-              <div className="ai-proposal-warnings">
-                <strong>Advertencias</strong>
-                <ul>
-                  {aiProposal.warnings.map((warning, index) => (
-                    <li key={`warning-${index}`}>{String(warning)}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {!aiProposal?.disabled && aiProposal?.pages?.length > 0 && (
-              <div className="ai-proposal-pages">
-                {aiProposal.pages.map((page, index) => (
-                  <article className="ai-proposal-page" key={`${page.page_number || index}-${page.title || 'page'}`}>
-                    <div className="ai-proposal-page-header">
-                      <span>Pagina {page.page_number || index + 1}</span>
-                      <strong>{page.title || 'Sin titulo'}</strong>
-                    </div>
-                    <p>{getPagePreview(page.text_content)}</p>
-                    {Array.isArray(page.notes) && page.notes.length > 0 && (
-                      <ul>
-                        {page.notes.map((note, noteIndex) => (
-                          <li key={`note-${index}-${noteIndex}`}>{String(note)}</li>
-                        ))}
-                      </ul>
-                    )}
-                  </article>
-                ))}
-              </div>
-            )}
-
-            <Button type="button" variant="ghost" disabled>
-              Aplicar propuesta estara disponible en la siguiente fase.
+            <Button type="button" variant="ghost" onClick={onAddManualPage} disabled={disabled || processing}>
+              Anadir pagina manualmente
             </Button>
+            <details className="source-document-technical">
+              <summary>Detalles tecnicos</summary>
+              <dl>
+                <div>
+                  <dt>Estado</dt>
+                  <dd>{statusLabel}</dd>
+                </div>
+                <div>
+                  <dt>Tipo</dt>
+                  <dd>{documentType}</dd>
+                </div>
+                <div>
+                  <dt>Tamano</dt>
+                  <dd>{formattedFileSize}</dd>
+                </div>
+                <div>
+                  <dt>Paginas detectadas</dt>
+                  <dd>{pageCountLabel || 'No disponible'}</dd>
+                </div>
+                <div>
+                  <dt>MIME</dt>
+                  <dd>{mimeType}</dd>
+                </div>
+                <div>
+                  <dt>Source document ID</dt>
+                  <dd>{sourceDocument.id || 'No disponible'}</dd>
+                </div>
+                <div>
+                  <dt>Asset ID</dt>
+                  <dd>{asset.id || sourceDocument.asset_id || 'No disponible'}</dd>
+                </div>
+                {storagePath && (
+                  <div>
+                    <dt>Ruta Storage</dt>
+                    <dd>{storagePath}</dd>
+                  </div>
+                )}
+              </dl>
+            </details>
           </div>
-        )}
+        </details>
       </div>
 
       {previewExpanded && signedUrl && isPdf && (
@@ -264,7 +231,7 @@ function SourceDocumentPreview({
               </div>
               <div className="source-document-modal-actions">
                 <a className="btn btn-ghost" href={signedUrl} target="_blank" rel="noreferrer">
-                  Abrir en nueva pestana
+                  Abrir completo
                 </a>
                 <Button type="button" variant="ghost" onClick={() => setPreviewExpanded(false)}>
                   Cerrar
