@@ -17,6 +17,7 @@ import {
   updateLegendGeneralData,
   validateReadyForReview,
 } from '../../services/creatorLegendService.js';
+import { getSourceDocumentViewUrl } from '../../services/backendApiService.js';
 
 const accessTypeOptions = [
   { value: 'free', label: 'Gratis' },
@@ -589,6 +590,28 @@ function CreateLegendPage() {
   const currentStepDefinition = activeSteps[currentStep] ?? activeSteps[0];
   const currentStepKey = currentStepDefinition.key;
   const sourceDocument = resources.sourceDocument;
+
+  // Best-effort: refresh a signed preview URL from the backend when entering the
+  // document preview step. A failure here must NOT be treated as a load error.
+  useEffect(() => {
+    if (currentStepKey !== 'documentPreview') return undefined;
+    const sourceDocumentId = sourceDocument.sourceDocumentId;
+    if (!sourceDocumentId) return undefined;
+    let isMounted = true;
+    getSourceDocumentViewUrl(sourceDocumentId)
+      .then((view) => {
+        if (!isMounted || !view?.signedUrl) return;
+        updateResource(sourceDocumentDefinition.key, {
+          ...resources.sourceDocument,
+          previewUrl: view.signedUrl,
+        });
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStepKey, sourceDocument.sourceDocumentId]);
 
   function getLegendPayload() {
     return {
