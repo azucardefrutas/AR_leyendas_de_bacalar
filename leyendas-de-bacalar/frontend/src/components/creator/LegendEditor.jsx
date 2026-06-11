@@ -24,6 +24,7 @@ import {
   getSourceDocumentViewUrl,
   startDocumentExtraction,
 } from '../../services/backendApiService.js';
+import ArSceneModal from '../3d/ArSceneModal.jsx';
 
 const tabs = [
   { key: 'general', label: 'Datos generales', icon: 'contract_edit' },
@@ -141,6 +142,18 @@ function getPrimarySourceDocument(documents = []) {
   return documents.find((document) => document.is_primary_source) || documents[0] || null;
 }
 
+function findSceneForPage(arScenes = [], pageId) {
+  if (!pageId) return null;
+  return arScenes.find(
+    (scene) => String(scene.page_id) === String(pageId) && String(scene.status || '').toLowerCase() !== 'archived',
+  ) || null;
+}
+
+function findMarkerForScene(arMarkers = [], sceneId) {
+  if (!sceneId) return null;
+  return arMarkers.find((marker) => String(marker.ar_scene_id) === String(sceneId)) || null;
+}
+
 function getExistingResource(resources, key) {
   if (!resources) return null;
   if (key === 'cover' || key === 'banner') {
@@ -252,6 +265,7 @@ function LegendEditor({ legendId }) {
   const [selectedPageKey, setSelectedPageKey] = useState(null);
   const [resources, setResources] = useState(defaultResources);
   const [existingResources, setExistingResources] = useState({ media: [], documents: [], arScenes: [], arMarkers: [] });
+  const [activeScene, setActiveScene] = useState(null);
   const [arPageNumber, setArPageNumber] = useState(1);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -341,6 +355,7 @@ function LegendEditor({ legendId }) {
   const declarationError = declarationsAccepted ? null : new Error('Acepta las declaraciones editoriales antes de enviar a revision.');
   const reviewError = validateReadyForReview({ legend: form, pages }) || declarationError;
   const primarySourceDocument = getPrimarySourceDocument(existingResources.documents);
+  const sceneForSelectedPage = findSceneForPage(existingResources.arScenes, selectedPage?.id);
   const versionStatusLabel = getLegendDisplayStatus(version?.status).label;
   const interactiveReadingPanelId = `interactive-reading-panel-${version?.id || 'current'}`;
 
@@ -831,6 +846,9 @@ function LegendEditor({ legendId }) {
                     >
                       <MaterialIcon name="article" />
                       <span>Pag. {page.page_number}</span>
+                      {findSceneForPage(existingResources.arScenes, page.id) && (
+                        <span className="creator-page-3d-dot" title="Tiene escena 3D">3D</span>
+                      )}
                     </button>
                   ))}
                   <button type="button" className="creator-add-page" onClick={addPage} disabled={isReviewLocked}>
@@ -850,6 +868,11 @@ function LegendEditor({ legendId }) {
                       <input id="page-title" className="standalone-input" value={selectedPage?.title || ''} onChange={(event) => updatePage('title', event.target.value)} disabled={isReviewLocked} placeholder="Opcional" />
                     </label>
                     <Button variant="ghost" onClick={() => removePage(selectedPage)} disabled={isReviewLocked || visiblePages.length <= 1}>Quitar</Button>
+                    {sceneForSelectedPage && (
+                      <Button type="button" variant="ghost" onClick={() => setActiveScene(sceneForSelectedPage)}>
+                        Ver modelo 3D
+                      </Button>
+                    )}
                   </div>
                   <label className="field" htmlFor="page-content">
                     <span>Texto de la historia</span>
@@ -1025,6 +1048,15 @@ function LegendEditor({ legendId }) {
             </Button>
           </div>
         </Card>
+      )}
+
+      {activeScene && (
+        <ArSceneModal
+          scene={activeScene}
+          marker={findMarkerForScene(existingResources.arMarkers, activeScene.id)}
+          pageNumber={visiblePages.find((page) => String(page.id) === String(activeScene.page_id))?.page_number ?? null}
+          onClose={() => setActiveScene(null)}
+        />
       )}
     </section>
   );

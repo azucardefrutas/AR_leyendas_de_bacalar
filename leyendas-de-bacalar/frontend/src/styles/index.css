@@ -5646,3 +5646,99 @@ pre {
     background: #eef6f7;
   }
 }
+
+/* AR-1A: 3D scene viewer placeholder + page indicators */
+.ar-scene-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.ar-scene-modal-status {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ar-scene-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  font-weight: 800;
+  border: 1px solid rgba(48, 207, 242, 0.4);
+  color: var(--text);
+  background: rgba(48, 207, 242, 0.12);
+}
+
+.ar-scene-modal-note {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.ar-scene-modal-description {
+  color: var(--text);
+  line-height: 1.55;
+}
+
+.ar-scene-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 18px;
+  margin: 0;
+}
+
+.ar-scene-modal-grid dt {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.ar-scene-modal-grid dd {
+  margin: 2px 0 0;
+  color: var(--text);
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.ar-scene-modal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.creator-page-3d-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  border: 1px solid rgba(48, 207, 242, 0.45);
+  color: #0b3d52;
+  background: rgba(48, 207, 242, 0.22);
+}
+
+.reader-3d-button {
+  margin-top: 14px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-weight: 800;
+  font-size: 0.82rem;
+  cursor: pointer;
+  border: 1px solid rgba(48, 207, 242, 0.5);
+  color: #0b3d52;
+  background: rgba(48, 207, 242, 0.16);
+}
+
+.reader-3d-button:hover {
+  background: rgba(48, 207, 242, 0.28);
+}
