@@ -1,10 +1,26 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import Button from '../ui/Button.jsx';
+import Modal from '../ui/Modal.jsx';
+import ArSceneModal from '../3d/ArSceneModal.jsx';
 import {
   createLegendHotspot,
   deleteLegendHotspot,
   listLegendHotspots,
+  updateLegendHotspot,
 } from '../../services/backendApiService.js';
+import { getLegendResources } from '../../services/assetService.js';
+
+const sceneStatusLabels = {
+  draft: 'borrador',
+  in_review: 'en revision',
+  published: 'publicada',
+  approved: 'aprobada',
+  archived: 'archivada',
+};
+
+function sceneStatusLabel(status) {
+  return sceneStatusLabels[String(status || '').toLowerCase()] || status || 'sin estado';
+}
 
 function getSourceDocumentAsset(sourceDocument = {}) {
   return sourceDocument.assets || sourceDocument.asset || {};
@@ -78,6 +94,12 @@ function SourceDocumentPreview({
   const [placingHotspot, setPlacingHotspot] = useState(false);
   const [hotspotBusy, setHotspotBusy] = useState(false);
   const [hotspotError, setHotspotError] = useState('');
+  const [arScenes, setArScenes] = useState([]);
+  const [arMarkers, setArMarkers] = useState([]);
+  const [associatingHotspotId, setAssociatingHotspotId] = useState(null);
+  const [selectedSceneId, setSelectedSceneId] = useState('');
+  const [modalScene, setModalScene] = useState(null);
+  const [noModelHotspot, setNoModelHotspot] = useState(null);
   const asset = getSourceDocumentAsset(sourceDocument);
   const signedUrl = viewUrl?.signedUrl || '';
   const storagePath = viewUrl?.storagePath || asset.storage_path || '';
@@ -115,17 +137,38 @@ function SourceDocumentPreview({
     }
   }, [legendId, sourceDocument?.id]);
 
+  const loadScenes = useCallback(async () => {
+    if (!legendId) return;
+    try {
+      const resources = await getLegendResources(legendId);
+      setArScenes((resources.data?.arScenes ?? []).filter(
+        (scene) => String(scene.status || '').toLowerCase() !== 'archived',
+      ));
+      setArMarkers(resources.data?.arMarkers ?? []);
+    } catch (sceneError) {
+      // Best-effort: 3D scenes are optional and must not break the preview.
+      if (import.meta.env.DEV) console.error('load scenes error', sceneError);
+    }
+  }, [legendId]);
+
   useEffect(() => {
     setPreviewExpanded(false);
     setPlacingHotspot(false);
     setSelectedPdfPage(1);
     setHotspotError('');
     setHotspots([]);
+    setAssociatingHotspotId(null);
+    setModalScene(null);
+    setNoModelHotspot(null);
   }, [sourceDocument?.id]);
 
   useEffect(() => {
     loadHotspots();
   }, [loadHotspots]);
+
+  useEffect(() => {
+    loadScenes();
+  }, [loadScenes]);
 
   async function handlePlaceHotspot(event) {
     if (!placingHotspot || hotspotBusy || !canEditHotspots) return;
@@ -165,6 +208,55 @@ function SourceDocumentPreview({
       setHotspotError('No se pudo eliminar el marcador.');
     } finally {
       setHotspotBusy(false);
+    }
+  }
+
+  const getSceneById = (sceneId) => arScenes.find((scene) => String(scene.id) === String(sceneId)) || null;
+  const getMarkerForScene = (scene) => (
+    scene ? arMarkers.find((marker) => String(marker.ar_scene_id) === String(scene.id)) || null : null
+  );
+
+  function openAssociatePanel(hotspot) {
+    setAssociatingHotspotId(hotspot.id);
+    setSelectedSceneId(hotspot.ar_scene_id ? String(hotspot.ar_scene_id) : (arScenes[0]?.id ? String(arScenes[0].id) : ''));
+    setHotspotError('');
+  }
+
+  async function handleAssociateScene(hotspotId) {
+    if (!selectedSceneId || hotspotBusy) return;
+    setHotspotBusy(true);
+    setHotspotError('');
+    try {
+      await updateLegendHotspot(legendId, hotspotId, { ar_scene_id: selectedSceneId });
+      setAssociatingHotspotId(null);
+      await loadHotspots();
+    } catch (associateError) {
+      setHotspotError('No se pudo asociar el modelo 3D.');
+    } finally {
+      setHotspotBusy(false);
+    }
+  }
+
+  async function handleRemoveScene(hotspotId) {
+    if (hotspotBusy) return;
+    setHotspotBusy(true);
+    setHotspotError('');
+    try {
+      await updateLegendHotspot(legendId, hotspotId, { ar_scene_id: null });
+      await loadHotspots();
+    } catch (removeError) {
+      setHotspotError('No se pudo quitar el modelo 3D.');
+    } finally {
+      setHotspotBusy(false);
+    }
+  }
+
+  function handleMarkerClick(hotspot) {
+    const scene = hotspot.ar_scene_id ? getSceneById(hotspot.ar_scene_id) : null;
+    if (scene) {
+      setModalScene({ scene, marker: getMarkerForScene(scene), pageNumber: hotspot.source_page_number });
+    } else {
+      setNoModelHotspot(hotspot);
     }
   }
 
@@ -268,30 +360,93 @@ function SourceDocumentPreview({
                 onClick={handlePlaceHotspot}
               >
                 {hotspotsForPage.map((hotspot, index) => (
-                  <span
+                  <button
+                    type="button"
                     key={hotspot.id}
-                    className="hotspot-dot"
-                    style={{ left: `${hotspot.x * 100}%`, top: `${hotspot.y * 100}%` }}
-                    title={hotspot.label || `Marcador ${index + 1} (${hotspot.status})`}
+                    className={`hotspot-dot ${hotspot.ar_scene_id ? 'has-model' : 'no-model'}`}
+                    style={{
+                      left: `${hotspot.x * 100}%`,
+                      top: `${hotspot.y * 100}%`,
+                      pointerEvents: placingHotspot ? 'none' : 'auto',
+                    }}
+                    title={hotspot.label || `Marcador ${index + 1} (${hotspot.ar_scene_id ? 'con modelo 3D' : 'sin modelo 3D'})`}
+                    onClick={(event) => { event.stopPropagation(); handleMarkerClick(hotspot); }}
                   >
                     {index + 1}
-                  </span>
+                  </button>
                 ))}
               </div>
             </div>
 
             {canEditHotspots && hotspotsForPage.length > 0 && (
               <ul className="hotspot-list">
-                {hotspotsForPage.map((hotspot, index) => (
-                  <li key={hotspot.id}>
-                    <span>
-                      Marcador {index + 1} &middot; x {(hotspot.x * 100).toFixed(0)}% &middot; y {(hotspot.y * 100).toFixed(0)}% &middot; {hotspot.status}
-                    </span>
-                    <Button type="button" variant="ghost" onClick={() => handleDeleteHotspot(hotspot.id)} disabled={hotspotBusy}>
-                      Eliminar
-                    </Button>
-                  </li>
-                ))}
+                {hotspotsForPage.map((hotspot, index) => {
+                  const scene = hotspot.ar_scene_id ? getSceneById(hotspot.ar_scene_id) : null;
+                  const hasScene = Boolean(hotspot.ar_scene_id);
+                  const isAssociating = associatingHotspotId === hotspot.id;
+                  return (
+                    <li key={hotspot.id} className={hasScene ? 'has-model' : 'no-model'}>
+                      <div className="hotspot-list-row">
+                        <span className="hotspot-list-info">
+                          <strong>{hotspot.label || `Marcador ${index + 1}`}</strong>
+                          {' · '}Pag. {hotspot.source_page_number}
+                          {' · '}x {(hotspot.x * 100).toFixed(0)}% / y {(hotspot.y * 100).toFixed(0)}%
+                          {' · '}{hotspot.status}
+                        </span>
+                        <span className={`hotspot-model-badge ${hasScene ? 'on' : 'off'}`}>
+                          {hasScene ? `Modelo: ${scene?.name || 'asociado'}` : 'Sin modelo 3D'}
+                        </span>
+                      </div>
+                      <div className="hotspot-list-actions">
+                        <Button type="button" variant="ghost" onClick={() => openAssociatePanel(hotspot)} disabled={hotspotBusy}>
+                          {hasScene ? 'Cambiar modelo' : 'Asociar modelo'}
+                        </Button>
+                        {hasScene && (
+                          <Button type="button" variant="ghost" onClick={() => handleRemoveScene(hotspot.id)} disabled={hotspotBusy}>
+                            Quitar modelo
+                          </Button>
+                        )}
+                        <Button type="button" variant="ghost" onClick={() => handleDeleteHotspot(hotspot.id)} disabled={hotspotBusy}>
+                          Eliminar
+                        </Button>
+                      </div>
+                      {isAssociating && (
+                        <div className="hotspot-associate-panel">
+                          {arScenes.length === 0 ? (
+                            <p className="creator-muted">
+                              Primero asocia o sube un modelo 3D desde la pestana 3D/AR del editor.
+                            </p>
+                          ) : (
+                            <>
+                              <label className="hotspot-scene-select">
+                                <span>Escena 3D</span>
+                                <select
+                                  value={selectedSceneId}
+                                  onChange={(event) => setSelectedSceneId(event.target.value)}
+                                  disabled={hotspotBusy}
+                                >
+                                  {arScenes.map((sceneOption) => (
+                                    <option key={sceneOption.id} value={sceneOption.id}>
+                                      {(sceneOption.name || 'Escena 3D')} ({sceneStatusLabel(sceneOption.status)})
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <div className="hotspot-associate-actions">
+                                <Button type="button" onClick={() => handleAssociateScene(hotspot.id)} disabled={hotspotBusy || !selectedSceneId}>
+                                  Guardar
+                                </Button>
+                                <Button type="button" variant="ghost" onClick={() => setAssociatingHotspotId(null)} disabled={hotspotBusy}>
+                                  Cancelar
+                                </Button>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
@@ -389,6 +544,36 @@ function SourceDocumentPreview({
             />
           </div>
         </div>
+      )}
+
+      {modalScene && (
+        <ArSceneModal
+          scene={modalScene.scene}
+          marker={modalScene.marker}
+          pageNumber={modalScene.pageNumber}
+          onClose={() => setModalScene(null)}
+        />
+      )}
+
+      {noModelHotspot && (
+        <Modal title="Hotspot sin modelo 3D" onClose={() => setNoModelHotspot(null)}>
+          <div className="hotspot-empty-modal">
+            <p>Este hotspot todavia no tiene modelo 3D asociado.</p>
+            <div className="hotspot-associate-actions">
+              {canEditHotspots && (
+                <Button
+                  type="button"
+                  onClick={() => { const target = noModelHotspot; setNoModelHotspot(null); openAssociatePanel(target); }}
+                >
+                  Asociar modelo
+                </Button>
+              )}
+              <Button type="button" variant="ghost" onClick={() => setNoModelHotspot(null)}>
+                Cerrar
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </section>
   );

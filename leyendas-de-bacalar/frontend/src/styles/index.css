@@ -3441,8 +3441,9 @@ pre {
 .hotspot-dot {
   position: absolute;
   transform: translate(-50%, -50%);
-  width: 22px;
-  height: 22px;
+  width: 24px;
+  height: 24px;
+  padding: 0;
   border-radius: 999px;
   display: inline-flex;
   align-items: center;
@@ -3450,10 +3451,20 @@ pre {
   font-size: 0.72rem;
   font-weight: 900;
   color: #ffffff;
-  background: #f4365f;
-  border: 2px solid #ffffff;
+  background: #1f2937;
+  border: 3px solid #ffffff;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
-  pointer-events: none;
+  cursor: pointer;
+}
+
+.hotspot-dot.no-model {
+  border-color: #f59e0b;
+  background: #b45309;
+}
+
+.hotspot-dot.has-model {
+  border-color: #2dd4bf;
+  background: #0f766e;
 }
 
 .hotspot-toolbar {
@@ -3496,11 +3507,104 @@ pre {
 
 .hotspot-list li {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
   font-size: 0.82rem;
   color: #475569;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  border-left: 4px solid #cbd5e1;
+  background: #ffffff;
+}
+
+.hotspot-list li.has-model {
+  border-left-color: #2dd4bf;
+}
+
+.hotspot-list li.no-model {
+  border-left-color: #f59e0b;
+}
+
+.hotspot-list-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.hotspot-list-info {
+  color: #334155;
+}
+
+.hotspot-model-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 0.74rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.hotspot-model-badge.on {
+  color: #0f766e;
+  background: rgba(45, 212, 191, 0.18);
+  border: 1px solid rgba(45, 212, 191, 0.5);
+}
+
+.hotspot-model-badge.off {
+  color: #b45309;
+  background: rgba(245, 158, 11, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+}
+
+.hotspot-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hotspot-associate-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.hotspot-scene-select {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #475569;
+  min-width: 220px;
+}
+
+.hotspot-scene-select select {
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid #dbe4ef;
+  background: #ffffff;
+}
+
+.hotspot-associate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.hotspot-empty-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
 }
 
 .source-document-future-note {
