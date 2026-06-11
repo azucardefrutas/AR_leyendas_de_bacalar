@@ -225,6 +225,41 @@ export function proposeAiPagesFromDocument(sourceDocumentId) {
   });
 }
 
+export function listLegendHotspots(legendId, params = {}) {
+  const search = new URLSearchParams();
+  if (params.targetType) search.set('targetType', params.targetType);
+  if (params.sourceDocumentId) search.set('sourceDocumentId', params.sourceDocumentId);
+  if (params.sourcePageNumber) search.set('sourcePageNumber', String(params.sourcePageNumber));
+  if (params.pageId) search.set('pageId', params.pageId);
+  const queryString = search.toString();
+  return requestBackend(
+    `/api/v1/legends/${encodeURIComponent(legendId)}/hotspots${queryString ? `?${queryString}` : ''}`,
+    { operation: 'list-hotspots' },
+  );
+}
+
+export function createLegendHotspot(legendId, payload) {
+  return requestBackend(`/api/v1/legends/${encodeURIComponent(legendId)}/hotspots`, {
+    method: 'POST',
+    operation: 'create-hotspot',
+    body: payload,
+  });
+}
+
+export function updateLegendHotspot(legendId, hotspotId, payload) {
+  return requestBackend(
+    `/api/v1/legends/${encodeURIComponent(legendId)}/hotspots/${encodeURIComponent(hotspotId)}`,
+    { method: 'PATCH', operation: 'update-hotspot', body: payload },
+  );
+}
+
+export function deleteLegendHotspot(legendId, hotspotId) {
+  return requestBackend(
+    `/api/v1/legends/${encodeURIComponent(legendId)}/hotspots/${encodeURIComponent(hotspotId)}`,
+    { method: 'DELETE', operation: 'delete-hotspot' },
+  );
+}
+
 export async function uploadFileToSignedUrl({ signedUrl, file, contentType }) {
   if (!signedUrl || !file) {
     throw new BackendApiError('No pudimos preparar la subida del archivo.', { status: 400 });

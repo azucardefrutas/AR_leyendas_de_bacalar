@@ -3413,6 +3413,96 @@ pre {
   background: #f8fafc;
 }
 
+/* AR-1: interactive hotspot overlay on PDF preview */
+.source-document-frame-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.source-document-frame-wrap .source-document-preview-frame {
+  display: block;
+}
+
+.source-document-frame-wrap.placing {
+  cursor: crosshair;
+}
+
+.hotspot-overlay {
+  position: absolute;
+  inset: 0;
+}
+
+.source-document-frame-wrap.placing .hotspot-overlay {
+  background: rgba(48, 207, 242, 0.08);
+  outline: 2px dashed rgba(48, 207, 242, 0.5);
+  outline-offset: -2px;
+}
+
+.hotspot-dot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.72rem;
+  font-weight: 900;
+  color: #ffffff;
+  background: #f4365f;
+  border: 2px solid #ffffff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.hotspot-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 10px 12px;
+}
+
+.hotspot-page-select {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #475569;
+}
+
+.hotspot-page-select select {
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid #dbe4ef;
+  background: #ffffff;
+}
+
+.hotspot-hint {
+  font-size: 0.82rem;
+  color: #64748b;
+}
+
+.hotspot-list {
+  list-style: none;
+  margin: 0;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hotspot-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.82rem;
+  color: #475569;
+}
+
 .source-document-future-note {
   margin: 0;
 }

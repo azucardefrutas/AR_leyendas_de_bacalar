@@ -1,5 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Button from '../ui/Button.jsx';
+import {
+  createLegendHotspot,
+  deleteLegendHotspot,
+  listLegendHotspots,
+} from '../../services/backendApiService.js';
 
 function getSourceDocumentAsset(sourceDocument = {}) {
   return sourceDocument.assets || sourceDocument.asset || {};
@@ -68,6 +73,11 @@ function SourceDocumentPreview({
   onToggle,
 }) {
   const [previewExpanded, setPreviewExpanded] = useState(false);
+  const [hotspots, setHotspots] = useState([]);
+  const [selectedPdfPage, setSelectedPdfPage] = useState(1);
+  const [placingHotspot, setPlacingHotspot] = useState(false);
+  const [hotspotBusy, setHotspotBusy] = useState(false);
+  const [hotspotError, setHotspotError] = useState('');
   const asset = getSourceDocumentAsset(sourceDocument);
   const signedUrl = viewUrl?.signedUrl || '';
   const storagePath = viewUrl?.storagePath || asset.storage_path || '';
@@ -86,9 +96,77 @@ function SourceDocumentPreview({
   const contentId = `source-document-panel-${sourceDocument?.id || 'current'}`;
   const filename = storagePath.split('/').pop() || 'Documento original';
 
+  const legendId = sourceDocument?.legend_id || null;
+  const totalPdfPages = Number.isInteger(Number(pageCount)) && Number(pageCount) > 0 ? Number(pageCount) : 1;
+  const canEditHotspots = !disabled && isPdf && Boolean(legendId) && Boolean(sourceDocument?.id);
+  const hotspotsForPage = hotspots.filter((hotspot) => Number(hotspot.source_page_number) === Number(selectedPdfPage));
+
+  const loadHotspots = useCallback(async () => {
+    if (!legendId || !sourceDocument?.id) return;
+    try {
+      const response = await listLegendHotspots(legendId, {
+        targetType: 'source_document',
+        sourceDocumentId: sourceDocument.id,
+      });
+      setHotspots(response?.hotspots ?? []);
+    } catch (loadError) {
+      // Best-effort: hotspots are optional and must not break the preview.
+      if (import.meta.env.DEV) console.error('load hotspots error', loadError);
+    }
+  }, [legendId, sourceDocument?.id]);
+
   useEffect(() => {
     setPreviewExpanded(false);
+    setPlacingHotspot(false);
+    setSelectedPdfPage(1);
+    setHotspotError('');
+    setHotspots([]);
   }, [sourceDocument?.id]);
+
+  useEffect(() => {
+    loadHotspots();
+  }, [loadHotspots]);
+
+  async function handlePlaceHotspot(event) {
+    if (!placingHotspot || hotspotBusy || !canEditHotspots) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const x = Math.min(1, Math.max(0, (event.clientX - rect.left) / rect.width));
+    const y = Math.min(1, Math.max(0, (event.clientY - rect.top) / rect.height));
+
+    setHotspotBusy(true);
+    setHotspotError('');
+    try {
+      await createLegendHotspot(legendId, {
+        target_type: 'source_document',
+        source_document_id: sourceDocument.id,
+        source_page_number: Number(selectedPdfPage),
+        hotspot_type: 'marker',
+        x,
+        y,
+      });
+      setPlacingHotspot(false);
+      await loadHotspots();
+    } catch (createError) {
+      setHotspotError('No se pudo crear el marcador.');
+    } finally {
+      setHotspotBusy(false);
+    }
+  }
+
+  async function handleDeleteHotspot(hotspotId) {
+    if (!legendId || hotspotBusy) return;
+    setHotspotBusy(true);
+    setHotspotError('');
+    try {
+      await deleteLegendHotspot(legendId, hotspotId);
+      await loadHotspots();
+    } catch (deleteError) {
+      setHotspotError('No se pudo eliminar el marcador.');
+    } finally {
+      setHotspotBusy(false);
+    }
+  }
 
   return (
     <section className="creator-section-block source-document-preview">
@@ -145,11 +223,77 @@ function SourceDocumentPreview({
                 </a>
               </div>
             </div>
-            <iframe
-              className="source-document-preview-frame"
-              title="Vista previa del documento original"
-              src={signedUrl}
-            />
+
+            {canEditHotspots && (
+              <div className="hotspot-toolbar">
+                <label className="hotspot-page-select">
+                  <span>Pagina PDF</span>
+                  <select
+                    value={selectedPdfPage}
+                    onChange={(event) => { setSelectedPdfPage(Number(event.target.value)); setPlacingHotspot(false); }}
+                    disabled={hotspotBusy}
+                  >
+                    {Array.from({ length: totalPdfPages }, (_, index) => index + 1).map((number) => (
+                      <option key={number} value={number}>Pagina {number}</option>
+                    ))}
+                  </select>
+                </label>
+                <Button
+                  type="button"
+                  variant={placingHotspot ? '' : 'ghost'}
+                  onClick={() => setPlacingHotspot((current) => !current)}
+                  disabled={hotspotBusy}
+                >
+                  {placingHotspot ? 'Cancelar' : 'Agregar marcador'}
+                </Button>
+                <span className="hotspot-hint">
+                  {placingHotspot
+                    ? 'Haz clic sobre el documento para colocar el marcador.'
+                    : `${hotspotsForPage.length} marcador(es) en pagina ${selectedPdfPage}`}
+                </span>
+              </div>
+            )}
+
+            {hotspotError && <p className="error-message">{hotspotError}</p>}
+
+            <div className={`source-document-frame-wrap ${placingHotspot ? 'placing' : ''}`}>
+              <iframe
+                className="source-document-preview-frame"
+                title="Vista previa del documento original"
+                src={signedUrl}
+              />
+              <div
+                className="hotspot-overlay"
+                style={{ pointerEvents: placingHotspot ? 'auto' : 'none' }}
+                onClick={handlePlaceHotspot}
+              >
+                {hotspotsForPage.map((hotspot, index) => (
+                  <span
+                    key={hotspot.id}
+                    className="hotspot-dot"
+                    style={{ left: `${hotspot.x * 100}%`, top: `${hotspot.y * 100}%` }}
+                    title={hotspot.label || `Marcador ${index + 1} (${hotspot.status})`}
+                  >
+                    {index + 1}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {canEditHotspots && hotspotsForPage.length > 0 && (
+              <ul className="hotspot-list">
+                {hotspotsForPage.map((hotspot, index) => (
+                  <li key={hotspot.id}>
+                    <span>
+                      Marcador {index + 1} &middot; x {(hotspot.x * 100).toFixed(0)}% &middot; y {(hotspot.y * 100).toFixed(0)}% &middot; {hotspot.status}
+                    </span>
+                    <Button type="button" variant="ghost" onClick={() => handleDeleteHotspot(hotspot.id)} disabled={hotspotBusy}>
+                      Eliminar
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         )}
 
