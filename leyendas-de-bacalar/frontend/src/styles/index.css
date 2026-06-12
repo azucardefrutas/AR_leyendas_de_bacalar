@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400..700,0..1,0');
+@import url('https://fonts.googleapis.com/css2?family=Anton&display=swap');
 
 :root {
   color-scheme: dark;
@@ -6041,4 +6042,149 @@ pre {
   font-size: 0.78rem;
   border-top: 1px solid rgba(148, 163, 184, 0.18);
   text-align: center;
+}
+
+/* ---- Humbe-style centered navbar (flanking links · centered logo · right social/auth) ---- */
+.site-header-centered {
+  grid-template-columns: 1fr auto 1fr;
+  gap: clamp(16px, 3vw, 40px);
+  /* No translucent bar: float transparently over the hero, like Humbe. */
+  background: transparent;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  border-bottom: 0;
+  box-shadow: none;
+}
+
+.nav-left {
+  justify-self: end;
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2vw, 32px);
+}
+
+.brand-center {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+}
+
+.brand-center img {
+  height: clamp(40px, 5.2vh, 56px);
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 6px 16px rgba(0, 98, 111, 0.5));
+}
+
+.nav-right {
+  justify-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2vw, 32px);
+}
+
+.nav-right-links {
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2vw, 32px);
+}
+
+.nav-left a,
+.nav-right-links a {
+  position: relative;
+  color: rgba(255, 255, 255, 0.92);
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  /* Legibility over the hero without a solid bar. */
+  text-shadow: 0 1px 14px rgba(0, 0, 0, 0.55);
+}
+
+.nav-left a.active,
+.nav-left a:hover,
+.nav-right-links a.active,
+.nav-right-links a:hover {
+  color: #ffffff;
+}
+
+.nav-left a.active::after,
+.nav-left a:hover::after,
+.nav-right-links a.active::after,
+.nav-right-links a:hover::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -8px;
+  height: 2px;
+  border-radius: 99px;
+  background: #00626f;
+  box-shadow: 0 0 16px rgba(0, 98, 111, 0.7);
+}
+
+.header-extras {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.site-social {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Bare icons (no enclosing circle), Humbe-style. Tap area kept ~40px. */
+.site-social a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 6px;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  filter: drop-shadow(0 1px 8px rgba(0, 0, 0, 0.5));
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.site-social a:hover {
+  color: #30cff2;
+  transform: translateY(-1px);
+}
+
+.site-social .material-symbols-rounded {
+  font-size: 20px;
+  line-height: 1;
+}
+
+@media (max-width: 960px) {
+  .site-header-centered {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .nav-left,
+  .brand-center,
+  .nav-right {
+    justify-self: center;
+  }
+
+  .nav-left,
+  .nav-right,
+  .nav-right-links,
+  .header-extras {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .header-extras {
+    margin-left: 0;
+  }
 }

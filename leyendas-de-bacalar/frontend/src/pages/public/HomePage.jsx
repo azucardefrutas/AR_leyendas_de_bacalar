@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import FloatingBook from '../../components/3d/FloatingBook.jsx';
 import Button from '../../components/ui/Button.jsx';
+import LandingIntroOverlay from '../../components/landing/LandingIntroOverlay.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
 import { getLoginPathForRedirect } from '../../utils/authRedirect.js';
 
@@ -17,9 +18,12 @@ const localCovers = [
 function HomePage() {
   const { isAuthenticated } = useAuth();
   const redeemPath = isAuthenticated ? '/reader/redeem' : getLoginPathForRedirect('/reader/redeem');
+  // Local-only: the cinematic intro plays on each home mount during development.
+  const [introDone, setIntroDone] = useState(false);
 
   return (
     <section className="home-cinema">
+      {!introDone && <LandingIntroOverlay onFinish={() => setIntroDone(true)} />}
       <div className="hero-cover-wall" aria-hidden="true">
         {localCovers.map((cover) => (
           <img key={cover} src={cover} alt="" />
