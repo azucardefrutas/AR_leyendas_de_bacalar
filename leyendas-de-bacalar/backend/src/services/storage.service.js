@@ -102,6 +102,62 @@ export const createSignedReadUrl = async ({ bucket, path, expiresIn }) => {
   };
 };
 
+export const createSignedReadUrls = async ({ bucket, paths, expiresIn }) => {
+  const normalizedPaths = Array.isArray(paths) ? paths.filter(Boolean) : [];
+
+  if (!bucket || !normalizedPaths.length) {
+    return new Map();
+  }
+
+  const { data, error } = await supabaseAdmin.storage
+    .from(bucket)
+    .createSignedUrls(normalizedPaths, expiresIn);
+
+  if (error) {
+    throw new StorageServiceError('Could not create signed read URLs.', 500, {
+      bucket,
+      reason: error.message,
+    });
+  }
+
+  return new Map(
+    (data ?? [])
+      .filter((item) => item?.path)
+      .map((item) => [item.path, item.signedUrl || null]),
+  );
+};
+
+export const uploadStorageBuffer = async ({
+  bucket,
+  path,
+  buffer,
+  contentType,
+  cacheControl = '31536000',
+  upsert = false,
+}) => {
+  if (!bucket || !path || !buffer || !contentType) {
+    throw new StorageServiceError('Invalid storage upload payload.', 400);
+  }
+
+  const { data, error } = await supabaseAdmin.storage.from(bucket).upload(path, buffer, {
+    cacheControl,
+    contentType,
+    upsert,
+  });
+
+  if (error) {
+    throw new StorageServiceError('Could not upload file to Storage.', 500, {
+      bucket,
+      path,
+      reason: error.message,
+    });
+  }
+
+  return {
+    path: data?.path || path,
+  };
+};
+
 export const getPublicUrlForAsset = ({ bucket, path }) => {
   if (bucket !== 'legend-assets') {
     return null;

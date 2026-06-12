@@ -6188,3 +6188,419 @@ pre {
     margin-left: 0;
   }
 }
+
+/* ================= FASE 8 — Catalogo / Detalle tipo streaming ================= */
+
+/* Block A + G: streaming poster cards */
+.catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: clamp(14px, 2vw, 28px);
+}
+
+.poster-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.poster-card-art {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #0c1622;
+  box-shadow: 0 14px 36px rgba(1, 10, 18, 0.45);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.poster-card:hover .poster-card-art,
+.poster-card:focus-visible .poster-card-art {
+  transform: translateY(-4px) scale(1.015);
+  box-shadow: 0 22px 52px rgba(0, 98, 111, 0.42);
+}
+
+.poster-card-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.poster-card-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(160deg, #0a2a31, #0b1622);
+  color: rgba(255, 255, 255, 0.5);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.poster-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 3px 11px;
+  border-radius: 999px;
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+.poster-badge.free {
+  background: rgba(0, 98, 111, 0.88);
+  color: #ffffff;
+}
+
+.poster-badge.premium {
+  background: rgba(255, 255, 255, 0.92);
+  color: #0d0d0d;
+}
+
+.poster-card-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 55%, rgba(4, 12, 20, 0.55));
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.poster-card:hover .poster-card-shade {
+  opacity: 1;
+}
+
+.poster-card-meta h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.poster-card-meta p {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+/* Block B: streaming detail */
+.detail-page {
+  min-height: 100vh;
+}
+
+.detail-hero {
+  position: relative;
+  min-height: 92vh;
+  background-color: #081420;
+  background-size: cover;
+  background-position: center;
+}
+
+.detail-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(5, 12, 20, 0.5) 0%, rgba(5, 12, 20, 0.82) 70%, rgba(5, 12, 20, 0.96) 100%),
+    radial-gradient(circle at 28% 18%, rgba(0, 98, 111, 0.35), transparent 60%);
+}
+
+.detail-hero-content {
+  position: relative;
+  z-index: 2;
+  width: min(1200px, 100%);
+  margin: 0 auto;
+  padding: clamp(96px, 13vh, 150px) clamp(18px, 5vw, 60px) 60px;
+}
+
+.detail-back {
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.detail-back:hover { color: #ffffff; }
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: clamp(170px, 24vw, 290px) 1fr;
+  gap: clamp(24px, 4vw, 56px);
+  align-items: center;
+  margin-top: 26px;
+}
+
+.detail-poster {
+  aspect-ratio: 2 / 3;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.5);
+  background: #0c1622;
+}
+
+.detail-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.detail-poster-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(160deg, #0a2a31, #0b1622);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 2.4rem;
+  font-weight: 800;
+  font-family: Georgia, serif;
+}
+
+.detail-info {
+  min-width: 0;
+}
+
+.detail-info h1 {
+  font-size: clamp(2rem, 5vw, 3.4rem);
+  margin: 0.45rem 0 0.2rem;
+  color: #ffffff;
+  line-height: 1.05;
+}
+
+.detail-author {
+  color: rgba(255, 255, 255, 0.82);
+  font-weight: 600;
+  margin: 0 0 14px;
+}
+
+.detail-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.detail-synopsis {
+  color: rgba(234, 251, 255, 0.86);
+  max-width: 62ch;
+  line-height: 1.6;
+  margin: 0 0 26px;
+}
+
+.detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.detail-preview-strip {
+  margin-top: 24px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  max-width: 62ch;
+}
+
+.detail-preview-strip strong {
+  display: block;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--reader-accent, #30cff2);
+  margin-bottom: 6px;
+}
+
+.detail-preview-strip p {
+  margin: 0;
+  color: rgba(234, 251, 255, 0.78);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+@media (max-width: 720px) {
+  .detail-grid {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+  }
+
+  .detail-poster {
+    width: min(220px, 62%);
+  }
+
+  .detail-synopsis,
+  .detail-preview-strip {
+    margin-inline: auto;
+  }
+
+  .detail-chips,
+  .detail-actions {
+    justify-content: center;
+  }
+}
+
+/* ================= FASE 8 — Lector CONALITEG (PDF flipbook) ================= */
+.pdf-flipbook {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  padding: clamp(14px, 3vw, 34px) 8px clamp(18px, 3vw, 30px);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 50% 22%, rgba(20, 48, 74, 0.55), transparent 60%),
+    linear-gradient(180deg, #0a1622, #060d16);
+  border: 1px solid rgba(48, 207, 242, 0.14);
+}
+
+.pdf-flipbook.fullscreen {
+  border-radius: 0;
+  min-height: 100vh;
+  justify-content: center;
+}
+
+.pdf-flipbook-loading,
+.pdf-flipbook-error {
+  display: grid;
+  place-items: center;
+  min-height: 360px;
+  color: #cfe9f5;
+  font-weight: 700;
+}
+
+.pdf-flipbook-error p { margin: 0; color: #fca5a5; }
+
+.pdf-flipbook-stage {
+  max-width: 100%;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  padding: 8px;
+  transition: transform 0.25s ease;
+}
+
+.pdf-flipbook-stage.zoomed {
+  transform: scale(1.35);
+  transform-origin: top center;
+  max-height: 80vh;
+}
+
+/* Clean light pages with a soft central spine shadow — no text or art over them. */
+.pdf-flip-page {
+  position: relative;
+  background: #fbf7ee;
+  overflow: hidden;
+  box-shadow: inset 0 0 22px rgba(74, 60, 28, 0.12);
+}
+
+.pdf-flip-page img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.pdf-flip-page-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.pdf-flip-page-loading {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.pdf-flip-page-number {
+  position: absolute;
+  bottom: 6px;
+  right: 10px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  color: rgba(51, 65, 85, 0.5);
+}
+
+/* Square hotspot markers over the page */
+.reader-hotspot {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  pointer-events: auto;
+  background: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.reader-hotspot:hover { background: rgba(255, 255, 255, 0.38); transform: translate(-50%, -50%) scale(1.08); }
+.reader-hotspot.has-model { border: 3px solid #2dd4bf; }
+.reader-hotspot.no-model { border: 3px solid #f59e0b; }
+
+.reader-hotspot-badge {
+  font-size: 0.58rem;
+  font-weight: 900;
+  color: #04261f;
+  background: rgba(45, 212, 191, 0.9);
+  border-radius: 4px;
+  padding: 1px 4px;
+  letter-spacing: 0.03em;
+}
+
+.pdf-flipbook-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.pdf-flipbook-goto {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #cfe9f5;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.pdf-flipbook-goto input {
+  width: 56px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  text-align: center;
+}
+
+.hotspot-empty-modal {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+}

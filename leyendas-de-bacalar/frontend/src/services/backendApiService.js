@@ -225,6 +225,12 @@ export function proposeAiPagesFromDocument(sourceDocumentId) {
   });
 }
 
+export function getReaderLegendReadingContext(legendId) {
+  return requestBackend(`/api/v1/reader/legends/${encodeURIComponent(legendId)}/reading-context`, {
+    operation: 'reader-reading-context',
+  });
+}
+
 export function listLegendHotspots(legendId, params = {}) {
   const search = new URLSearchParams();
   if (params.targetType) search.set('targetType', params.targetType);

@@ -9,6 +9,10 @@ import {
   getSourceDocumentAccessContext,
   startExtractionForSourceDocument,
 } from '../services/documentExtraction.service.js';
+import {
+  getRenderedPagesForSourceDocument,
+  renderPagesForSourceDocument,
+} from '../services/documentRender.service.js';
 import { validateFileMetadata } from '../services/fileValidation.service.js';
 import { getLegendAccessContext } from '../services/legendAccess.service.js';
 import { generatePagesFromExtraction } from '../services/legendPagesFromExtraction.service.js';
@@ -304,6 +308,44 @@ router.get('/:sourceDocumentId/view-url', requireCreatorOrAdmin, async (req, res
       pageCount: sourceDocument.page_count ?? null,
       expiresIn: SOURCE_DOCUMENT_VIEW_URL_TTL_SECONDS,
       storagePath,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/:sourceDocumentId/render-pages', requireCreatorOrAdmin, async (req, res, next) => {
+  try {
+    const result = await getRenderedPagesForSourceDocument({
+      sourceDocumentId: req.params.sourceDocumentId,
+      userId: req.user.id,
+      roles: req.user.roles,
+    });
+
+    res.json({
+      ok: true,
+      ...result,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/:sourceDocumentId/render-pages', requireCreatorOrAdmin, async (req, res, next) => {
+  try {
+    const result = await renderPagesForSourceDocument({
+      sourceDocumentId: req.params.sourceDocumentId,
+      userId: req.user.id,
+      roles: req.user.roles,
+      force: req.body?.force === true,
+      scale: req.body?.scale,
+      format: req.body?.format,
+    });
+
+    res.json({
+      ok: true,
+      ...result,
+      nextStep: 'rendered_pages_ready_for_reader_bundle',
     });
   } catch (error) {
     next(error);

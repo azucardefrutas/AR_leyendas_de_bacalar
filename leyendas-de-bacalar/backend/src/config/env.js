@@ -14,17 +14,27 @@ const normalizePort = (value) => {
   return port;
 };
 
-const resolveFrontendOrigin = () => {
-  const origin = process.env.FRONTEND_ORIGIN || process.env.CLIENT_URL;
+const FRONTEND_ORIGIN_ENV_KEYS = ['FRONTEND_ORIGIN', 'FRONTEND_URL', 'CLIENT_URL'];
 
-  if (!origin) {
-    throw new Error('FRONTEND_ORIGIN is required.');
+const splitOriginList = (value) =>
+  value
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+const resolveFrontendOrigins = () => {
+  const configuredOrigins = FRONTEND_ORIGIN_ENV_KEYS.flatMap((key) =>
+    splitOriginList(process.env[key] || '')
+  );
+
+  if (configuredOrigins.length === 0) {
+    throw new Error('FRONTEND_ORIGIN or FRONTEND_URL is required.');
   }
 
   try {
-    return new URL(origin).origin;
+    return [...new Set(configuredOrigins.map((origin) => new URL(origin).origin))];
   } catch {
-    throw new Error('FRONTEND_ORIGIN must be a valid URL origin.');
+    throw new Error('FRONTEND_ORIGIN, FRONTEND_URL, and CLIENT_URL must contain valid URL origins.');
   }
 };
 
@@ -38,10 +48,13 @@ const validateRequiredEnv = () => {
 
 validateRequiredEnv();
 
+const frontendOrigins = resolveFrontendOrigins();
+
 export const env = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   PORT: normalizePort(process.env.PORT),
-  FRONTEND_ORIGIN: resolveFrontendOrigin(),
+  FRONTEND_ORIGIN: frontendOrigins[0],
+  FRONTEND_ORIGINS: frontendOrigins,
   SUPABASE_URL: process.env.SUPABASE_URL,
   SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
 };

@@ -12,17 +12,16 @@ import { getLoginPathForRedirect } from '../../utils/authRedirect.js';
 const fallbackCovers = [
   '/assets/portada carin hall.png',
   '/assets/portada la bruja.png',
-  '/assets/portada el sismite.png',
   '/assets/portada los duentes del monte.png',
   '/assets/Portada_los guardianes.png',
 ];
 
 const accessLabels = {
   free: 'Gratis',
-  paid: 'Compra',
-  subscription: 'Suscripcion',
+  paid: 'Premium',
+  subscription: 'Premium',
   code_required: 'Codigo fisico',
-  mixed: 'Mixto',
+  mixed: 'Premium',
 };
 
 const actionLabels = {
@@ -86,14 +85,12 @@ function LegendDetailPage() {
   const loginForLegend = getLoginPathForRedirect(currentPath);
   const previewText = pages.find((page) => page.text_content)?.text_content;
   const coverUrl = legend.coverUrl || legend.cover_url || legend.poster_url || getFallbackCover(slug);
+  const bannerUrl = legend.bannerUrl || legend.banner_url || legend.backdropUrl || coverUrl;
   const authorName = legend.authorName || legend.author_name || legend.creator_name || legend.pen_name || 'Autor no disponible';
   const synopsis = legend.synopsis || legend.shortSynopsis || 'Una leyenda de Bacalar lista para descubrir.';
   const genres = Array.isArray(legend.genres) ? legend.genres : [];
-  const chips = [
-    legend.origin_place || 'Bacalar',
-    accessLabels[legend.access_type] || legend.access_type || 'Gratis',
-    ...genres.map((genre) => genre.name).filter(Boolean),
-  ].filter(Boolean);
+  const badge = isFree ? 'Gratis' : (accessLabels[accessType] || 'Premium');
+  const chips = [legend.origin_place || 'Bacalar', ...genres.map((genre) => genre.name).filter(Boolean)];
   const actionLabel = actionLabels[accessType] || 'Explorar historia';
 
   async function refreshAccess() {
@@ -116,48 +113,70 @@ function LegendDetailPage() {
   }
 
   return (
-    <section className="legend-experience-shell">
-      <div className="legend-night-panel">
-        <Link className="reader-back-link" to="/reader/library">Volver</Link>
-        <div className="legend-detail-stage">
-          <article className="legend-detail-copy">
-            <p className="reader-kicker">{canRead ? 'Disponible para lectura' : 'Contenido protegido'}</p>
-            <h1>{legend.title}</h1>
-            <div className="legend-meta-row">
-              <span className="legend-author-pill">{authorName}</span>
-              {chips.map((chip) => <span className="legend-chip" key={chip}>{chip}</span>)}
-            </div>
-            <p className="legend-detail-synopsis">{synopsis}</p>
+    <section className="detail-page">
+      <div
+        className="detail-hero"
+        style={bannerUrl ? { backgroundImage: `url("${bannerUrl}")` } : undefined}
+      >
+        <div className="detail-hero-overlay" aria-hidden="true" />
 
-            {canRead ? (
-              <Link to={`/legend/${legend.slug}/read`}>
-                <Button className="reader-glow-button">Explorar historia</Button>
-              </Link>
-            ) : (
-              <>
-                <Button className="reader-glow-button" onClick={handleProtectedAction}>{actionLabel}</Button>
+        <div className="detail-hero-content">
+          <Link className="detail-back" to="/catalog">&larr; Volver al catalogo</Link>
+
+          <div className="detail-grid">
+            <div className="detail-poster">
+              {coverUrl ? (
+                <img src={coverUrl} alt={`Portada de ${legend.title}`} />
+              ) : (
+                <div className="detail-poster-fallback"><span>{legend.title?.slice(0, 2).toUpperCase()}</span></div>
+              )}
+            </div>
+
+            <div className="detail-info">
+              <span className={`poster-badge ${isFree ? 'free' : 'premium'}`}>{badge}</span>
+              <h1>{legend.title}</h1>
+              <p className="detail-author">{authorName}</p>
+
+              {chips.length > 0 && (
+                <div className="detail-chips">
+                  {chips.map((chip) => <span className="legend-chip" key={chip}>{chip}</span>)}
+                </div>
+              )}
+
+              <p className="detail-synopsis">{synopsis}</p>
+
+              <div className="detail-actions">
+                {canRead ? (
+                  <Link to={`/legend/${legend.slug}/read`}>
+                    <Button className="reader-glow-button">Explorar historia</Button>
+                  </Link>
+                ) : (
+                  <Button className="reader-glow-button" onClick={handleProtectedAction}>{actionLabel}</Button>
+                )}
+                <Link to="/catalog"><Button variant="ghost">Volver al catalogo</Button></Link>
+              </div>
+
+              {!canRead && (
                 <p className="legend-locked-note">
                   Esta leyenda esta bloqueada. Desbloqueala para leer la historia completa.
                 </p>
-                {actionMessage && <p className="legend-locked-note">{actionMessage}</p>}
-                {!isAuthenticated && (
-                  <Link className="reader-soft-link" to={loginForLegend}>Para desbloquear esta leyenda necesitas iniciar sesion.</Link>
-                )}
-              </>
-            )}
-          </article>
+              )}
+              {actionMessage && <p className="legend-locked-note">{actionMessage}</p>}
+              {!canRead && !isAuthenticated && (
+                <Link className="reader-soft-link" to={loginForLegend}>
+                  Para desbloquear esta leyenda necesitas iniciar sesion.
+                </Link>
+              )}
 
-          <aside className="legend-cover-showcase">
-            <img src={coverUrl} alt={`Portada de ${legend.title}`} />
-            <span aria-hidden="true" />
-          </aside>
-        </div>
-        {previewText && !canRead && (
-          <div className="legend-preview-strip">
-            <strong>Vista previa</strong>
-            <p>{previewText.slice(0, 220)}{previewText.length > 220 ? '...' : ''}</p>
+              {previewText && !canRead && (
+                <div className="detail-preview-strip">
+                  <strong>Vista previa</strong>
+                  <p>{previewText.slice(0, 220)}{previewText.length > 220 ? '...' : ''}</p>
+                </div>
+              )}
+            </div>
           </div>
-        )}
+        </div>
       </div>
 
       {activationOpen && (

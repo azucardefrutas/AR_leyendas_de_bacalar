@@ -5,18 +5,20 @@
   "main": "src/index.js",
   "type": "module",
   "scripts": {
-    "build": "node --check src/index.js && node --check src/config/env.js && node --check src/config/supabaseAdmin.js && node --check src/middlewares/errorHandler.js && node --check src/middlewares/notFound.js && node --check src/middlewares/requireAuth.js && node --check src/middlewares/requireRole.js && node --check src/routes/health.routes.js && node --check src/routes/auth.routes.js && node --check src/routes/documents.routes.js && node --check src/routes/legendHotspots.routes.js && node --check src/routes/index.js && node --check src/services/role.service.js && node --check src/services/legendAccess.service.js && node --check src/services/fileValidation.service.js && node --check src/services/storage.service.js && node --check src/services/assetRegistry.service.js && node --check src/services/interactiveHotspots.service.js && node --check src/services/documentExtraction.service.js && node --check src/services/documentTextExtractor.service.js && node --check src/services/legendPagesFromExtraction.service.js && node --check src/services/ai/aiPageProposal.service.js && node --check src/services/ai/aiProvider.service.js && node --check src/services/ai/disabledProvider.service.js && node --check src/services/ai/geminiProvider.service.js && node --check src/services/ai/prompts/documentToPages.prompt.js && node --check src/utils/logger.js",
+    "build": "node --check src/index.js && node --check src/config/env.js && node --check src/config/supabaseAdmin.js && node --check src/middlewares/errorHandler.js && node --check src/middlewares/notFound.js && node --check src/middlewares/optionalAuth.js && node --check src/middlewares/requireAuth.js && node --check src/middlewares/requireRole.js && node --check src/routes/health.routes.js && node --check src/routes/auth.routes.js && node --check src/routes/documents.routes.js && node --check src/routes/legendHotspots.routes.js && node --check src/routes/readerBundle.routes.js && node --check src/routes/readerLegends.routes.js && node --check src/routes/index.js && node --check src/services/role.service.js && node --check src/services/legendAccess.service.js && node --check src/services/fileValidation.service.js && node --check src/services/storage.service.js && node --check src/services/assetRegistry.service.js && node --check src/services/interactiveHotspots.service.js && node --check src/services/readerBundle.service.js && node --check src/services/readerLegendContext.service.js && node --check src/services/documentExtraction.service.js && node --check src/services/documentRender.service.js && node --check src/services/documentTextExtractor.service.js && node --check src/services/legendPagesFromExtraction.service.js && node --check src/services/ai/aiPageProposal.service.js && node --check src/services/ai/aiProvider.service.js && node --check src/services/ai/disabledProvider.service.js && node --check src/services/ai/geminiProvider.service.js && node --check src/services/ai/prompts/documentToPages.prompt.js && node --check src/utils/logger.js",
     "start": "node src/index.js",
     "dev": "nodemon src/index.js"
   },
   "dependencies": {
     "@google/genai": "^2.8.0",
+    "@napi-rs/canvas": "^0.1.80",
     "@supabase/supabase-js": "^2.42.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "mammoth": "^1.12.0",
-    "pdf-parse": "^2.4.5"
+    "pdf-parse": "^2.4.5",
+    "pdfjs-dist": "^5.4.296"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"

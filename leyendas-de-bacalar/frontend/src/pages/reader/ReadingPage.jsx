@@ -1,16 +1,41 @@
-import React from 'react';
-import { useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Button from '../../components/ui/Button.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
+import Modal from '../../components/ui/Modal.jsx';
 import PhysicalBookActivationModal from '../../components/reader/PhysicalBookActivationModal.jsx';
 import ArSceneModal from '../../components/3d/ArSceneModal.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
 import { getLegendBySlug, getLegendPages, getUserLegendAccess } from '../../services/legendService.js';
 import { getLegendResources } from '../../services/assetService.js';
+import { getReaderLegendReadingContext } from '../../services/backendApiService.js';
+
+// Lazy: pdfjs + react-pageflip only load when a legend actually opens the PDF book.
+const PdfFlipbookReader = lazy(() => import('../../components/reader/PdfFlipbookReader.jsx'));
 
 const fallbackCover = '/assets/portada carin hall.png';
+
+// Adapt the backend reading-context scene shape to what ArSceneModal expects.
+function sceneFromHotspot(hotspot) {
+  const scene = hotspot?.scene;
+  if (!scene) return null;
+  return {
+    id: scene.id,
+    name: scene.name,
+    description: scene.description,
+    status: scene.status,
+    assets: scene.model
+      ? {
+          url: scene.model.url || '',
+          asset_type: scene.model.assetType,
+          mime_type: scene.model.mimeType,
+          file_size: scene.model.fileSize,
+          metadata: { original_name: scene.model.name },
+        }
+      : null,
+  };
+}
 
 function ReaderPageSpread({ leftPage, rightPage, leftScene, rightScene, onViewModel }) {
   return (
@@ -22,9 +47,7 @@ function ReaderPageSpread({ leftPage, rightPage, leftScene, rightScene, onViewMo
             {leftPage.title && <h2>{leftPage.title}</h2>}
             <p>{leftPage.text_content}</p>
             {leftScene && (
-              <button type="button" className="reader-3d-button" onClick={() => onViewModel(leftScene)}>
-                Ver modelo 3D
-              </button>
+              <button type="button" className="reader-3d-button" onClick={() => onViewModel(leftScene)}>Ver modelo 3D</button>
             )}
           </>
         ) : (
@@ -38,9 +61,7 @@ function ReaderPageSpread({ leftPage, rightPage, leftScene, rightScene, onViewMo
             {rightPage.title && <h2>{rightPage.title}</h2>}
             <p>{rightPage.text_content}</p>
             {rightScene && (
-              <button type="button" className="reader-3d-button" onClick={() => onViewModel(rightScene)}>
-                Ver modelo 3D
-              </button>
+              <button type="button" className="reader-3d-button" onClick={() => onViewModel(rightScene)}>Ver modelo 3D</button>
             )}
           </>
         ) : (
@@ -57,7 +78,11 @@ function ReadingPage() {
   const [legend, setLegend] = useState(null);
   const [pages, setPages] = useState([]);
   const [arResources, setArResources] = useState({ scenes: [], markers: [] });
+  const [readerContext, setReaderContext] = useState(null);
+  const [pdfReaderFailed, setPdfReaderFailed] = useState(false);
   const [activeScene, setActiveScene] = useState(null);
+  const [hotspotSceneModal, setHotspotSceneModal] = useState(null);
+  const [hotspotNotice, setHotspotNotice] = useState(false);
   const [access, setAccess] = useState(null);
   const [spreadIndex, setSpreadIndex] = useState(0);
   const [activationOpen, setActivationOpen] = useState(false);
@@ -76,12 +101,8 @@ function ReadingPage() {
       }
 
       const { data: pageData } = await getLegendPages(data.id);
-      const { data: accessData } = isAuthenticated
-        ? await getUserLegendAccess(data.id)
-        : { data: null };
+      const { data: accessData } = isAuthenticated ? await getUserLegendAccess(data.id) : { data: null };
 
-      // Best-effort: load 3D/AR scenes for pages. RLS or missing data must not
-      // break the reader; getLegendResources returns empty sets on failure.
       let scenes = [];
       let markers = [];
       try {
@@ -94,9 +115,22 @@ function ReadingPage() {
         if (import.meta.env.DEV) console.error('reader ar resources error', resourceError);
       }
 
+      // Best-effort: the original PDF + published hotspots (grouped in one call).
+      // Requires a session; anonymous users keep the interactive-pages reader.
+      let readingContext = null;
+      if (isAuthenticated) {
+        try {
+          readingContext = await getReaderLegendReadingContext(data.id);
+        } catch (contextError) {
+          if (import.meta.env.DEV) console.error('reader reading-context error', contextError);
+        }
+      }
+
       setLegend(data);
       setPages(pageData ?? []);
       setArResources({ scenes, markers });
+      setReaderContext(readingContext);
+      setPdfReaderFailed(false);
       setAccess(accessData);
       setLoading(false);
     }
@@ -117,6 +151,20 @@ function ReadingPage() {
   const rightScene = sceneForPage(rightPage);
   const maxSpreadStart = Math.max(0, pages.length - (pages.length % 2 === 0 ? 2 : 1));
   const coverUrl = legend.cover_url || legend.coverUrl || legend.poster_url || fallbackCover;
+
+  const pdfDocument = readerContext?.document ?? null;
+  const isPdfDocument = pdfDocument?.signedUrl
+    && (pdfDocument.documentType === 'pdf' || pdfDocument.mimeType === 'application/pdf');
+  const usePdfReader = canRead && isPdfDocument && !pdfReaderFailed;
+
+  function handleHotspotClick(hotspot) {
+    const scene = sceneFromHotspot(hotspot);
+    if (scene) {
+      setHotspotSceneModal({ scene, pageNumber: hotspot.sourcePageNumber ?? null });
+    } else {
+      setHotspotNotice(true);
+    }
+  }
 
   async function refreshAccess() {
     if (!legend?.id || !isAuthenticated) return;
@@ -141,48 +189,46 @@ function ReadingPage() {
           <img src={coverUrl} alt="" />
         </div>
 
-        {canRead ? (
-          <>
-            {pages.length > 0 ? (
-              <div className="reader-book-stage">
-                <button className="reader-page-arrow reader-page-arrow-left" type="button" onClick={goPrevious} disabled={spreadIndex === 0} aria-label="Pagina anterior">
-                  ←
-                </button>
-                <div className="reader-open-book" aria-label="Libro abierto">
-                  <img className="reader-open-book-art" src="/assets/Libro abierto.png" alt="" />
-                  <ReaderPageSpread
-                    leftPage={leftPage}
-                    rightPage={rightPage}
-                    leftScene={leftScene}
-                    rightScene={rightScene}
-                    onViewModel={setActiveScene}
-                  />
-                </div>
-                <button className="reader-page-arrow reader-page-arrow-right" type="button" onClick={goNext} disabled={spreadIndex >= maxSpreadStart} aria-label="Pagina siguiente">
-                  →
-                </button>
-              </div>
-            ) : (
-              <div className="reader-empty-book">
-                <h2>Esta leyenda aun no tiene paginas publicadas.</h2>
-                <p>Cuando el autor publique contenido, aparecera aqui como lectura editorial.</p>
-              </div>
-            )}
-          </>
-        ) : (
+        {!canRead ? (
           <div className="reader-locked-book">
             <h2>Esta leyenda esta bloqueada</h2>
             <p>Desbloqueala con el codigo de tu libro fisico para leer la historia completa.</p>
             <Button className="reader-glow-button" onClick={() => setActivationOpen(true)}>Activar libro fisico</Button>
           </div>
+        ) : usePdfReader ? (
+          <Suspense fallback={<LoadingState message="Preparando libro..." />}>
+            <PdfFlipbookReader
+              pdfUrl={pdfDocument.signedUrl}
+              hotspots={readerContext?.hotspots ?? []}
+              onHotspotClick={handleHotspotClick}
+              onError={() => setPdfReaderFailed(true)}
+            />
+          </Suspense>
+        ) : pages.length > 0 ? (
+          <div className="reader-book-stage">
+            <button className="reader-page-arrow reader-page-arrow-left" type="button" onClick={goPrevious} disabled={spreadIndex === 0} aria-label="Pagina anterior">&larr;</button>
+            <div className="reader-open-book" aria-label="Libro abierto">
+              <img className="reader-open-book-art" src="/assets/Libro abierto.png" alt="" />
+              <ReaderPageSpread
+                leftPage={leftPage}
+                rightPage={rightPage}
+                leftScene={leftScene}
+                rightScene={rightScene}
+                onViewModel={setActiveScene}
+              />
+            </div>
+            <button className="reader-page-arrow reader-page-arrow-right" type="button" onClick={goNext} disabled={spreadIndex >= maxSpreadStart} aria-label="Pagina siguiente">&rarr;</button>
+          </div>
+        ) : (
+          <div className="reader-empty-book">
+            <h2>Esta leyenda aun no tiene paginas publicadas.</h2>
+            <p>Cuando el autor publique contenido, aparecera aqui como lectura editorial.</p>
+          </div>
         )}
       </div>
 
       {activationOpen && (
-        <PhysicalBookActivationModal
-          onClose={() => setActivationOpen(false)}
-          onRedeemed={refreshAccess}
-        />
+        <PhysicalBookActivationModal onClose={() => setActivationOpen(false)} onRedeemed={refreshAccess} />
       )}
 
       {activeScene && (
@@ -192,6 +238,23 @@ function ReadingPage() {
           pageNumber={pages.find((page) => String(page.id) === String(activeScene.page_id))?.page_number ?? null}
           onClose={() => setActiveScene(null)}
         />
+      )}
+
+      {hotspotSceneModal && (
+        <ArSceneModal
+          scene={hotspotSceneModal.scene}
+          pageNumber={hotspotSceneModal.pageNumber}
+          onClose={() => setHotspotSceneModal(null)}
+        />
+      )}
+
+      {hotspotNotice && (
+        <Modal title="Marcador sin modelo 3D" onClose={() => setHotspotNotice(false)}>
+          <div className="hotspot-empty-modal">
+            <p>Este marcador todavia no tiene modelo 3D asociado.</p>
+            <Button type="button" variant="ghost" onClick={() => setHotspotNotice(false)}>Cerrar</Button>
+          </div>
+        </Modal>
       )}
     </section>
   );
