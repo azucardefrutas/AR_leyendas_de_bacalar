@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import HTMLFlipBook from 'react-pageflip';
 import Button from '../ui/Button.jsx';
+import { getHotspotsForReaderPage } from '../../utils/readerPages.js';
 
 const MAX_PAGE_DISPLAY_WIDTH = 470;
 
@@ -38,20 +39,23 @@ function HotspotMarker({ hotspot, index, onClick }) {
 }
 
 const FlipPage = React.forwardRef(({ page, hotspots, onHotspotClick }, ref) => (
-  <div className="pdf-flip-page" ref={ref}>
-    {page.imageUrl ? (
-      <>
-        <img src={page.imageUrl} alt={`Pagina ${page.pageNumber}`} draggable={false} loading="lazy" />
-        <div className="pdf-flip-page-overlay">
-          {hotspots.map((hotspot, index) => (
-            <HotspotMarker key={hotspot.id} hotspot={hotspot} index={index} onClick={onHotspotClick} />
-          ))}
-        </div>
-        <span className="pdf-flip-page-number">{page.pageNumber}</span>
-      </>
+  <div className={`pdf-flip-page ${page.type === 'manual' ? 'pdf-flip-page-manual' : ''}`} ref={ref}>
+    {page.type === 'rendered_pdf' && page.imageUrl ? (
+      <img src={page.imageUrl} alt={`Pagina ${page.pageNumber}`} draggable={false} loading="lazy" />
+    ) : page.type === 'manual' ? (
+      <div className="reader-paper">
+        {page.title && <h3 className="reader-paper-title">{page.title}</h3>}
+        <div className="reader-paper-text">{page.textContent}</div>
+      </div>
     ) : (
       <div className="pdf-flip-page-loading">Pagina {page.pageNumber}</div>
     )}
+    <div className="pdf-flip-page-overlay">
+      {hotspots.map((hotspot, index) => (
+        <HotspotMarker key={hotspot.id} hotspot={hotspot} index={index} onClick={onHotspotClick} />
+      ))}
+    </div>
+    <span className="pdf-flip-page-number">{page.pageNumber}</span>
   </div>
 ));
 
@@ -76,17 +80,10 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
     ? Number(firstPage.height) / Number(firstPage.width)
     : 1.414;
 
-  const hotspotsByPage = useMemo(() => {
-    const map = new Map();
-    for (const hotspot of hotspots) {
-      if ((hotspot.targetType ?? hotspot.target_type) !== 'source_document') continue;
-      const page = Number(hotspot.sourcePageNumber ?? hotspot.source_page_number);
-      if (!Number.isInteger(page) || page < 1) continue;
-      if (!map.has(page)) map.set(page, []);
-      map.get(page).push(hotspot);
-    }
-    return map;
-  }, [hotspots]);
+  const hotspotsByPageIndex = useMemo(
+    () => pages.map((page) => getHotspotsForReaderPage(page, hotspots)),
+    [pages, hotspots],
+  );
 
   useEffect(() => {
     function onFullscreenChange() {
@@ -166,19 +163,19 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
           maxWidth={760}
           minHeight={360}
           maxHeight={Math.round(760 * aspect)}
-          showCover={false}
+          showCover
           usePortrait
           mobileScrollSupport
-          flippingTime={650}
-          maxShadowOpacity={0.4}
+          flippingTime={700}
+          maxShadowOpacity={0.45}
           onFlip={handleFlip}
           className="pdf-flipbook-book"
         >
-          {pages.map((page) => (
+          {pages.map((page, index) => (
             <FlipPage
-              key={page.id || page.pageNumber}
+              key={`${page.type}-${page.pageNumber}-${index}`}
               page={page}
-              hotspots={hotspotsByPage.get(page.pageNumber) ?? []}
+              hotspots={hotspotsByPageIndex[index] ?? []}
               onHotspotClick={onHotspotClick}
             />
           ))}

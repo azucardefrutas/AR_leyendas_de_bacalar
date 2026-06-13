@@ -6567,6 +6567,39 @@ pre {
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* Immersive reading: hide the global navbar so it doesn't interrupt the book */
+body.reading-immersive .site-header { display: none; }
+body.reading-immersive .reader-stage { padding-top: clamp(14px, 3vh, 26px); }
+
+/* Manual story pages rendered inside the SAME book frame as PDF pages */
+.pdf-flip-page-manual { background: #fbf7ee; }
+
+.reader-paper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: clamp(22px, 6%, 54px) clamp(20px, 7%, 56px);
+  overflow: auto;
+  color: #2a2418;
+  font-family: Georgia, 'Times New Roman', serif;
+}
+
+.reader-paper-title {
+  margin: 0 0 18px;
+  text-align: center;
+  font-size: clamp(1.1rem, 3vw, 1.7rem);
+  color: #1f2937;
+  line-height: 1.2;
+}
+
+.reader-paper-text {
+  white-space: pre-wrap;
+  line-height: 1.75;
+  font-size: clamp(0.92rem, 1.5vw, 1.06rem);
+  text-align: justify;
+}
+
 /* ================= FASE 8 — Lector CONALITEG (PDF flipbook) ================= */
 .pdf-flipbook {
   display: flex;
