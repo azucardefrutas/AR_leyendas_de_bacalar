@@ -1,11 +1,60 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import HTMLFlipBook from 'react-pageflip';
-import Button from '../ui/Button.jsx';
 import { getHotspotsForReaderPage } from '../../utils/readerPages.js';
 
 const MAX_SINGLE_PAGE_WIDTH = 540;
-const MAX_DESKTOP_PAGE_WIDTH = 560;
-const MIN_PAGE_WIDTH = 280;
+const MAX_DESKTOP_PAGE_WIDTH = 520;
+const MIN_PAGE_WIDTH = 260;
+
+function ReaderIcon({ name }) {
+  const commonProps = {
+    width: 20,
+    height: 20,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2.25,
+    strokeLinecap: 'round',
+    strokeLinejoin: 'round',
+    'aria-hidden': 'true',
+  };
+
+  if (name === 'previous') {
+    return (
+      <svg {...commonProps}>
+        <path d="m15 18-6-6 6-6" />
+      </svg>
+    );
+  }
+
+  if (name === 'next') {
+    return (
+      <svg {...commonProps}>
+        <path d="m9 18 6-6-6-6" />
+      </svg>
+    );
+  }
+
+  if (name === 'fullscreen') {
+    return (
+      <svg {...commonProps}>
+        <path d="M8 3H5a2 2 0 0 0-2 2v3" />
+        <path d="M16 3h3a2 2 0 0 1 2 2v3" />
+        <path d="M8 21H5a2 2 0 0 1-2-2v-3" />
+        <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+      </svg>
+    );
+  }
+
+  return (
+    <svg {...commonProps}>
+      <path d="M8 3v3a2 2 0 0 1-2 2H3" />
+      <path d="M16 3v3a2 2 0 0 0 2 2h3" />
+      <path d="M8 21v-3a2 2 0 0 0-2-2H3" />
+      <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
+    </svg>
+  );
+}
 
 function hotspotHasModel(hotspot) {
   return Boolean(hotspot.scene || hotspot.arSceneId || hotspot.ar_scene_id);
@@ -65,8 +114,8 @@ FlipPage.displayName = 'FlipPage';
 
 /**
  * CONALITEG-style book reader. Consumes pre-rendered PDF page images from the
- * backend (renderedPages) and overlays the interactive hotspots. No frontend PDF
- * rendering: pages are images already prepared by the Render backend.
+ * backend and overlays the interactive hotspots. Manual legend pages reuse the
+ * same physical book shell so all stories share one reader behavior.
  */
 function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
   const [currentPage, setCurrentPage] = useState(1);
@@ -153,24 +202,26 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
     );
   }
 
-  // Universal book sizing: fit the spread to BOTH viewport width and height.
-  // Desktop shows a two-page spread; narrow screens switch to a single page.
   const isSinglePage = viewport.width < 900;
-  const verticalReserve = isSinglePage ? 188 : 220;
-  const maxPageHeight = Math.max(380, viewport.height - verticalReserve);
-  const maxSpreadWidth = Math.min(viewport.width - 48, 1260);
+  const verticalReserve = isSinglePage ? 168 : 176;
+  const maxPageHeight = Math.max(360, viewport.height - verticalReserve);
+  const maxSpreadWidth = Math.min(viewport.width - 120, 1180);
   const maxPageWidthByWidth = isSinglePage
     ? Math.min(MAX_SINGLE_PAGE_WIDTH, viewport.width - 28)
-    : Math.min(MAX_DESKTOP_PAGE_WIDTH, Math.floor((maxSpreadWidth - 18) / 2));
+    : Math.min(MAX_DESKTOP_PAGE_WIDTH, Math.floor((maxSpreadWidth - 24) / 2));
   const maxPageWidthByHeight = Math.floor(maxPageHeight / aspect);
   const pageWidth = Math.max(
     MIN_PAGE_WIDTH,
     Math.floor(Math.min(maxPageWidthByWidth, maxPageWidthByHeight)),
   );
   const pageHeight = Math.round(pageWidth * aspect);
+  const isCoverView = !isSinglePage && currentPage <= 1;
 
   return (
-    <div className={`pdf-flipbook ${isFullscreen ? 'fullscreen' : ''}`} ref={containerRef}>
+    <div
+      className={`pdf-flipbook ${isFullscreen ? 'fullscreen' : ''} ${isSinglePage ? 'is-single' : 'is-spread'} ${isCoverView ? 'is-cover' : 'is-open'}`}
+      ref={containerRef}
+    >
       <div className="pdf-flipbook-stage" aria-label="Visor de libro">
         <button
           type="button"
@@ -179,36 +230,46 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
           disabled={currentPage <= 1}
           aria-label="Pagina anterior"
         >
-          <span aria-hidden="true">‹</span>
+          <ReaderIcon name="previous" />
         </button>
 
-        <HTMLFlipBook
-          key={`${pageWidth}x${pageHeight}`}
-          ref={bookRef}
-          width={pageWidth}
-          height={pageHeight}
-          size="fixed"
-          minWidth={280}
-          maxWidth={MAX_DESKTOP_PAGE_WIDTH}
-          minHeight={360}
-          maxHeight={Math.round(MAX_DESKTOP_PAGE_WIDTH * aspect)}
-          showCover
-          usePortrait={isSinglePage}
-          mobileScrollSupport
-          flippingTime={700}
-          maxShadowOpacity={0.28}
-          onFlip={handleFlip}
-          className="pdf-flipbook-book"
+        <div
+          className={`pdf-flipbook-book-wrap ${isSinglePage ? 'is-single' : 'is-spread'} ${isCoverView ? 'is-cover' : 'is-open'}`}
+          style={{ '--reader-page-width': `${pageWidth}px`, '--reader-page-height': `${pageHeight}px` }}
         >
-          {pages.map((page, index) => (
-            <FlipPage
-              key={`${page.type}-${page.pageNumber}-${index}`}
-              page={page}
-              hotspots={hotspotsByPageIndex[index] ?? []}
-              onHotspotClick={onHotspotClick}
-            />
-          ))}
-        </HTMLFlipBook>
+          <HTMLFlipBook
+            key={`${pageWidth}x${pageHeight}`}
+            ref={bookRef}
+            width={pageWidth}
+            height={pageHeight}
+            size="fixed"
+            minWidth={MIN_PAGE_WIDTH}
+            maxWidth={MAX_DESKTOP_PAGE_WIDTH}
+            minHeight={360}
+            maxHeight={Math.round(MAX_DESKTOP_PAGE_WIDTH * aspect)}
+            showCover
+            usePortrait={isSinglePage}
+            mobileScrollSupport
+            clickEventForward
+            useMouseEvents
+            drawShadow
+            showPageCorners
+            flippingTime={920}
+            startZIndex={8}
+            maxShadowOpacity={0.52}
+            onFlip={handleFlip}
+            className="pdf-flipbook-book"
+          >
+            {pages.map((page, index) => (
+              <FlipPage
+                key={`${page.type}-${page.pageNumber}-${index}`}
+                page={page}
+                hotspots={hotspotsByPageIndex[index] ?? []}
+                onHotspotClick={onHotspotClick}
+              />
+            ))}
+          </HTMLFlipBook>
+        </div>
 
         <button
           type="button"
@@ -217,14 +278,22 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
           disabled={currentPage >= numPages}
           aria-label="Pagina siguiente"
         >
-          <span aria-hidden="true">›</span>
+          <ReaderIcon name="next" />
         </button>
       </div>
 
-      <div className="pdf-flipbook-controls">
-        <Button type="button" variant="ghost" onClick={goPrevious} disabled={currentPage <= 1}>Anterior</Button>
+      <div className="pdf-flipbook-controls" aria-label="Controles del libro">
+        <button
+          type="button"
+          className="pdf-flipbook-control-button"
+          onClick={goPrevious}
+          disabled={currentPage <= 1}
+          aria-label="Pagina anterior"
+          title="Pagina anterior"
+        >
+          <ReaderIcon name="previous" />
+        </button>
         <span className="pdf-flipbook-page-indicator">Pagina {Math.min(currentPage, numPages)} de {numPages}</span>
-        <Button type="button" variant="ghost" onClick={goNext} disabled={currentPage >= numPages}>Siguiente</Button>
         <label className="pdf-flipbook-goto">
           <span>Ir a pagina</span>
           <input
@@ -237,9 +306,25 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
             onBlur={() => goToPage(pageInput)}
           />
         </label>
-        <Button type="button" variant="ghost" onClick={toggleFullscreen}>
-          {isFullscreen ? 'Salir' : 'Pantalla completa'}
-        </Button>
+        <button
+          type="button"
+          className="pdf-flipbook-control-button"
+          onClick={goNext}
+          disabled={currentPage >= numPages}
+          aria-label="Pagina siguiente"
+          title="Pagina siguiente"
+        >
+          <ReaderIcon name="next" />
+        </button>
+        <button
+          type="button"
+          className="pdf-flipbook-control-button"
+          onClick={toggleFullscreen}
+          aria-label={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+          title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+        >
+          <ReaderIcon name={isFullscreen ? 'exitFullscreen' : 'fullscreen'} />
+        </button>
       </div>
     </div>
   );

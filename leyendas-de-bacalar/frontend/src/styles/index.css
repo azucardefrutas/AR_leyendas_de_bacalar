@@ -6490,17 +6490,28 @@ pre {
   display: flex;
   flex-direction: column;
   background:
-    radial-gradient(circle at 50% -16%, rgba(4, 157, 217, 0.12), transparent 46%),
-    linear-gradient(180deg, #f8fafc 0%, #f3f7f8 54%, #eef3f1 100%);
-  padding-top: clamp(18px, 3vh, 34px);
+    radial-gradient(circle at 50% 18%, rgba(218, 214, 202, 0.28), transparent 36rem),
+    linear-gradient(180deg, #fafafa 0%, #f7f6f2 54%, #f3f1ea 100%);
+  padding-top: clamp(14px, 2.6vh, 28px);
   color: #172033;
+}
+
+body.reading-immersive {
+  background: #f7f6f2;
+}
+
+body.reading-immersive .page-container {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
 }
 
 .reader-stage-top {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 0 clamp(16px, 4vw, 52px) 8px;
+  padding: 0 clamp(18px, 4vw, 56px) 4px;
 }
 
 .reader-stage-top .reader-back-link {
@@ -6517,7 +6528,7 @@ pre {
   margin: 0;
   text-align: center;
   color: #0f172a;
-  font-size: clamp(1rem, 1.7vw, 1.42rem);
+  font-size: clamp(0.95rem, 1.55vw, 1.32rem);
   line-height: 1.1;
   font-weight: 850;
 }
@@ -6527,9 +6538,9 @@ pre {
 .reader-stage-body {
   flex: 1;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: center;
-  padding: 8px clamp(10px, 2vw, 32px) 24px;
+  padding: 0 clamp(10px, 2vw, 32px) clamp(18px, 3vw, 32px);
 }
 
 /* The book floats clean on the stage (no inner panel/border) */
@@ -6537,12 +6548,12 @@ pre {
   background: transparent;
   border: 0;
   padding: 0;
-  gap: 18px;
+  gap: clamp(10px, 1.6vh, 16px);
 }
 
 .reader-stage .pdf-flipbook-stage {
   overflow: visible;
-  padding: 8px clamp(44px, 5vw, 76px);
+  padding: 0 clamp(54px, 7vw, 112px);
 }
 
 .reader-stage .reader-empty-book,
@@ -6574,7 +6585,7 @@ pre {
 
 /* Immersive reading: hide the global navbar so it doesn't interrupt the book */
 body.reading-immersive .site-header { display: none; }
-body.reading-immersive .reader-stage { padding-top: clamp(14px, 3vh, 28px); }
+body.reading-immersive .reader-stage { padding-top: clamp(10px, 2vh, 22px); }
 
 /* Manual story pages rendered inside the SAME book frame as PDF pages */
 .pdf-flip-page-manual { background: #fbf4e5; }
@@ -6610,9 +6621,10 @@ body.reading-immersive .reader-stage { padding-top: clamp(14px, 3vh, 28px); }
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: clamp(10px, 1.6vh, 16px);
   width: 100%;
-  padding: 0 8px clamp(18px, 3vw, 30px);
+  min-height: calc(100vh - 56px);
+  padding: 0 8px clamp(12px, 2vw, 24px);
   border-radius: 0;
   background: transparent;
   border: 0;
@@ -6623,8 +6635,8 @@ body.reading-immersive .reader-stage { padding-top: clamp(14px, 3vh, 28px); }
   min-height: 100vh;
   justify-content: center;
   background:
-    radial-gradient(circle at 50% 8%, rgba(4, 157, 217, 0.1), transparent 44%),
-    #f8fafc;
+    radial-gradient(circle at 50% 18%, rgba(218, 214, 202, 0.28), transparent 36rem),
+    #fafafa;
 }
 
 .pdf-flipbook-loading,
@@ -6641,11 +6653,14 @@ body.reading-immersive .reader-stage { padding-top: clamp(14px, 3vh, 28px); }
 .pdf-flipbook-stage {
   position: relative;
   max-width: 100%;
-  overflow: auto;
+  overflow: visible;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px clamp(48px, 6vw, 92px);
+  width: min(100%, 1320px);
+  min-height: min(72vh, 760px);
+  padding: clamp(8px, 1.2vh, 14px) clamp(56px, 7vw, 112px) clamp(18px, 3vh, 34px);
+  perspective: 2600px;
   transition: transform 0.25s ease;
 }
 
@@ -6655,34 +6670,106 @@ body.reading-immersive .reader-stage { padding-top: clamp(14px, 3vh, 28px); }
   max-height: 80vh;
 }
 
+.pdf-flipbook-book-wrap {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: var(--reader-page-width);
+  min-height: var(--reader-page-height);
+  isolation: isolate;
+}
+
+.pdf-flipbook-book-wrap::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: clamp(-20px, -2.6vh, -10px);
+  z-index: -2;
+  width: calc(var(--reader-page-width) * 2.1);
+  height: clamp(34px, 5vh, 58px);
+  max-width: 92vw;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: radial-gradient(ellipse at center, rgba(26, 25, 22, 0.24), rgba(26, 25, 22, 0.1) 42%, transparent 72%);
+  filter: blur(7px);
+}
+
+.pdf-flipbook-book-wrap.is-cover:not(.is-single)::before {
+  width: calc(var(--reader-page-width) * 1.05);
+}
+
+.pdf-flipbook-book-wrap.is-open::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  z-index: 20;
+  width: clamp(24px, 3vw, 42px);
+  transform: translateX(-50%);
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent 0%, rgba(31, 28, 22, 0.16) 40%, rgba(255, 255, 255, 0.34) 50%, rgba(31, 28, 22, 0.14) 60%, transparent 100%);
+  mix-blend-mode: multiply;
+}
+
 .pdf-flipbook-book {
-  filter: drop-shadow(0 24px 34px rgba(15, 23, 42, 0.18));
+  filter:
+    drop-shadow(0 28px 34px rgba(32, 30, 25, 0.16))
+    drop-shadow(0 8px 18px rgba(32, 30, 25, 0.08));
+  transition: transform 0.22s ease, filter 0.22s ease;
+  will-change: transform;
+}
+
+.pdf-flipbook-book-wrap.is-cover:not(.is-single) .pdf-flipbook-book {
+  transform: translateX(calc(var(--reader-page-width) / -2));
+}
+
+.pdf-flipbook-book-wrap.is-open .pdf-flipbook-book {
+  filter:
+    drop-shadow(0 28px 38px rgba(32, 30, 25, 0.18))
+    drop-shadow(0 10px 20px rgba(32, 30, 25, 0.08));
 }
 
 /* Clean light pages with a soft central spine shadow — no text or art over them. */
 .pdf-flip-page {
   position: relative;
-  background: #fbf4e5;
+  background: #fffdf7;
   overflow: hidden;
   box-shadow:
-    inset 0 0 18px rgba(95, 70, 28, 0.08),
-    inset 16px 0 24px -26px rgba(62, 43, 19, 0.34),
-    inset -16px 0 24px -26px rgba(62, 43, 19, 0.34);
+    inset 0 0 0 1px rgba(96, 76, 42, 0.08),
+    inset 0 0 22px rgba(96, 76, 42, 0.06),
+    inset 18px 0 24px -28px rgba(56, 43, 24, 0.34),
+    inset -18px 0 24px -28px rgba(56, 43, 24, 0.34);
+}
+
+.pdf-flip-page::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(70, 53, 28, 0.08), transparent 8%, transparent 92%, rgba(70, 53, 28, 0.08)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 18%, transparent 82%, rgba(70, 53, 28, 0.04));
 }
 
 .pdf-flip-page img {
+  position: relative;
+  z-index: 0;
   display: block;
   width: 100%;
   height: 100%;
   object-fit: contain;
   user-select: none;
   -webkit-user-drag: none;
-  background: #fbf4e5;
+  background: #fffdf7;
 }
 
 .pdf-flip-page-overlay {
   position: absolute;
   inset: 0;
+  z-index: 3;
   pointer-events: none;
 }
 
@@ -6698,6 +6785,7 @@ body.reading-immersive .reader-stage { padding-top: clamp(14px, 3vh, 28px); }
   position: absolute;
   bottom: 6px;
   right: 10px;
+  z-index: 4;
   font-size: 0.66rem;
   font-weight: 700;
   color: rgba(51, 65, 85, 0.5);
@@ -6741,7 +6829,16 @@ body.reading-immersive .reader-stage { padding-top: clamp(14px, 3vh, 28px); }
   align-items: center;
   justify-content: center;
   gap: 8px;
-  max-width: min(100%, 760px);
+  max-width: min(100%, 620px);
+  min-height: 46px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(205, 199, 185, 0.8);
+  box-shadow:
+    0 16px 30px rgba(37, 34, 27, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(10px);
 }
 
 .pdf-flipbook-controls .btn {
@@ -6763,22 +6860,49 @@ body.reading-immersive .reader-stage { padding-top: clamp(14px, 3vh, 28px); }
   opacity: 0.42;
 }
 
+.pdf-flipbook-control-button {
+  width: 38px;
+  height: 38px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgba(205, 199, 185, 0.9);
+  border-radius: 999px;
+  color: #0f172a;
+  background: #ffffff;
+  box-shadow: 0 6px 14px rgba(37, 34, 27, 0.08);
+  cursor: pointer;
+  transition: transform 160ms ease, color 160ms ease, border-color 160ms ease, opacity 160ms ease, box-shadow 160ms ease;
+}
+
+.pdf-flipbook-control-button:hover:not(:disabled) {
+  color: #075985;
+  border-color: rgba(7, 89, 133, 0.3);
+  box-shadow: 0 9px 18px rgba(37, 34, 27, 0.12);
+  transform: translateY(-1px);
+}
+
+.pdf-flipbook-control-button:disabled {
+  opacity: 0.32;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
 .pdf-flipbook-goto {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: #334155;
+  color: #2f2b23;
   font-size: 0.82rem;
   font-weight: 700;
 }
 
 .pdf-flipbook-goto input {
-  width: 56px;
-  min-height: 38px;
+  width: 52px;
+  min-height: 34px;
   padding: 6px 8px;
-  border-radius: 12px;
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
+  border-radius: 8px;
+  border: 1px solid rgba(133, 120, 92, 0.48);
+  background: #fffdf9;
   color: #0f172a;
   text-align: center;
 }
@@ -6787,30 +6911,23 @@ body.reading-immersive .reader-stage { padding-top: clamp(14px, 3vh, 28px); }
   position: absolute;
   top: 50%;
   z-index: 10;
-  width: 46px;
-  height: 46px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(148, 163, 184, 0.28);
+  border: 1px solid rgba(205, 199, 185, 0.86);
   border-radius: 999px;
-  color: #0f172a;
-  background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
+  color: #155e75;
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 16px 28px rgba(37, 34, 27, 0.1);
   cursor: pointer;
   transform: translateY(-50%);
   transition: transform 160ms ease, color 160ms ease, border-color 160ms ease, opacity 160ms ease;
 }
 
-.pdf-flipbook-nav-button span {
-  display: block;
-  margin-top: -2px;
-  font-size: 2rem;
-  line-height: 1;
-}
-
 .pdf-flipbook-nav-button:hover:not(:disabled) {
   color: #075985;
-  border-color: rgba(4, 157, 217, 0.35);
+  border-color: rgba(7, 89, 133, 0.3);
   transform: translateY(-50%) scale(1.04);
 }
 
@@ -6819,8 +6936,8 @@ body.reading-immersive .reader-stage { padding-top: clamp(14px, 3vh, 28px); }
   cursor: not-allowed;
 }
 
-.pdf-flipbook-nav-button-prev { left: 0; }
-.pdf-flipbook-nav-button-next { right: 0; }
+.pdf-flipbook-nav-button-prev { left: clamp(6px, 2vw, 28px); }
+.pdf-flipbook-nav-button-next { right: clamp(6px, 2vw, 28px); }
 
 @media (max-width: 899px) {
   .reader-stage-top {
