@@ -6452,6 +6452,36 @@ pre {
   }
 }
 
+/* Creator: CONALITEG render status of a source document */
+.source-document-render {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0 2px;
+}
+
+.source-document-render-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 800;
+  color: #475569;
+}
+
+.source-document-render-ready {
+  color: #0f766e;
+  font-weight: 700;
+  font-size: 0.85rem;
+}
+
+/* Creator: small format recommendation hint in resource cards */
+.creator-resource-recommendation {
+  margin: 4px 0 0;
+  font-size: 0.74rem;
+  color: var(--muted, #64748b);
+}
+
 /* ================= FASE 8 — Lector CONALITEG (PDF flipbook) ================= */
 .pdf-flipbook {
   display: flex;

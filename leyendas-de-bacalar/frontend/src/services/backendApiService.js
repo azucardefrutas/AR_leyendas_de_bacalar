@@ -84,9 +84,18 @@ export async function requestBackend(path, options = {}) {
     requestHeaders['Content-Type'] = 'application/json';
   }
 
-  if (authenticated) {
+  if (authenticated === true) {
     const accessToken = await getAccessToken();
     requestHeaders.Authorization = `Bearer ${accessToken}`;
+  } else if (authenticated === 'optional') {
+    // Attach the token if the user is signed in, but allow anonymous access too
+    // (used by public reader endpoints like reader-bundle for free legends).
+    try {
+      const accessToken = await getAccessToken();
+      requestHeaders.Authorization = `Bearer ${accessToken}`;
+    } catch {
+      // Anonymous request is fine.
+    }
   }
 
   const url = buildBackendUrl(path);
@@ -228,6 +237,32 @@ export function proposeAiPagesFromDocument(sourceDocumentId) {
 export function getReaderLegendReadingContext(legendId) {
   return requestBackend(`/api/v1/reader/legends/${encodeURIComponent(legendId)}/reading-context`, {
     operation: 'reader-reading-context',
+  });
+}
+
+// Single grouped read for the reader experience (legend + author + genres + cover
+// + banner + source document + rendered_pages + legend_pages fallback + hotspots +
+// scenes + model/marker assets). Public for free/published legends (optional auth).
+export function getReaderBundle(legendId) {
+  return requestBackend(`/api/v1/legends/${encodeURIComponent(legendId)}/reader-bundle`, {
+    authenticated: 'optional',
+    operation: 'reader-bundle',
+  });
+}
+
+// Creator/admin: current render status of a source document's pages.
+export function getDocumentRenderStatus(sourceDocumentId) {
+  return requestBackend(`/api/v1/documents/${encodeURIComponent(sourceDocumentId)}/render-pages`, {
+    operation: 'render-status',
+  });
+}
+
+// Creator/admin: trigger (or retry with force) the backend PDF -> images render.
+export function startDocumentRender(sourceDocumentId, { force = false } = {}) {
+  return requestBackend(`/api/v1/documents/${encodeURIComponent(sourceDocumentId)}/render-pages`, {
+    method: 'POST',
+    operation: 'render-pages',
+    body: { force },
   });
 }
 

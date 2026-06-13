@@ -191,6 +191,7 @@ function ResourceCard({ definition, value, existing, disabled, saving, onChange,
         <div>
           <h3>{definition.title}</h3>
           <p>{definition.description}</p>
+          {definition.recommendation && <p className="creator-resource-recommendation">{definition.recommendation}</p>}
         </div>
       </div>
 

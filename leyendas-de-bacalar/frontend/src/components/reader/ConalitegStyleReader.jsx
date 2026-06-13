@@ -1,0 +1,193 @@
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import HTMLFlipBook from 'react-pageflip';
+import Button from '../ui/Button.jsx';
+
+const MAX_PAGE_DISPLAY_WIDTH = 470;
+
+function hotspotHasModel(hotspot) {
+  return Boolean(hotspot.scene || hotspot.arSceneId || hotspot.ar_scene_id);
+}
+
+function HotspotMarker({ hotspot, index, onClick }) {
+  const widthPct = Number(hotspot.width) > 0 ? `${Math.min(1, Number(hotspot.width)) * 100}%` : null;
+  const heightPct = Number(hotspot.height) > 0 ? `${Math.min(1, Number(hotspot.height)) * 100}%` : null;
+  const withModel = hotspotHasModel(hotspot);
+
+  return (
+    <button
+      type="button"
+      className={`reader-hotspot ${withModel ? 'has-model' : 'no-model'}`}
+      style={{
+        left: `${Number(hotspot.x) * 100}%`,
+        top: `${Number(hotspot.y) * 100}%`,
+        ...(widthPct ? { width: widthPct } : null),
+        ...(heightPct ? { height: heightPct } : null),
+      }}
+      title={hotspot.label || (withModel ? 'Ver modelo 3D' : 'Marcador sin modelo 3D')}
+      aria-label={hotspot.label || `Marcador ${index + 1}`}
+      onMouseDown={(event) => event.stopPropagation()}
+      onTouchStart={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation();
+        onClick(hotspot);
+      }}
+    >
+      {withModel && <span className="reader-hotspot-badge">3D</span>}
+    </button>
+  );
+}
+
+const FlipPage = React.forwardRef(({ page, hotspots, onHotspotClick }, ref) => (
+  <div className="pdf-flip-page" ref={ref}>
+    {page.imageUrl ? (
+      <>
+        <img src={page.imageUrl} alt={`Pagina ${page.pageNumber}`} draggable={false} loading="lazy" />
+        <div className="pdf-flip-page-overlay">
+          {hotspots.map((hotspot, index) => (
+            <HotspotMarker key={hotspot.id} hotspot={hotspot} index={index} onClick={onHotspotClick} />
+          ))}
+        </div>
+        <span className="pdf-flip-page-number">{page.pageNumber}</span>
+      </>
+    ) : (
+      <div className="pdf-flip-page-loading">Pagina {page.pageNumber}</div>
+    )}
+  </div>
+));
+
+FlipPage.displayName = 'FlipPage';
+
+/**
+ * CONALITEG-style book reader. Consumes pre-rendered PDF page images from the
+ * backend (renderedPages) and overlays the interactive hotspots. No frontend PDF
+ * rendering: pages are images already prepared by the Render backend.
+ */
+function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageInput, setPageInput] = useState('1');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const bookRef = useRef(null);
+  const containerRef = useRef(null);
+
+  const numPages = pages.length;
+  const firstPage = pages[0];
+  const aspect = firstPage?.width && firstPage?.height
+    ? Number(firstPage.height) / Number(firstPage.width)
+    : 1.414;
+
+  const hotspotsByPage = useMemo(() => {
+    const map = new Map();
+    for (const hotspot of hotspots) {
+      if ((hotspot.targetType ?? hotspot.target_type) !== 'source_document') continue;
+      const page = Number(hotspot.sourcePageNumber ?? hotspot.source_page_number);
+      if (!Number.isInteger(page) || page < 1) continue;
+      if (!map.has(page)) map.set(page, []);
+      map.get(page).push(hotspot);
+    }
+    return map;
+  }, [hotspots]);
+
+  useEffect(() => {
+    function onFullscreenChange() {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+    }
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
+  useEffect(() => {
+    setPageInput(String(currentPage));
+  }, [currentPage]);
+
+  const goPrevious = useCallback(() => bookRef.current?.pageFlip()?.flipPrev(), []);
+  const goNext = useCallback(() => bookRef.current?.pageFlip()?.flipNext(), []);
+
+  function handleFlip(event) {
+    setCurrentPage(Number(event.data) + 1);
+  }
+
+  function goToPage(value) {
+    const page = Math.max(1, Math.min(numPages, Number(value) || 1));
+    bookRef.current?.pageFlip()?.turnToPage(page - 1);
+    setCurrentPage(page);
+  }
+
+  async function toggleFullscreen() {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else if (containerRef.current?.requestFullscreen) {
+        await containerRef.current.requestFullscreen();
+      }
+    } catch {
+      // Fullscreen is best-effort.
+    }
+  }
+
+  if (!numPages) {
+    return (
+      <div className="pdf-flipbook pdf-flipbook-error">
+        <p>Este libro aun no tiene paginas para mostrar.</p>
+      </div>
+    );
+  }
+
+  const pageWidth = MAX_PAGE_DISPLAY_WIDTH;
+  const pageHeight = Math.round(pageWidth * aspect);
+
+  return (
+    <div className={`pdf-flipbook ${isFullscreen ? 'fullscreen' : ''}`} ref={containerRef}>
+      <div className="pdf-flipbook-stage">
+        <HTMLFlipBook
+          ref={bookRef}
+          width={pageWidth}
+          height={pageHeight}
+          size="fixed"
+          minWidth={240}
+          maxWidth={820}
+          minHeight={300}
+          maxHeight={Math.round(820 * aspect)}
+          showCover={false}
+          usePortrait
+          mobileScrollSupport
+          flippingTime={650}
+          maxShadowOpacity={0.4}
+          onFlip={handleFlip}
+          className="pdf-flipbook-book"
+        >
+          {pages.map((page) => (
+            <FlipPage
+              key={page.id || page.pageNumber}
+              page={page}
+              hotspots={hotspotsByPage.get(page.pageNumber) ?? []}
+              onHotspotClick={onHotspotClick}
+            />
+          ))}
+        </HTMLFlipBook>
+      </div>
+
+      <div className="pdf-flipbook-controls">
+        <Button type="button" variant="ghost" onClick={goPrevious} disabled={currentPage <= 1}>Anterior</Button>
+        <span className="pdf-flipbook-page-indicator">Pagina {Math.min(currentPage, numPages)} / {numPages}</span>
+        <Button type="button" variant="ghost" onClick={goNext} disabled={currentPage >= numPages}>Siguiente</Button>
+        <label className="pdf-flipbook-goto">
+          <span>Ir a</span>
+          <input
+            type="number"
+            min="1"
+            max={numPages}
+            value={pageInput}
+            onChange={(event) => setPageInput(event.target.value)}
+            onKeyDown={(event) => { if (event.key === 'Enter') goToPage(pageInput); }}
+            onBlur={() => goToPage(pageInput)}
+          />
+        </label>
+        <Button type="button" variant="ghost" onClick={toggleFullscreen}>
+          {isFullscreen ? 'Salir' : 'Pantalla completa'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+export default ConalitegStyleReader;

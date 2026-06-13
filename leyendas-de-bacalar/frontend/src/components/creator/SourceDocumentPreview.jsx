@@ -1,11 +1,13 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Button from '../ui/Button.jsx';
 import Modal from '../ui/Modal.jsx';
 import ArSceneModal from '../3d/ArSceneModal.jsx';
 import {
   createLegendHotspot,
   deleteLegendHotspot,
+  getDocumentRenderStatus,
   listLegendHotspots,
+  startDocumentRender,
   updateLegendHotspot,
 } from '../../services/backendApiService.js';
 import { getLegendResources } from '../../services/assetService.js';
@@ -123,6 +125,41 @@ function SourceDocumentPreview({
   const canEditHotspots = !disabled && isPdf && Boolean(legendId) && Boolean(sourceDocument?.id);
   const hotspotsForPage = hotspots.filter((hotspot) => Number(hotspot.source_page_number) === Number(selectedPdfPage));
 
+  const [renderState, setRenderState] = useState({ status: null, count: null, busy: false });
+  const renderAutoTried = useRef(false);
+
+  const triggerRender = useCallback(async (force) => {
+    if (!sourceDocument?.id) return;
+    setRenderState((prev) => ({ ...prev, busy: true }));
+    try {
+      const result = await startDocumentRender(sourceDocument.id, { force });
+      setRenderState({
+        status: result?.renderStatus ?? 'ready',
+        count: result?.renderedPageCount ?? (Array.isArray(result?.pages) ? result.pages.length : null),
+        busy: false,
+      });
+    } catch {
+      setRenderState((prev) => ({ ...prev, status: 'failed', busy: false }));
+    }
+  }, [sourceDocument?.id]);
+
+  const loadRenderStatus = useCallback(async () => {
+    if (!sourceDocument?.id || !isPdf) return;
+    try {
+      const result = await getDocumentRenderStatus(sourceDocument.id);
+      const status = result?.renderStatus ?? result?.render_status ?? 'not_rendered';
+      const count = result?.renderedPageCount ?? (Array.isArray(result?.pages) ? result.pages.length : null);
+      setRenderState((prev) => ({ ...prev, status, count }));
+      // Best-effort: kick off the render once if the book was never prepared.
+      if (!renderAutoTried.current && status === 'not_rendered') {
+        renderAutoTried.current = true;
+        triggerRender(false);
+      }
+    } catch {
+      // Render status is best-effort; never break the preview.
+    }
+  }, [sourceDocument?.id, isPdf, triggerRender]);
+
   const loadHotspots = useCallback(async () => {
     if (!legendId || !sourceDocument?.id) return;
     try {
@@ -150,6 +187,11 @@ function SourceDocumentPreview({
       if (import.meta.env.DEV) console.error('load scenes error', sceneError);
     }
   }, [legendId]);
+
+  useEffect(() => {
+    renderAutoTried.current = false;
+    loadRenderStatus();
+  }, [loadRenderStatus]);
 
   useEffect(() => {
     setPreviewExpanded(false);
@@ -301,6 +343,30 @@ function SourceDocumentPreview({
             </Button>
           )}
         </div>
+
+        {isPdf && (
+          <div className="source-document-render">
+            <span className="source-document-render-label">Libro CONALITEG</span>
+            {renderState.busy || renderState.status === 'processing' ? (
+              <span className="creator-muted">Preparando libro...</span>
+            ) : renderState.status === 'ready' ? (
+              <span className="source-document-render-ready">
+                Libro preparado{renderState.count ? `: ${renderState.count} paginas` : ''}
+              </span>
+            ) : renderState.status === 'failed' ? (
+              <>
+                <span className="error-message">Error al preparar paginas.</span>
+                <Button type="button" variant="ghost" onClick={() => triggerRender(true)} disabled={disabled}>
+                  Reintentar preparacion
+                </Button>
+              </>
+            ) : (
+              <Button type="button" variant="ghost" onClick={() => triggerRender(false)} disabled={disabled}>
+                Preparar libro
+              </Button>
+            )}
+          </div>
+        )}
 
         {isOpen && signedUrl && isPdf && (
           <div className="source-document-viewer">

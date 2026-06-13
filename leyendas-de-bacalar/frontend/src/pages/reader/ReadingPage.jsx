@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import Button from '../../components/ui/Button.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
@@ -7,245 +7,237 @@ import Modal from '../../components/ui/Modal.jsx';
 import PhysicalBookActivationModal from '../../components/reader/PhysicalBookActivationModal.jsx';
 import ArSceneModal from '../../components/3d/ArSceneModal.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
-import { getLegendBySlug, getLegendPages, getUserLegendAccess } from '../../services/legendService.js';
-import { getLegendResources } from '../../services/assetService.js';
-import { getReaderLegendReadingContext } from '../../services/backendApiService.js';
+import { useRoles } from '../../hooks/useRoles.js';
+import { getLegendBySlug } from '../../services/legendService.js';
+import { getReaderBundle, startDocumentRender } from '../../services/backendApiService.js';
 
-// Lazy: pdfjs + react-pageflip only load when a legend actually opens the PDF book.
-const PdfFlipbookReader = lazy(() => import('../../components/reader/PdfFlipbookReader.jsx'));
+// Lazy: the book viewer (react-pageflip) only loads when a legend actually opens.
+const ConalitegStyleReader = lazy(() => import('../../components/reader/ConalitegStyleReader.jsx'));
 
 const fallbackCover = '/assets/portada carin hall.png';
 
-// Adapt the backend reading-context scene shape to what ArSceneModal expects.
-function sceneFromHotspot(hotspot) {
-  const scene = hotspot?.scene;
-  if (!scene) return null;
+// Adapt a reader-bundle ar_scene + model asset to what ArSceneModal expects.
+function buildScene(arScene, modelAssets = []) {
+  if (!arScene) return null;
+  const model = arScene.modelAssetId
+    ? modelAssets.find((asset) => String(asset.id) === String(arScene.modelAssetId))
+    : null;
   return {
-    id: scene.id,
-    name: scene.name,
-    description: scene.description,
-    status: scene.status,
-    assets: scene.model
+    id: arScene.id,
+    name: arScene.name,
+    description: arScene.description,
+    status: arScene.status,
+    assets: model
       ? {
-          url: scene.model.url || '',
-          asset_type: scene.model.assetType,
-          mime_type: scene.model.mimeType,
-          file_size: scene.model.fileSize,
-          metadata: { original_name: scene.model.name },
+          url: model.url || '',
+          asset_type: model.assetType,
+          mime_type: model.mimeType,
+          file_size: model.fileSize,
+          metadata: model.metadata || {},
         }
       : null,
   };
 }
 
-function ReaderPageSpread({ leftPage, rightPage, leftScene, rightScene, onViewModel }) {
+function ManualPagesReader({ pages, sceneForPage, onViewModel }) {
+  const [index, setIndex] = useState(0);
+  const left = pages[index] ?? null;
+  const right = pages[index + 1] ?? null;
+  const maxStart = Math.max(0, pages.length - (pages.length % 2 === 0 ? 2 : 1));
+
   return (
-    <div className="reader-page-spread">
-      <article className="reader-book-page reader-book-page-left">
-        {leftPage ? (
-          <>
-            <span>Pagina {leftPage.page_number}</span>
-            {leftPage.title && <h2>{leftPage.title}</h2>}
-            <p>{leftPage.text_content}</p>
-            {leftScene && (
-              <button type="button" className="reader-3d-button" onClick={() => onViewModel(leftScene)}>Ver modelo 3D</button>
-            )}
-          </>
-        ) : (
-          <p>Esta leyenda aun no tiene paginas publicadas.</p>
-        )}
-      </article>
-      <article className="reader-book-page reader-book-page-right">
-        {rightPage ? (
-          <>
-            <span>Pagina {rightPage.page_number}</span>
-            {rightPage.title && <h2>{rightPage.title}</h2>}
-            <p>{rightPage.text_content}</p>
-            {rightScene && (
-              <button type="button" className="reader-3d-button" onClick={() => onViewModel(rightScene)}>Ver modelo 3D</button>
-            )}
-          </>
-        ) : (
-          <div className="reader-page-mark">Leyendas de Bacalar</div>
-        )}
-      </article>
+    <div className="reader-book-stage">
+      <button className="reader-page-arrow reader-page-arrow-left" type="button" onClick={() => setIndex((c) => Math.max(0, c - 2))} disabled={index === 0} aria-label="Pagina anterior">&larr;</button>
+      <div className="reader-open-book" aria-label="Libro abierto">
+        <img className="reader-open-book-art" src="/assets/Libro abierto.png" alt="" />
+        <div className="reader-page-spread">
+          {[left, right].map((page, slot) => (
+            <article className={`reader-book-page reader-book-page-${slot === 0 ? 'left' : 'right'}`} key={page?.id ?? slot}>
+              {page ? (
+                <>
+                  <span>Pagina {page.pageNumber}</span>
+                  {page.title && <h2>{page.title}</h2>}
+                  <p>{page.textContent}</p>
+                  {sceneForPage(page) && (
+                    <button type="button" className="reader-3d-button" onClick={() => onViewModel(sceneForPage(page))}>Ver modelo 3D</button>
+                  )}
+                </>
+              ) : slot === 1 ? (
+                <div className="reader-page-mark">Leyendas de Bacalar</div>
+              ) : (
+                <p>Esta leyenda aun no tiene paginas.</p>
+              )}
+            </article>
+          ))}
+        </div>
+      </div>
+      <button className="reader-page-arrow reader-page-arrow-right" type="button" onClick={() => setIndex((c) => Math.min(maxStart, c + 2))} disabled={index >= maxStart} aria-label="Pagina siguiente">&rarr;</button>
     </div>
   );
 }
 
 function ReadingPage() {
   const { slug } = useParams();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+  const { roles } = useRoles();
   const [legend, setLegend] = useState(null);
-  const [pages, setPages] = useState([]);
-  const [arResources, setArResources] = useState({ scenes: [], markers: [] });
-  const [readerContext, setReaderContext] = useState(null);
-  const [pdfReaderFailed, setPdfReaderFailed] = useState(false);
-  const [activeScene, setActiveScene] = useState(null);
-  const [hotspotSceneModal, setHotspotSceneModal] = useState(null);
-  const [hotspotNotice, setHotspotNotice] = useState(false);
-  const [access, setAccess] = useState(null);
-  const [spreadIndex, setSpreadIndex] = useState(0);
-  const [activationOpen, setActivationOpen] = useState(false);
+  const [bundle, setBundle] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [locked, setLocked] = useState(false);
+  const [activationOpen, setActivationOpen] = useState(false);
+  const [sceneModal, setSceneModal] = useState(null);
+  const [hotspotNotice, setHotspotNotice] = useState(false);
+  const [rendering, setRendering] = useState(false);
+
+  const loadReader = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    setLocked(false);
+
+    const { data, error: legendError } = await getLegendBySlug(slug);
+    if (legendError || !data) {
+      setError(legendError ?? new Error('Leyenda no encontrada.'));
+      setLoading(false);
+      return;
+    }
+    setLegend(data);
+
+    try {
+      const readerBundle = await getReaderBundle(data.id);
+      setBundle(readerBundle);
+    } catch (bundleError) {
+      if (bundleError?.status === 403) {
+        setLocked(true);
+      } else {
+        setError(new Error('No pudimos abrir esta lectura.'));
+      }
+    }
+    setLoading(false);
+  }, [slug]);
 
   useEffect(() => {
-    async function loadReader() {
-      setLoading(true);
-      setError(null);
-      const { data, error: legendError } = await getLegendBySlug(slug);
-      if (legendError || !data) {
-        setError(legendError ?? new Error('Leyenda no encontrada.'));
-        setLoading(false);
-        return;
-      }
-
-      const { data: pageData } = await getLegendPages(data.id);
-      const { data: accessData } = isAuthenticated ? await getUserLegendAccess(data.id) : { data: null };
-
-      let scenes = [];
-      let markers = [];
-      try {
-        const resources = await getLegendResources(data.id);
-        scenes = (resources.data?.arScenes ?? []).filter(
-          (scene) => scene.page_id && String(scene.status || '').toLowerCase() !== 'archived',
-        );
-        markers = resources.data?.arMarkers ?? [];
-      } catch (resourceError) {
-        if (import.meta.env.DEV) console.error('reader ar resources error', resourceError);
-      }
-
-      // Best-effort: the original PDF + published hotspots (grouped in one call).
-      // Requires a session; anonymous users keep the interactive-pages reader.
-      let readingContext = null;
-      if (isAuthenticated) {
-        try {
-          readingContext = await getReaderLegendReadingContext(data.id);
-        } catch (contextError) {
-          if (import.meta.env.DEV) console.error('reader reading-context error', contextError);
-        }
-      }
-
-      setLegend(data);
-      setPages(pageData ?? []);
-      setArResources({ scenes, markers });
-      setReaderContext(readingContext);
-      setPdfReaderFailed(false);
-      setAccess(accessData);
-      setLoading(false);
-    }
-
     loadReader();
-  }, [isAuthenticated, slug]);
+  }, [loadReader, isAuthenticated]);
 
   if (loading) return <LoadingState message="Abriendo libro..." />;
   if (error) return <EmptyState title="No se pudo abrir la lectura" message={error.message} />;
 
-  const isFree = (legend.access_type ?? 'free') === 'free';
-  const canRead = Boolean(access) || isFree;
-  const leftPage = pages[spreadIndex] ?? null;
-  const rightPage = pages[spreadIndex + 1] ?? null;
-  const sceneForPage = (page) => (page ? arResources.scenes.find((scene) => String(scene.page_id) === String(page.id)) ?? null : null);
-  const markerForScene = (scene) => (scene ? arResources.markers.find((marker) => String(marker.ar_scene_id) === String(scene.id)) ?? null : null);
-  const leftScene = sceneForPage(leftPage);
-  const rightScene = sceneForPage(rightPage);
-  const maxSpreadStart = Math.max(0, pages.length - (pages.length % 2 === 0 ? 2 : 1));
-  const coverUrl = legend.cover_url || legend.coverUrl || legend.poster_url || fallbackCover;
+  const title = legend?.title || bundle?.legend?.title || 'Lectura';
+  const coverUrl = bundle?.cover?.url || legend?.cover_url || legend?.coverUrl || fallbackCover;
+  const sourceDocument = bundle?.sourceDocument ?? null;
+  const renderStatus = sourceDocument?.renderStatus ?? 'not_rendered';
+  const renderedPages = bundle?.renderedPages ?? [];
+  const legendPages = bundle?.legendPages ?? [];
+  const hotspots = bundle?.hotspots ?? [];
+  const arScenes = bundle?.arScenes ?? [];
+  const modelAssets = bundle?.modelAssets ?? [];
 
-  const pdfDocument = readerContext?.document ?? null;
-  const isPdfDocument = pdfDocument?.signedUrl
-    && (pdfDocument.documentType === 'pdf' || pdfDocument.mimeType === 'application/pdf');
-  const usePdfReader = canRead && isPdfDocument && !pdfReaderFailed;
+  const isCreatorOrAdmin =
+    roles.includes('admin')
+    || roles.includes('super_admin')
+    || Boolean(user?.id && bundle?.legend?.creatorId && String(user.id) === String(bundle.legend.creatorId));
 
   function handleHotspotClick(hotspot) {
-    const scene = sceneFromHotspot(hotspot);
-    if (scene) {
-      setHotspotSceneModal({ scene, pageNumber: hotspot.sourcePageNumber ?? null });
-    } else {
-      setHotspotNotice(true);
+    if (hotspot.arSceneId) {
+      const arScene = arScenes.find((scene) => String(scene.id) === String(hotspot.arSceneId));
+      const scene = buildScene(arScene, modelAssets);
+      if (scene) {
+        setSceneModal({ scene, pageNumber: hotspot.sourcePageNumber ?? null });
+        return;
+      }
+    }
+    setHotspotNotice(true);
+  }
+
+  function manualSceneForPage(page) {
+    const arScene = arScenes.find((scene) => scene.pageId && String(scene.pageId) === String(page.id));
+    return buildScene(arScene, modelAssets);
+  }
+
+  async function handlePrepareBook(force = false) {
+    if (!sourceDocument?.id || rendering) return;
+    setRendering(true);
+    try {
+      await startDocumentRender(sourceDocument.id, { force });
+      await loadReader();
+    } catch {
+      setError(null); // keep on the page; status will reflect failure on reload
+    } finally {
+      setRendering(false);
     }
   }
 
-  async function refreshAccess() {
-    if (!legend?.id || !isAuthenticated) return;
-    const { data } = await getUserLegendAccess(legend.id);
-    setAccess(data);
-  }
+  function renderBody() {
+    if (locked) {
+      return (
+        <div className="reader-locked-book">
+          <h2>Esta leyenda esta bloqueada</h2>
+          <p>Desbloqueala con el codigo de tu libro fisico para leer la historia completa.</p>
+          <Button className="reader-glow-button" onClick={() => setActivationOpen(true)}>Activar libro fisico</Button>
+        </div>
+      );
+    }
 
-  function goPrevious() {
-    setSpreadIndex((current) => Math.max(0, current - 2));
-  }
+    if (renderedPages.length > 0) {
+      return (
+        <Suspense fallback={<LoadingState message="Preparando libro..." />}>
+          <ConalitegStyleReader pages={renderedPages} hotspots={hotspots} onHotspotClick={handleHotspotClick} />
+        </Suspense>
+      );
+    }
 
-  function goNext() {
-    setSpreadIndex((current) => Math.min(maxSpreadStart, current + 2));
+    if (sourceDocument) {
+      const message = {
+        processing: 'El libro se esta preparando. Intenta nuevamente en unos momentos.',
+        failed: 'No se pudieron preparar las paginas del libro.',
+        not_rendered: 'Las paginas del libro aun se estan preparando.',
+      }[renderStatus] || 'Las paginas del libro aun no estan listas.';
+
+      return (
+        <div className="reader-empty-book">
+          <h2>{rendering ? 'Preparando libro...' : message}</h2>
+          {isCreatorOrAdmin && (renderStatus === 'not_rendered' || renderStatus === 'failed') && (
+            <Button onClick={() => handlePrepareBook(renderStatus === 'failed')} disabled={rendering}>
+              {rendering ? 'Preparando...' : (renderStatus === 'failed' ? 'Reintentar preparacion' : 'Preparar libro')}
+            </Button>
+          )}
+        </div>
+      );
+    }
+
+    if (legendPages.length > 0) {
+      return (
+        <ManualPagesReader pages={legendPages} sceneForPage={manualSceneForPage} onViewModel={(scene) => setSceneModal({ scene, pageNumber: null })} />
+      );
+    }
+
+    return (
+      <div className="reader-empty-book">
+        <h2>Esta leyenda aun no tiene contenido para leer.</h2>
+        <p>Cuando el autor publique el documento o paginas, aparecera aqui.</p>
+      </div>
+    );
   }
 
   return (
     <section className="legend-reader-shell">
       <div className="legend-reader-panel">
         <div className="legend-reader-topbar">
-          <Link className="reader-back-link" to={`/legend/${legend.slug}`}>Volver</Link>
-          <h1>{legend.title}</h1>
+          <Link className="reader-back-link" to={`/legend/${legend?.slug ?? slug}`}>Volver</Link>
+          <h1>{title}</h1>
           <img src={coverUrl} alt="" />
         </div>
 
-        {!canRead ? (
-          <div className="reader-locked-book">
-            <h2>Esta leyenda esta bloqueada</h2>
-            <p>Desbloqueala con el codigo de tu libro fisico para leer la historia completa.</p>
-            <Button className="reader-glow-button" onClick={() => setActivationOpen(true)}>Activar libro fisico</Button>
-          </div>
-        ) : usePdfReader ? (
-          <Suspense fallback={<LoadingState message="Preparando libro..." />}>
-            <PdfFlipbookReader
-              pdfUrl={pdfDocument.signedUrl}
-              hotspots={readerContext?.hotspots ?? []}
-              onHotspotClick={handleHotspotClick}
-              onError={() => setPdfReaderFailed(true)}
-            />
-          </Suspense>
-        ) : pages.length > 0 ? (
-          <div className="reader-book-stage">
-            <button className="reader-page-arrow reader-page-arrow-left" type="button" onClick={goPrevious} disabled={spreadIndex === 0} aria-label="Pagina anterior">&larr;</button>
-            <div className="reader-open-book" aria-label="Libro abierto">
-              <img className="reader-open-book-art" src="/assets/Libro abierto.png" alt="" />
-              <ReaderPageSpread
-                leftPage={leftPage}
-                rightPage={rightPage}
-                leftScene={leftScene}
-                rightScene={rightScene}
-                onViewModel={setActiveScene}
-              />
-            </div>
-            <button className="reader-page-arrow reader-page-arrow-right" type="button" onClick={goNext} disabled={spreadIndex >= maxSpreadStart} aria-label="Pagina siguiente">&rarr;</button>
-          </div>
-        ) : (
-          <div className="reader-empty-book">
-            <h2>Esta leyenda aun no tiene paginas publicadas.</h2>
-            <p>Cuando el autor publique contenido, aparecera aqui como lectura editorial.</p>
-          </div>
-        )}
+        {renderBody()}
       </div>
 
       {activationOpen && (
-        <PhysicalBookActivationModal onClose={() => setActivationOpen(false)} onRedeemed={refreshAccess} />
+        <PhysicalBookActivationModal onClose={() => setActivationOpen(false)} onRedeemed={loadReader} />
       )}
 
-      {activeScene && (
-        <ArSceneModal
-          scene={activeScene}
-          marker={markerForScene(activeScene)}
-          pageNumber={pages.find((page) => String(page.id) === String(activeScene.page_id))?.page_number ?? null}
-          onClose={() => setActiveScene(null)}
-        />
-      )}
-
-      {hotspotSceneModal && (
-        <ArSceneModal
-          scene={hotspotSceneModal.scene}
-          pageNumber={hotspotSceneModal.pageNumber}
-          onClose={() => setHotspotSceneModal(null)}
-        />
+      {sceneModal && (
+        <ArSceneModal scene={sceneModal.scene} pageNumber={sceneModal.pageNumber} onClose={() => setSceneModal(null)} />
       )}
 
       {hotspotNotice && (
