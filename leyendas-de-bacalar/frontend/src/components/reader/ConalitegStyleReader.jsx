@@ -66,6 +66,7 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageInput, setPageInput] = useState('1');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [viewportWidth, setViewportWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1280));
   const bookRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -93,6 +94,19 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
     }
     document.addEventListener('fullscreenchange', onFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
+  useEffect(() => {
+    let frame = 0;
+    function onResize() {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => setViewportWidth(window.innerWidth));
+    }
+    window.addEventListener('resize', onResize);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('resize', onResize);
+    };
   }, []);
 
   useEffect(() => {
@@ -132,21 +146,26 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
     );
   }
 
-  const pageWidth = MAX_PAGE_DISPLAY_WIDTH;
+  // Big, responsive CONALITEG-style spread: two large pages on desktop, one on mobile.
+  const isNarrow = viewportWidth < 820;
+  const pageWidth = isNarrow
+    ? Math.min(MAX_PAGE_DISPLAY_WIDTH + 130, Math.floor(viewportWidth * 0.9))
+    : Math.min(680, Math.floor((Math.min(viewportWidth, 1680) * 0.94 - 40) / 2));
   const pageHeight = Math.round(pageWidth * aspect);
 
   return (
     <div className={`pdf-flipbook ${isFullscreen ? 'fullscreen' : ''}`} ref={containerRef}>
       <div className="pdf-flipbook-stage">
         <HTMLFlipBook
+          key={`${pageWidth}x${pageHeight}`}
           ref={bookRef}
           width={pageWidth}
           height={pageHeight}
           size="fixed"
-          minWidth={240}
-          maxWidth={820}
-          minHeight={300}
-          maxHeight={Math.round(820 * aspect)}
+          minWidth={280}
+          maxWidth={760}
+          minHeight={360}
+          maxHeight={Math.round(760 * aspect)}
           showCover={false}
           usePortrait
           mobileScrollSupport

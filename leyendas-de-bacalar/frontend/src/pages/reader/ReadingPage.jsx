@@ -14,8 +14,6 @@ import { getReaderBundle, startDocumentRender } from '../../services/backendApiS
 // Lazy: the book viewer (react-pageflip) only loads when a legend actually opens.
 const ConalitegStyleReader = lazy(() => import('../../components/reader/ConalitegStyleReader.jsx'));
 
-const fallbackCover = '/assets/portada carin hall.png';
-
 // Adapt a reader-bundle ar_scene + model asset to what ArSceneModal expects.
 function buildScene(arScene, modelAssets = []) {
   if (!arScene) return null;
@@ -124,7 +122,6 @@ function ReadingPage() {
   if (error) return <EmptyState title="No se pudo abrir la lectura" message={error.message} />;
 
   const title = legend?.title || bundle?.legend?.title || 'Lectura';
-  const coverUrl = bundle?.cover?.url || legend?.cover_url || legend?.coverUrl || fallbackCover;
   const sourceDocument = bundle?.sourceDocument ?? null;
   const renderStatus = sourceDocument?.renderStatus ?? 'not_rendered';
   const renderedPages = bundle?.renderedPages ?? [];
@@ -221,14 +218,14 @@ function ReadingPage() {
   }
 
   return (
-    <section className="legend-reader-shell">
-      <div className="legend-reader-panel">
-        <div className="legend-reader-topbar">
-          <Link className="reader-back-link" to={`/legend/${legend?.slug ?? slug}`}>Volver</Link>
-          <h1>{title}</h1>
-          <img src={coverUrl} alt="" />
-        </div>
+    <section className="reader-stage">
+      <div className="reader-stage-top">
+        <Link className="reader-back-link" to={`/legend/${legend?.slug ?? slug}`}>&larr; Volver</Link>
+        <h1>{title}</h1>
+        <span className="reader-stage-spacer" aria-hidden="true" />
+      </div>
 
+      <div className="reader-stage-body">
         {renderBody()}
       </div>
 
