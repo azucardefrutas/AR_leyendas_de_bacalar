@@ -4,7 +4,6 @@ import {
   mapScenesToShowcaseItems,
 } from '../../services/modelShowcaseService.js';
 
-// Heavy three.js / react-three viewer is only fetched when a card is opened.
 const Model3DViewer = lazy(() => import('./Model3DViewer.jsx'));
 
 function CubeIcon() {
@@ -28,7 +27,7 @@ function ShowcaseCard({ item, onOpen }) {
   const disabled = !item.modelUrl;
   const content = (
     <>
-      <span className="model-showcase-poster" style={{ backgroundColor: item.backgroundColor }}>
+      <span className="model-showcase-poster" style={{ background: item.background }}>
         {item.poster ? (
           <img
             className="model-showcase-poster-img"
@@ -49,7 +48,7 @@ function ShowcaseCard({ item, onOpen }) {
             <OpenIcon />
           </span>
         )}
-        {disabled && <span className="model-showcase-soon">Próximamente</span>}
+        {disabled && <span className="model-showcase-soon">Proximamente</span>}
       </span>
       <span className="model-showcase-meta">
         <span className="model-showcase-name">{item.name}</span>
@@ -58,42 +57,30 @@ function ShowcaseCard({ item, onOpen }) {
     </>
   );
 
-  if (disabled) {
-    return (
-      <div className="model-showcase-card is-disabled" aria-disabled="true">
-        {content}
-      </div>
-    );
-  }
-
   return (
-    <button
-      type="button"
-      className="model-showcase-card"
-      onClick={() => onOpen(item)}
-      aria-label={`Abrir modelo 3D: ${item.name}`}
-    >
-      {content}
-    </button>
+    <article className={`model-showcase-card${disabled ? ' is-disabled' : ''}`}>
+      {disabled ? (
+        <div className="model-showcase-card-button" aria-disabled="true">
+          {content}
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="model-showcase-card-button"
+          onClick={() => onOpen(item)}
+          aria-label={`Abrir modelo 3D: ${item.name}`}
+        >
+          {content}
+        </button>
+      )}
+    </article>
   );
 }
 
-/**
- * Premium, scroll-driven 3D model gallery.
- *
- * On desktop (and when reduced-motion is off) the section is pinned (sticky) and
- * vertical scroll translates the card track horizontally. On small screens or with
- * reduced motion it degrades to a normal horizontal-scroll strip. No Canvas is
- * mounted per card — the real Model3DViewer is lazy-loaded only when a card opens.
- *
- * Accepts `models` or `scenes`; if neither is provided it self-fetches via
- * modelShowcaseService (deferred until the section is near the viewport).
- */
 function ModelShowcaseSection({
   models = null,
   scenes = null,
-  title = 'Modelos 3D',
-  subtitle = '',
+  ariaLabel = 'Galeria de modelos 3D',
 }) {
   const providedItems = useMemo(() => {
     if (Array.isArray(models)) return models;
@@ -108,11 +95,12 @@ function ModelShowcaseSection({
   const [openItem, setOpenItem] = useState(null);
 
   const sectionRef = useRef(null);
+  const viewportRef = useRef(null);
   const trackRef = useRef(null);
+  const targetXRef = useRef(0);
+  const currentXRef = useRef(0);
+  const frameRef = useRef(null);
 
-  // Fetch the showcase models on mount (metadata + lazy posters are light; the
-  // heavy GLBs still load only when a card is opened). The service self-limits
-  // with a timeout, so this never hangs.
   useEffect(() => {
     if (providedItems) return undefined;
     let active = true;
@@ -133,66 +121,98 @@ function ModelShowcaseSection({
     if (providedItems) setItems(providedItems);
   }, [providedItems]);
 
-  // Decide pinned (scroll-driven carousel) vs strip (manual horizontal scroll).
-  // Desktop/tablet get the pinned carousel; phones get a touch-friendly strip.
-  // Uses innerWidth + resize so it stays correct across window/viewport changes.
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
-    const compute = () => setPinned(window.innerWidth >= 768);
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const compute = () => setPinned(window.innerWidth >= 768 && !motionQuery.matches);
     compute();
     window.addEventListener('resize', compute);
-    return () => window.removeEventListener('resize', compute);
+    motionQuery.addEventListener?.('change', compute);
+    return () => {
+      window.removeEventListener('resize', compute);
+      motionQuery.removeEventListener?.('change', compute);
+    };
   }, []);
 
-  // Measure how much extra vertical scroll the pinned section needs to traverse
-  // the full horizontal track (1px vertical ≈ 1px horizontal).
   useEffect(() => {
     if (!pinned) {
       setPinHeight(null);
       return undefined;
     }
+
     const measure = () => {
+      const viewport = viewportRef.current;
       const track = trackRef.current;
-      if (!track) return;
-      const maxX = Math.max(track.scrollWidth - track.clientWidth, 0);
+      if (!viewport || !track) return;
+      const maxX = Math.max(track.scrollWidth - viewport.clientWidth, 0);
       setPinHeight(window.innerHeight + maxX);
     };
+
     measure();
     window.addEventListener('resize', measure);
     return () => window.removeEventListener('resize', measure);
   }, [pinned, items.length, loading]);
 
-  // Map vertical scroll progress to horizontal track translation (rAF-throttled).
   useEffect(() => {
     if (!pinned) {
+      if (frameRef.current) window.cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
+      targetXRef.current = 0;
+      currentXRef.current = 0;
       if (trackRef.current) trackRef.current.style.transform = '';
       return undefined;
     }
+
+    const animate = () => {
+      const track = trackRef.current;
+      if (!track) {
+        frameRef.current = null;
+        return;
+      }
+
+      const delta = targetXRef.current - currentXRef.current;
+      currentXRef.current += delta * 0.16;
+      if (Math.abs(delta) < 0.35) currentXRef.current = targetXRef.current;
+      track.style.transform = `translate3d(${-currentXRef.current}px, 0, 0)`;
+
+      if (Math.abs(targetXRef.current - currentXRef.current) > 0.35) {
+        frameRef.current = window.requestAnimationFrame(animate);
+      } else {
+        frameRef.current = null;
+      }
+    };
+
+    const queueAnimation = () => {
+      if (!frameRef.current) frameRef.current = window.requestAnimationFrame(animate);
+    };
+
     const update = () => {
       const section = sectionRef.current;
+      const viewport = viewportRef.current;
       const track = trackRef.current;
-      if (!section || !track) return;
+      if (!section || !viewport || !track) return;
+
       const rect = section.getBoundingClientRect();
-      const total = section.offsetHeight - window.innerHeight;
-      const scrolled = Math.min(Math.max(-rect.top, 0), Math.max(total, 0));
-      const progress = total > 0 ? scrolled / total : 0;
-      const maxX = Math.max(track.scrollWidth - track.clientWidth, 0);
-      track.style.transform = `translate3d(${-(progress * maxX)}px, 0, 0)`;
+      const total = Math.max(section.offsetHeight - window.innerHeight, 1);
+      const scrolled = Math.min(Math.max(-rect.top, 0), total);
+      const progress = scrolled / total;
+      const maxX = Math.max(track.scrollWidth - viewport.clientWidth, 0);
+      targetXRef.current = progress * maxX;
+      section.style.setProperty('--sc-progress', progress.toFixed(4));
+      queueAnimation();
     };
-    // Update directly on scroll (one rect read + one transform write). Capture
-    // phase so we catch scroll no matter which element actually scrolls (this app
-    // makes the scroll happen off `window` via `overflow-x: hidden` on #root/body),
-    // and no rAF dependency so it works even where rAF is throttled.
+
     update();
     window.addEventListener('scroll', update, { passive: true, capture: true });
     window.addEventListener('resize', update);
     return () => {
       window.removeEventListener('scroll', update, { capture: true });
       window.removeEventListener('resize', update);
+      if (frameRef.current) window.cancelAnimationFrame(frameRef.current);
+      frameRef.current = null;
     };
   }, [pinned, pinHeight, items.length]);
 
-  // Lock background scroll while the viewer overlay is open.
   useEffect(() => {
     if (!openItem) return undefined;
     const previous = document.body.style.overflow;
@@ -209,23 +229,28 @@ function ModelShowcaseSection({
       ref={sectionRef}
       className={`model-showcase ${pinned ? 'is-pinned' : 'is-strip'}`}
       style={sectionStyle}
-      aria-label={title}
+      aria-label={ariaLabel}
     >
       <div className="model-showcase-sticky">
-        <div className="model-showcase-head">
-          <h2>{title}</h2>
-          {subtitle && <p>{subtitle}</p>}
+        <div className="model-showcase-a11y">
+          <h2>Galeria de piezas 3D</h2>
         </div>
+
+        {pinned && items.length > 0 && (
+          <div className="model-showcase-progress" aria-hidden="true">
+            <span />
+          </div>
+        )}
 
         {loading ? (
           <div className="model-showcase-status">
             <span className="model-showcase-spinner" aria-hidden="true" />
-            <span>Cargando modelos 3D…</span>
+            <span>Cargando modelos 3D...</span>
           </div>
         ) : items.length === 0 ? (
-          <div className="model-showcase-status">Aún no hay modelos 3D publicados.</div>
+          <div className="model-showcase-status">Aun no hay modelos 3D publicados.</div>
         ) : (
-          <div className="model-showcase-viewport">
+          <div className="model-showcase-viewport" ref={viewportRef}>
             <div className="model-showcase-track" ref={trackRef}>
               {items.map((item) => (
                 <ShowcaseCard key={item.id} item={item} onOpen={setOpenItem} />

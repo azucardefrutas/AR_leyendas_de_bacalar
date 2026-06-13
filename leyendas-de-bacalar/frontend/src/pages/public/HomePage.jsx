@@ -10,14 +10,12 @@ import { getLoginPathForRedirect } from '../../utils/authRedirect.js';
 function HomePage() {
   const { isAuthenticated } = useAuth();
   const redeemPath = isAuthenticated ? '/reader/redeem' : getLoginPathForRedirect('/reader/redeem');
-  // Local-only: the cinematic intro plays on each home mount during development.
   const [introDone, setIntroDone] = useState(false);
 
   return (
-    <div className="home-page">
+    <main className="home-page">
       {!introDone && <LandingIntroOverlay onFinish={() => setIntroDone(true)} />}
 
-      {/* ---- Hero: cinematic, full-bleed. Background belongs ONLY here. ---- */}
       <section className="home-hero">
         <div className="hero-background" aria-hidden="true" />
         <div className="hero-content">
@@ -40,14 +38,10 @@ function HomePage() {
         </div>
       </section>
 
-      {/* ---- Models 3D: separate section, own identity, sticky carousel. ---- */}
-      <ModelShowcaseSection
-        title="Modelos 3D de las leyendas"
-        subtitle="Recorre las criaturas y objetos de Bacalar. Desplázate para explorarlos y ábrelos para girarlos con el mouse o el dedo."
-      />
+      <ModelShowcaseSection ariaLabel="Galeria de modelos 3D de Leyendas de Bacalar" />
 
       <div className="home-content-spacer" id="acerca" aria-hidden="true" />
-    </div>
+    </main>
   );
 }
 

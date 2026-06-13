@@ -1,4 +1,4 @@
-import React, { Suspense, useState } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Bounds, Center, Html, OrbitControls, useGLTF } from '@react-three/drei';
 import Button from '../ui/Button.jsx';
@@ -70,6 +70,13 @@ function Model3DViewer({ scene = null, modelUrl = '', title = '', onClose }) {
   const [failed, setFailed] = useState(false);
   const url = modelUrl || getModelUrl(scene);
   const name = title || scene?.name || 'Modelo 3D';
+
+  // Hide the fixed navbar (and any fixed chrome) while the viewer is open so it
+  // never collides with the modal. The CSS targets `body.model3d-open`.
+  useEffect(() => {
+    document.body.classList.add('model3d-open');
+    return () => document.body.classList.remove('model3d-open');
+  }, []);
 
   return (
     <div

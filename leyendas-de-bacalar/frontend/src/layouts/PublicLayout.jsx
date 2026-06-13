@@ -1,14 +1,18 @@
 import React from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import SiteNavbar from '../components/ui/SiteNavbar.jsx';
 
 function PublicLayout() {
+  const location = useLocation();
+  const isHome = location.pathname === '/';
+  const Container = isHome ? 'div' : 'main';
+
   return (
     <div className="app-shell">
       <SiteNavbar />
-      <main className="page-container">
+      <Container className="page-container">
         <Outlet />
-      </main>
+      </Container>
     </div>
   );
 }

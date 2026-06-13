@@ -1,15 +1,15 @@
 import { getSupabaseConfigError, supabase } from '../lib/supabaseClient.js';
 import { STORAGE_BUCKETS } from './assetService.js';
 
-// Muted Bacalar palette used as card backgrounds / poster placeholders.
-// No neon, no heavy black: petrol, dark turquoise, lagoon, mangrove, navy, sand.
-const SHOWCASE_PALETTE = [
-  '#0F4C5C', // petrol
-  '#0B3D4A', // lagoon
-  '#245A4F', // mangrove
-  '#152659', // navy
-  '#13414F', // dark turquoise
-  '#5E5A48', // muted sand
+// Light, subtle per-model gradients (used behind each model render). Soft and
+// premium — no heavy/dark fills. Cycled for database-sourced models.
+const SHOWCASE_GRADIENTS = [
+  'linear-gradient(155deg, #d8f3ec 0%, #bfe6f1 100%)', // cian/verde claro
+  'linear-gradient(155deg, #ece4f5 0%, #dcdcf2 100%)', // lavanda claro
+  'linear-gradient(155deg, #f1e8d6 0%, #e2d3b6 100%)', // arena claro
+  'linear-gradient(155deg, #ddefdc 0%, #c8e8dd 100%)', // verde menta
+  'linear-gradient(155deg, #dceff3 0%, #cbe2ef 100%)', // aqua claro
+  'linear-gradient(155deg, #dde8f4 0%, #cad9ee 100%)', // azul claro
 ];
 
 // Real, already-shipped project models (the same GLBs used by the landing intro).
@@ -23,7 +23,7 @@ const LOCAL_SHOWCASE_MODELS = [
     legendTitle: 'El Sismité',
     modelPath: '/landing-intro/models/El sismite.glb',
     posterPath: '/landing-intro/Img_models/Sisimite.webp',
-    backgroundColor: '#11343a',
+    background: 'linear-gradient(155deg, #f1e8d6 0%, #e2d3b6 100%)', // arena claro
   },
   {
     id: 'local-bruja',
@@ -31,7 +31,7 @@ const LOCAL_SHOWCASE_MODELS = [
     legendTitle: 'La Bruja',
     modelPath: '/landing-intro/models/La bruja.glb',
     posterPath: '/landing-intro/Img_models/La_bruja.webp',
-    backgroundColor: '#15213f',
+    background: 'linear-gradient(155deg, #ece4f5 0%, #dcdcf2 100%)', // lavanda claro
   },
   {
     id: 'local-serpiente',
@@ -39,7 +39,7 @@ const LOCAL_SHOWCASE_MODELS = [
     legendTitle: 'La serpiente del mar',
     modelPath: '/landing-intro/models/dragon del mar.glb',
     posterPath: '/landing-intro/Img_models/Dragon_del_mar.webp',
-    backgroundColor: '#0b2f3a',
+    background: 'linear-gradient(155deg, #d8f3ec 0%, #bfe6f1 100%)', // cian/verde claro
   },
   {
     id: 'local-duendes',
@@ -47,7 +47,7 @@ const LOCAL_SHOWCASE_MODELS = [
     legendTitle: 'Los duendes del monte',
     modelPath: '/landing-intro/models/duendes del bosque.glb',
     posterPath: '/landing-intro/Img_models/Duendes_del_bosque.webp',
-    backgroundColor: '#143a32',
+    background: 'linear-gradient(155deg, #ddefdc 0%, #c8e8dd 100%)', // verde menta
   },
   {
     id: 'local-animales',
@@ -55,7 +55,7 @@ const LOCAL_SHOWCASE_MODELS = [
     legendTitle: 'Extraños animales',
     modelPath: '/landing-intro/models/extrañas criaturas.glb',
     posterPath: '/landing-intro/Img_models/Extrañas_criaturas.webp',
-    backgroundColor: '#0e3b46',
+    background: 'linear-gradient(155deg, #dceff3 0%, #cbe2ef 100%)', // aqua claro
   },
   {
     id: 'local-upb',
@@ -63,7 +63,7 @@ const LOCAL_SHOWCASE_MODELS = [
     legendTitle: 'Objeto cultural',
     modelPath: '/landing-intro/models/UPB.glb',
     posterPath: '/landing-intro/Img_models/UPB.webp',
-    backgroundColor: '#102a3f',
+    background: 'linear-gradient(155deg, #dde8f4 0%, #cad9ee 100%)', // azul claro
   },
 ];
 
@@ -73,7 +73,7 @@ function encodePath(path) {
 }
 
 // Shape every item the showcase renders so the component stays dumb.
-function buildItem({ id, name, legendTitle, modelUrl, poster, backgroundColor }) {
+function buildItem({ id, name, legendTitle, modelUrl, poster, background }) {
   const url = modelUrl || '';
   return {
     id,
@@ -81,7 +81,7 @@ function buildItem({ id, name, legendTitle, modelUrl, poster, backgroundColor })
     legendTitle: legendTitle || '',
     modelUrl: url,
     poster: poster || '',
-    backgroundColor: backgroundColor || SHOWCASE_PALETTE[0],
+    background: background || SHOWCASE_GRADIENTS[0],
     // Minimal scene object so the existing Model3DViewer can show a header.
     scene: { name: name || 'Modelo 3D', description: null, assets: { url } },
   };
@@ -95,7 +95,7 @@ function getLocalShowcaseModels() {
       legendTitle: model.legendTitle,
       modelUrl: encodePath(model.modelPath),
       poster: encodePath(model.posterPath),
-      backgroundColor: model.backgroundColor,
+      background: model.background,
     }),
   );
 }
@@ -162,7 +162,7 @@ async function getDatabaseShowcaseModels(client) {
         legendTitle: legendTitleById.get(legendId),
         modelUrl,
         poster: '',
-        backgroundColor: SHOWCASE_PALETTE[paletteIndex % SHOWCASE_PALETTE.length],
+        background: SHOWCASE_GRADIENTS[paletteIndex % SHOWCASE_GRADIENTS.length],
       }),
     );
     paletteIndex += 1;
@@ -226,7 +226,7 @@ export function mapScenesToShowcaseItems(scenes = []) {
         legendTitle: scene?.legendTitle || scene?.legend_title || '',
         modelUrl,
         poster: scene?.poster || '',
-        backgroundColor: SHOWCASE_PALETTE[paletteIndex % SHOWCASE_PALETTE.length],
+        background: SHOWCASE_GRADIENTS[paletteIndex % SHOWCASE_GRADIENTS.length],
       });
       paletteIndex += 1;
       return item;
