@@ -12,6 +12,12 @@
   transition: opacity 0.75s ease;
 }
 
+body.landing-intro-active .site-header {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-12px);
+}
+
 .lbi-overlay.phase-outro {
   opacity: 0;
   pointer-events: none;

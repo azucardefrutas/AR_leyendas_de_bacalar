@@ -103,11 +103,13 @@ function LandingIntroOverlay({ onFinish }) {
 
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    document.body.classList.add('landing-intro-active');
 
     return () => {
       clearTimers();
       document.removeEventListener('keydown', onKeyDown);
       document.body.style.overflow = previousOverflow;
+      document.body.classList.remove('landing-intro-active');
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

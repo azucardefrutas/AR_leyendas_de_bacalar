@@ -3,7 +3,9 @@ import HTMLFlipBook from 'react-pageflip';
 import Button from '../ui/Button.jsx';
 import { getHotspotsForReaderPage } from '../../utils/readerPages.js';
 
-const MAX_PAGE_DISPLAY_WIDTH = 470;
+const MAX_SINGLE_PAGE_WIDTH = 540;
+const MAX_DESKTOP_PAGE_WIDTH = 560;
+const MIN_PAGE_WIDTH = 280;
 
 function hotspotHasModel(hotspot) {
   return Boolean(hotspot.scene || hotspot.arSceneId || hotspot.ar_scene_id);
@@ -70,7 +72,10 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageInput, setPageInput] = useState('1');
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [viewportWidth, setViewportWidth] = useState(() => (typeof window !== 'undefined' ? window.innerWidth : 1280));
+  const [viewport, setViewport] = useState(() => ({
+    width: typeof window !== 'undefined' ? window.innerWidth : 1280,
+    height: typeof window !== 'undefined' ? window.innerHeight : 820,
+  }));
   const bookRef = useRef(null);
   const containerRef = useRef(null);
 
@@ -97,7 +102,12 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
     let frame = 0;
     function onResize() {
       cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(() => setViewportWidth(window.innerWidth));
+      frame = requestAnimationFrame(() => {
+        setViewport({
+          width: window.innerWidth,
+          height: window.innerHeight,
+        });
+      });
     }
     window.addEventListener('resize', onResize);
     return () => {
@@ -143,16 +153,35 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
     );
   }
 
-  // Big, responsive CONALITEG-style spread: two large pages on desktop, one on mobile.
-  const isNarrow = viewportWidth < 820;
-  const pageWidth = isNarrow
-    ? Math.min(MAX_PAGE_DISPLAY_WIDTH + 130, Math.floor(viewportWidth * 0.9))
-    : Math.min(680, Math.floor((Math.min(viewportWidth, 1680) * 0.94 - 40) / 2));
+  // Universal book sizing: fit the spread to BOTH viewport width and height.
+  // Desktop shows a two-page spread; narrow screens switch to a single page.
+  const isSinglePage = viewport.width < 900;
+  const verticalReserve = isSinglePage ? 188 : 220;
+  const maxPageHeight = Math.max(380, viewport.height - verticalReserve);
+  const maxSpreadWidth = Math.min(viewport.width - 48, 1260);
+  const maxPageWidthByWidth = isSinglePage
+    ? Math.min(MAX_SINGLE_PAGE_WIDTH, viewport.width - 28)
+    : Math.min(MAX_DESKTOP_PAGE_WIDTH, Math.floor((maxSpreadWidth - 18) / 2));
+  const maxPageWidthByHeight = Math.floor(maxPageHeight / aspect);
+  const pageWidth = Math.max(
+    MIN_PAGE_WIDTH,
+    Math.floor(Math.min(maxPageWidthByWidth, maxPageWidthByHeight)),
+  );
   const pageHeight = Math.round(pageWidth * aspect);
 
   return (
     <div className={`pdf-flipbook ${isFullscreen ? 'fullscreen' : ''}`} ref={containerRef}>
-      <div className="pdf-flipbook-stage">
+      <div className="pdf-flipbook-stage" aria-label="Visor de libro">
+        <button
+          type="button"
+          className="pdf-flipbook-nav-button pdf-flipbook-nav-button-prev"
+          onClick={goPrevious}
+          disabled={currentPage <= 1}
+          aria-label="Pagina anterior"
+        >
+          <span aria-hidden="true">‹</span>
+        </button>
+
         <HTMLFlipBook
           key={`${pageWidth}x${pageHeight}`}
           ref={bookRef}
@@ -160,14 +189,14 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
           height={pageHeight}
           size="fixed"
           minWidth={280}
-          maxWidth={760}
+          maxWidth={MAX_DESKTOP_PAGE_WIDTH}
           minHeight={360}
-          maxHeight={Math.round(760 * aspect)}
+          maxHeight={Math.round(MAX_DESKTOP_PAGE_WIDTH * aspect)}
           showCover
-          usePortrait
+          usePortrait={isSinglePage}
           mobileScrollSupport
           flippingTime={700}
-          maxShadowOpacity={0.45}
+          maxShadowOpacity={0.28}
           onFlip={handleFlip}
           className="pdf-flipbook-book"
         >
@@ -180,14 +209,24 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
             />
           ))}
         </HTMLFlipBook>
+
+        <button
+          type="button"
+          className="pdf-flipbook-nav-button pdf-flipbook-nav-button-next"
+          onClick={goNext}
+          disabled={currentPage >= numPages}
+          aria-label="Pagina siguiente"
+        >
+          <span aria-hidden="true">›</span>
+        </button>
       </div>
 
       <div className="pdf-flipbook-controls">
         <Button type="button" variant="ghost" onClick={goPrevious} disabled={currentPage <= 1}>Anterior</Button>
-        <span className="pdf-flipbook-page-indicator">Pagina {Math.min(currentPage, numPages)} / {numPages}</span>
+        <span className="pdf-flipbook-page-indicator">Pagina {Math.min(currentPage, numPages)} de {numPages}</span>
         <Button type="button" variant="ghost" onClick={goNext} disabled={currentPage >= numPages}>Siguiente</Button>
         <label className="pdf-flipbook-goto">
-          <span>Ir a</span>
+          <span>Ir a pagina</span>
           <input
             type="number"
             min="1"
