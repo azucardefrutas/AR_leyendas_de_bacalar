@@ -128,8 +128,8 @@ function AdminReviewsPage() {
           { key: 'legend', header: 'Leyenda', render: (row) => getReviewLegend(row)?.title || 'Sin titulo' },
           { key: 'author', header: 'Autor', render: (row) => getReviewLegend(row)?.creator_profiles?.pen_name || 'Sin autor' },
           { key: 'version', header: 'Version', render: (row) => row.legend_versions?.version_number || '-' },
-          { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status || 'pending'} /> },
-          { key: 'version_status', header: 'Version', render: (row) => <AdminStatusBadge status={row.legend_versions?.status || 'submitted'} /> },
+          { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status || 'pending'} context="content_review" /> },
+          { key: 'version_status', header: 'Version', render: (row) => <AdminStatusBadge status={row.legend_versions?.status || 'submitted'} context="legend_version" /> },
           { key: 'feedback', header: 'Feedback', render: (row) => row.feedback || 'Sin feedback' },
           { key: 'created_at', header: 'Enviada', render: (row) => row.created_at ? new Date(row.created_at).toLocaleDateString() : 'Sin fecha' },
           {

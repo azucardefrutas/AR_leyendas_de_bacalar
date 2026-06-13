@@ -11,6 +11,7 @@ import {
   getCreatorLegends,
   getMyCreatorProfile,
 } from '../../services/creatorService.js';
+import { getStatusCounterTone } from '../../shared/status/statusMeta.js';
 
 function getDisplayName(profile, creatorProfile) {
   return creatorProfile?.pen_name || profile?.full_name || profile?.name || 'creador';
@@ -60,8 +61,15 @@ function CreatorDashboardPage() {
   }, []);
 
   const publishedCount = countCreatorLegendsByStatus(legends, ['published']);
-  const reviewCount = countCreatorLegendsByStatus(legends, ['in_review', 'review', 'pending_review', 'submitted', 'changes_requested', 'rejected']);
+  const reviewCount = countCreatorLegendsByStatus(legends, ['in_review', 'review', 'pending_review', 'submitted', 'changes_requested']);
   const draftCount = countCreatorLegendsByStatus(legends, ['draft', 'borrador']);
+  const rejectedCount = countCreatorLegendsByStatus(legends, ['rejected']);
+  const stats = [
+    { label: 'Publicadas', value: publishedCount, icon: <PublishedIcon />, tone: getStatusCounterTone('published') },
+    { label: 'En revision', value: reviewCount, icon: <ReviewIcon />, tone: getStatusCounterTone('in_review') },
+    { label: 'Borradores', value: draftCount, icon: <DraftIcon />, tone: getStatusCounterTone('draft') },
+    { label: 'Rechazadas', value: rejectedCount, icon: <ReviewIcon />, tone: getStatusCounterTone('rejected') },
+  ];
 
   function openEditor(legend) {
     if (!legend?.id) {
@@ -85,21 +93,13 @@ function CreatorDashboardPage() {
       {error && <p className="error-message">{error.message}</p>}
 
       <div className="stat-grid">
-        <Card className="stat-card">
-          <div className="creator-stat-icon"><PublishedIcon /></div>
-          <span>Publicadas</span>
-          <strong>{publishedCount}</strong>
-        </Card>
-        <Card className="stat-card">
-          <div className="creator-stat-icon"><ReviewIcon /></div>
-          <span>En revision</span>
-          <strong>{reviewCount}</strong>
-        </Card>
-        <Card className="stat-card">
-          <div className="creator-stat-icon"><DraftIcon /></div>
-          <span>Borradores</span>
-          <strong>{draftCount}</strong>
-        </Card>
+        {stats.map((item) => (
+          <Card className={`stat-card stat-card-${item.tone}`} key={item.label}>
+            <div className={`creator-stat-icon creator-stat-icon-${item.tone}`}>{item.icon}</div>
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+          </Card>
+        ))}
       </div>
 
       <div className="page-heading-row">

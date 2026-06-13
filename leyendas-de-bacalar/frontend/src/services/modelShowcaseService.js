@@ -22,48 +22,48 @@ const LOCAL_SHOWCASE_MODELS = [
     name: 'El Sismité',
     legendTitle: 'El Sismité',
     modelPath: '/landing-intro/models/El sismite.glb',
-    posterPath: '/assets/portada el sismite.png',
-    backgroundColor: '#245A4F',
+    posterPath: '/landing-intro/Img_models/Sisimite.webp',
+    backgroundColor: '#11343a',
   },
   {
     id: 'local-bruja',
     name: 'La Bruja',
     legendTitle: 'La Bruja',
     modelPath: '/landing-intro/models/La bruja.glb',
-    posterPath: '/assets/portada la bruja.png',
-    backgroundColor: '#152659',
+    posterPath: '/landing-intro/Img_models/La_bruja.webp',
+    backgroundColor: '#15213f',
   },
   {
     id: 'local-serpiente',
     name: 'La Serpiente del Mar',
     legendTitle: 'La serpiente del mar',
     modelPath: '/landing-intro/models/dragon del mar.glb',
-    posterPath: '/assets/portada_ la serpiente del mar.png',
-    backgroundColor: '#0B3D4A',
+    posterPath: '/landing-intro/Img_models/Dragon_del_mar.webp',
+    backgroundColor: '#0b2f3a',
   },
   {
     id: 'local-duendes',
     name: 'Los Duendes del Monte',
     legendTitle: 'Los duendes del monte',
     modelPath: '/landing-intro/models/duendes del bosque.glb',
-    posterPath: '/assets/portada los duentes del monte.png',
-    backgroundColor: '#2C5547',
+    posterPath: '/landing-intro/Img_models/Duendes_del_bosque.webp',
+    backgroundColor: '#143a32',
   },
   {
     id: 'local-animales',
     name: 'Extraños Animales',
     legendTitle: 'Extraños animales',
     modelPath: '/landing-intro/models/extrañas criaturas.glb',
-    posterPath: '/assets/portada_extraños animales.png',
-    backgroundColor: '#0F4C5C',
+    posterPath: '/landing-intro/Img_models/Extrañas_criaturas.webp',
+    backgroundColor: '#0e3b46',
   },
   {
-    id: 'local-libro',
-    name: 'El Libro de las Leyendas',
-    legendTitle: 'Leyendas de Bacalar',
-    modelPath: '/assets/models/Libro_bacalar.glb',
-    posterPath: '/assets/Libro abierto.png',
-    backgroundColor: '#13414F',
+    id: 'local-upb',
+    name: 'Universidad Politécnica de Bacalar',
+    legendTitle: 'Objeto cultural',
+    modelPath: '/landing-intro/models/UPB.glb',
+    posterPath: '/landing-intro/Img_models/UPB.webp',
+    backgroundColor: '#102a3f',
   },
 ];
 
@@ -180,13 +180,26 @@ async function getDatabaseShowcaseModels(client) {
  *
  * @returns {Promise<{ data: object[], source: 'database' | 'local', error: Error | null }>}
  */
+const DB_LOOKUP_TIMEOUT_MS = 3500;
+
+// Resolve to [] if the lookup takes too long, so a slow/unreachable Supabase
+// (paused project, no network) never leaves the showcase stuck on "loading".
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((resolve) => {
+      setTimeout(() => resolve([]), ms);
+    }),
+  ]);
+}
+
 export async function getShowcaseModels() {
   if (!supabase) {
     return { data: getLocalShowcaseModels(), source: 'local', error: getSupabaseConfigError() };
   }
 
   try {
-    const dbItems = await getDatabaseShowcaseModels(supabase);
+    const dbItems = await withTimeout(getDatabaseShowcaseModels(supabase), DB_LOOKUP_TIMEOUT_MS);
     if (dbItems.length) {
       return { data: dbItems, source: 'database', error: null };
     }

@@ -76,7 +76,7 @@ function AdminLegendsPage() {
           { key: 'cover', header: 'Portada', render: (row) => row.cover_url ? <img className="admin-thumb" src={row.cover_url} alt="" /> : <span className="admin-thumb-placeholder">Sin portada</span> },
           { key: 'title', header: 'Titulo' },
           { key: 'author', header: 'Autor', render: (row) => row.authorName || row.creator_profiles?.pen_name || 'Sin autor' },
-          { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status || 'draft'} /> },
+          { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status || 'draft'} context="legend" /> },
           { key: 'access_type', header: 'Acceso' },
           { key: 'is_featured', header: 'Destacada', render: (row) => row.is_featured ? 'Si' : 'No' },
           { key: 'actions', header: 'Acciones', render: (row) => <Button variant="ghost" onClick={() => openDetail(row)}>Ver detalle</Button> },

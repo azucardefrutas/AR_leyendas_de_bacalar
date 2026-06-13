@@ -92,7 +92,7 @@ function AdminUsersPage() {
           { key: 'full_name', header: 'Nombre', render: (row) => row.full_name || row.name || 'Sin nombre' },
           { key: 'email', header: 'Correo', render: () => 'No disponible' },
           { key: 'username', header: 'Username', render: (row) => row.username || 'Sin username' },
-          { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status || 'active'} /> },
+          { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status || 'active'} context="creator_profile" /> },
           { key: 'roles', header: 'Roles', render: (row) => getRoleNames(row).join(', ') || 'Sin roles' },
           { key: 'created_at', header: 'Creado', render: (row) => row.created_at ? new Date(row.created_at).toLocaleDateString() : 'Sin fecha' },
           {

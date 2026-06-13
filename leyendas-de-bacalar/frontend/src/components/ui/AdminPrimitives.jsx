@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.js';
+import StatusBadge from '../../shared/status/StatusBadge.jsx';
 import Button from './Button.jsx';
 
 export const adminNavItems = [
@@ -181,61 +182,8 @@ export function AdminStatCard({ label, value, description, icon, tone = 'cyan' }
   );
 }
 
-const statusClassMap = {
-  active: 'success',
-  approved: 'success',
-  published: 'success',
-  redeemed: 'success',
-  paid: 'success',
-  completed: 'success',
-  pending: 'warning',
-  draft: 'info',
-  submitted: 'warning',
-  in_review: 'warning',
-  review: 'warning',
-  changes_requested: 'warning',
-  rejected: 'danger',
-  suspended: 'danger',
-  disabled: 'danger',
-  canceled: 'danger',
-  cancelled: 'danger',
-  unused: 'info',
-  assigned: 'info',
-  expired: 'danger',
-  generated: 'info',
-  exported: 'info',
-  partially_used: 'warning',
-};
-
-const statusLabelMap = {
-  active: 'Activo',
-  approved: 'Aprobada',
-  published: 'Publicada',
-  redeemed: 'Canjeado',
-  paid: 'Pagado',
-  completed: 'Completado',
-  pending: 'Pendiente de correo',
-  draft: 'Borrador',
-  submitted: 'Enviada',
-  in_review: 'En revision',
-  review: 'En revision',
-  changes_requested: 'Cambios solicitados',
-  rejected: 'Rechazada',
-  suspended: 'Suspendido',
-  disabled: 'Deshabilitado',
-  canceled: 'Cancelado',
-  cancelled: 'Cancelado',
-  unused: 'Disponible',
-  assigned: 'Asignado',
-  expired: 'Expirado',
-  generated: 'Generado',
-  exported: 'Exportado',
-  partially_used: 'Uso parcial',
-};
-
-export function AdminStatusBadge({ status = 'pending' }) {
-  const tone = statusClassMap[status] || 'info';
-  return <span className={`admin-status admin-status-${tone}`}>{statusLabelMap[status] || status}</span>;
+export function AdminStatusBadge({ status = 'pending', context = 'generic' }) {
+  return <StatusBadge status={status} context={context} className="admin-status" size="small" />;
 }
 
 export function AdminEmptyState({ title = 'Sin datos', message = 'No hay registros para mostrar.' }) {

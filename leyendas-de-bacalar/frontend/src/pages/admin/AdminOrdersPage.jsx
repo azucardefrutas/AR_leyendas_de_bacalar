@@ -49,7 +49,7 @@ function AdminOrdersPage() {
         columns={[
           { key: 'id', header: 'Orden', render: (row) => String(row.id).slice(0, 8) },
           { key: 'user_id', header: 'Usuario', render: (row) => row.user_id || '-' },
-          { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status || 'pending'} /> },
+          { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status || 'pending'} context="order" /> },
           { key: 'total', header: 'Total', render: (row) => valueFrom(row, ['total', 'amount_total', 'amount', 'total_amount']) },
           { key: 'created_at', header: 'Fecha', render: (row) => row.created_at ? new Date(row.created_at).toLocaleString('es-MX') : 'Sin fecha' },
         ]}
@@ -64,7 +64,7 @@ function AdminOrdersPage() {
         columns={[
           { key: 'id', header: 'Pago', render: (row) => String(row.id).slice(0, 8) },
           { key: 'order_id', header: 'Orden', render: (row) => row.order_id ? String(row.order_id).slice(0, 8) : '-' },
-          { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status || 'pending'} /> },
+          { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status || 'pending'} context="order" /> },
           { key: 'amount', header: 'Monto', render: (row) => valueFrom(row, ['amount', 'total', 'amount_total', 'payment_amount']) },
           { key: 'created_at', header: 'Fecha', render: (row) => row.created_at ? new Date(row.created_at).toLocaleString('es-MX') : 'Sin fecha' },
         ]}

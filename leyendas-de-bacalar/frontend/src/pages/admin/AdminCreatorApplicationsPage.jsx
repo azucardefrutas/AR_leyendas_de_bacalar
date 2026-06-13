@@ -168,7 +168,7 @@ function AdminCreatorApplicationsPage() {
           },
           { key: 'email', header: 'Correo', render: (row) => getEmail(row) },
           { key: 'pen_name', header: 'Seudonimo', render: (row) => getDisplayValue(getDetails(row).penName) },
-          { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status} /> },
+          { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status} context="creator_application" /> },
           { key: 'created_at', header: 'Fecha', render: (row) => formatDate(row.created_at) },
           { key: 'reason', header: 'Motivo breve', render: (row) => getDisplayValue(getDetails(row).motivation || row.reason) },
           {
@@ -206,7 +206,7 @@ function AdminCreatorApplicationsPage() {
                 <h3>{getApplicantName(modal.application)}</h3>
                 <span>{getDisplayValue(getDetails(modal.application).penName)}</span>
               </div>
-              <AdminStatusBadge status={modal.application.status} />
+              <AdminStatusBadge status={modal.application.status} context="creator_application" />
             </div>
 
             <section className="admin-review-section">

@@ -103,7 +103,6 @@ function ModelShowcaseSection({
 
   const [items, setItems] = useState(providedItems || []);
   const [loading, setLoading] = useState(!providedItems);
-  const [shouldLoad, setShouldLoad] = useState(Boolean(providedItems));
   const [pinned, setPinned] = useState(false);
   const [pinHeight, setPinHeight] = useState(null);
   const [openItem, setOpenItem] = useState(null);
@@ -111,30 +110,11 @@ function ModelShowcaseSection({
   const sectionRef = useRef(null);
   const trackRef = useRef(null);
 
-  // Defer the data fetch until the section is close to the viewport.
+  // Fetch the showcase models on mount (metadata + lazy posters are light; the
+  // heavy GLBs still load only when a card is opened). The service self-limits
+  // with a timeout, so this never hangs.
   useEffect(() => {
     if (providedItems) return undefined;
-    const el = sectionRef.current;
-    if (!el || typeof IntersectionObserver === 'undefined') {
-      setShouldLoad(true);
-      return undefined;
-    }
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setShouldLoad(true);
-          observer.disconnect();
-        }
-      },
-      { rootMargin: '300px' },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [providedItems]);
-
-  // Fetch models once the section is near the viewport.
-  useEffect(() => {
-    if (providedItems || !shouldLoad) return undefined;
     let active = true;
     setLoading(true);
     getShowcaseModels()
@@ -147,25 +127,21 @@ function ModelShowcaseSection({
     return () => {
       active = false;
     };
-  }, [providedItems, shouldLoad]);
+  }, [providedItems]);
 
   useEffect(() => {
     if (providedItems) setItems(providedItems);
   }, [providedItems]);
 
-  // Decide pinned (scroll-driven) vs strip (manual horizontal scroll) mode.
+  // Decide pinned (scroll-driven carousel) vs strip (manual horizontal scroll).
+  // Desktop/tablet get the pinned carousel; phones get a touch-friendly strip.
+  // Uses innerWidth + resize so it stays correct across window/viewport changes.
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return undefined;
-    const wide = window.matchMedia('(min-width: 768px)');
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const compute = () => setPinned(wide.matches && !reduce.matches);
+    if (typeof window === 'undefined') return undefined;
+    const compute = () => setPinned(window.innerWidth >= 768);
     compute();
-    wide.addEventListener('change', compute);
-    reduce.addEventListener('change', compute);
-    return () => {
-      wide.removeEventListener('change', compute);
-      reduce.removeEventListener('change', compute);
-    };
+    window.addEventListener('resize', compute);
+    return () => window.removeEventListener('resize', compute);
   }, []);
 
   // Measure how much extra vertical scroll the pinned section needs to traverse
@@ -192,9 +168,7 @@ function ModelShowcaseSection({
       if (trackRef.current) trackRef.current.style.transform = '';
       return undefined;
     }
-    let raf = 0;
     const update = () => {
-      raf = 0;
       const section = sectionRef.current;
       const track = trackRef.current;
       if (!section || !track) return;
@@ -205,16 +179,16 @@ function ModelShowcaseSection({
       const maxX = Math.max(track.scrollWidth - track.clientWidth, 0);
       track.style.transform = `translate3d(${-(progress * maxX)}px, 0, 0)`;
     };
-    const onScroll = () => {
-      if (!raf) raf = requestAnimationFrame(update);
-    };
+    // Update directly on scroll (one rect read + one transform write). Capture
+    // phase so we catch scroll no matter which element actually scrolls (this app
+    // makes the scroll happen off `window` via `overflow-x: hidden` on #root/body),
+    // and no rAF dependency so it works even where rAF is throttled.
     update();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
+    window.addEventListener('scroll', update, { passive: true, capture: true });
+    window.addEventListener('resize', update);
     return () => {
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
-      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener('scroll', update, { capture: true });
+      window.removeEventListener('resize', update);
     };
   }, [pinned, pinHeight, items.length]);
 

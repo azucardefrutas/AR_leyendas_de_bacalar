@@ -7,6 +7,12 @@
       "skillPath": "skills/brandkit/SKILL.md",
       "computedHash": "735007879f5110aeae1e981a53fe74a12afde70347f9773dacd50e4697a091bf"
     },
+    "codex-bug": {
+      "source": "openai/codex",
+      "sourceType": "github",
+      "skillPath": ".codex/skills/codex-bug/SKILL.md",
+      "computedHash": "98d5c9b9b6ac6539953d61cf7a31d13fe5fa5d119f37065bcfe4892ba933b076"
+    },
     "component-interface-design": {
       "source": "qodex-ai/ai-agent-skills",
       "sourceType": "github",
@@ -30,6 +36,12 @@
       "sourceType": "github",
       "skillPath": "skills/emil-design-eng/SKILL.md",
       "computedHash": "ac3fc5b4e206488ffc408a2806f829bb2e5eaf518fded09be34790685c2b3a0d"
+    },
+    "frontend-design": {
+      "source": "am-will/codex-skills",
+      "sourceType": "github",
+      "skillPath": "skills/frontend-design/SKILL.md",
+      "computedHash": "d3334661de9ed476cdd2d4ebef8da6a1f0f0432915b2de035f5f2e989216dd94"
     },
     "full-output-enforcement": {
       "source": "leonxlnx/taste-skill",

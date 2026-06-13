@@ -1,3 +1,5 @@
+import { getStatusLabel } from '../shared/status/statusMeta.js';
+
 const STATUS_LABELS = {
   draft: 'Borrador',
   borrador: 'Borrador',
@@ -5,10 +7,11 @@ const STATUS_LABELS = {
   review: 'En revisión',
   pending_review: 'En revisión',
   submitted: 'En revisión',
-  changes_requested: 'Requiere cambios',
+  changes_requested: 'Cambios solicitados',
   rejected: 'Rechazada',
   approved: 'Aprobada',
   published: 'Publicada',
+  archived: 'Archivada',
 };
 
 const ACCESS_LABELS = {
@@ -71,7 +74,7 @@ export function getLegendDisplayStatus(legendOrStatus) {
   const statusKey = getCreatorLegendStatusKey(legendOrStatus);
   return {
     key: statusKey,
-    label: STATUS_LABELS[statusKey] || statusKey.replace(/_/g, ' '),
+    label: STATUS_LABELS[statusKey] || getStatusLabel(statusKey, 'legend'),
   };
 }
 

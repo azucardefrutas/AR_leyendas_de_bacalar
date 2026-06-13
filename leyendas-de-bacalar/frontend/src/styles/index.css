@@ -370,7 +370,24 @@ pre {
 }
 
 .btn-hero {
-  min-width: 245px;
+  padding: 13px 28px;
+  border-radius: 999px;
+  font-size: 0.96rem;
+  letter-spacing: 0.03em;
+  box-shadow: 0 12px 28px rgba(4, 157, 217, 0.28);
+}
+
+/* Hero action buttons: small, refined pills (no oversized blocks). */
+.home-hero-copy .actions-row .btn {
+  padding: 12px 24px;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.94rem;
+}
+
+.home-hero-copy .actions-row .btn-ghost {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
 .btn:disabled {
@@ -693,51 +710,68 @@ pre {
   color: var(--reader-accent);
 }
 
-.home-cinema {
-  position: relative;
-  min-height: calc(100vh - 108px);
-  isolation: isolate;
-}
-
-.hero-cover-wall {
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  display: grid;
-  grid-template-columns: repeat(6, minmax(140px, 1fr));
-  gap: 24px;
-  padding: 74px 24px 0;
-  overflow: hidden;
-  opacity: 0.48;
-  filter: saturate(1.08) contrast(1.03) blur(0.35px);
-  transform: rotate(-2deg) scale(1.08);
-}
-
-.hero-cover-wall img {
+/* Home only: escape the 1280px centered page-container so each section's
+   background is genuinely full-bleed. This is what kills the centered "invisible
+   box" — there is no longer a narrow box whose overlay edges show as seams. */
+.page-container:has(.home-page) {
   width: 100%;
-  min-height: 280px;
-  object-fit: cover;
-  border-radius: 18px;
-  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.42);
+  max-width: none;
+  padding: 0;
 }
 
-.home-cinema::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  z-index: -1;
-  background:
-    linear-gradient(90deg, rgba(6, 24, 38, 0.92) 0%, rgba(8, 44, 58, 0.78) 34%, rgba(8, 44, 58, 0.34) 66%, rgba(6, 24, 38, 0.84) 100%),
-    radial-gradient(circle at 68% 52%, rgba(48, 207, 242, 0.32), transparent 23rem),
-    radial-gradient(circle at 20% 74%, rgba(23, 184, 201, 0.18), transparent 24rem),
-    linear-gradient(0deg, rgba(6, 24, 38, 0.86), rgba(6, 24, 38, 0.22));
+.home-page {
+  position: relative;
+  width: 100%;
+  color: #fff;
+  background: #06141b; /* deep base shared behind both sections */
+  isolation: isolate;
+  /* No overflow here: each section clips its own content (hero clips its scaled
+     background, the showcase clips its track), so the document keeps scrolling
+     normally and the sticky carousel pins to the viewport. */
 }
 
+/* ---------------- Hero ---------------- */
 .home-hero {
-  min-height: calc(100vh - 156px);
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+/* Collage lives ONLY in the hero, confined to it and full-bleed within it. */
+.hero-background {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: url("/landing-intro/display-motion/collage_final.png") center / cover no-repeat;
+  transform: scale(1.06);
+}
+
+/* One continuous gradient across the full hero width — darker on the left for
+   text legibility, a soft Bacalar-turquoise glow on the right behind the book.
+   No abrupt band, so no visible rectangle. */
+.hero-background::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(58% 58% at 80% 46%, rgba(99, 162, 176, 0.22), transparent 62%),
+    linear-gradient(90deg, rgba(4, 16, 22, 0.94) 0%, rgba(4, 16, 22, 0.6) 40%, rgba(4, 16, 22, 0.28) 72%, rgba(4, 16, 22, 0.55) 100%),
+    linear-gradient(180deg, rgba(4, 16, 22, 0.18) 0%, rgba(4, 16, 22, 0.4) 55%, rgba(6, 20, 27, 0.92) 100%);
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+  width: min(1240px, calc(100% - clamp(36px, 8vw, 128px)));
+  margin: 0 auto;
+  padding-top: 92px; /* clear the fixed navbar */
   display: grid;
-  grid-template-columns: minmax(320px, 0.92fr) minmax(360px, 1.08fr);
-  gap: clamp(32px, 7vw, 96px);
+  grid-template-columns: minmax(0, 1.12fr) minmax(240px, 380px);
+  gap: clamp(28px, 5vw, 80px);
   align-items: center;
 }
 
@@ -750,12 +784,13 @@ pre {
 .home-hero-copy h1 {
   margin: 0;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(3.3rem, 8vw, 7rem);
-  line-height: 0.92;
-  letter-spacing: 0.02em;
+  font-size: clamp(3.2rem, 6.6vw, 6.6rem);
+  line-height: 0.86;
+  letter-spacing: -0.02em;
   text-transform: uppercase;
   color: #ffffff;
-  text-shadow: 0 18px 54px rgba(0, 0, 0, 0.55), 0 0 24px rgba(48, 207, 242, 0.16);
+  overflow-wrap: break-word;
+  text-shadow: 0 22px 64px rgba(0, 0, 0, 0.62), 0 0 30px rgba(48, 207, 242, 0.12);
 }
 
 .home-hero-copy > p {
@@ -797,6 +832,9 @@ pre {
   min-height: 560px;
   display: grid;
   place-items: center;
+  justify-self: end;
+  width: 100%;
+  max-width: 420px;
 }
 
 .floating-book-shell {
@@ -2330,6 +2368,31 @@ pre {
   background: #e7f8fc;
 }
 
+.creator-stat-icon-success {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.creator-stat-icon-warning {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.creator-stat-icon-info {
+  color: #155e75;
+  background: #cffafe;
+}
+
+.creator-stat-icon-danger {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.creator-stat-icon-neutral {
+  color: #475569;
+  background: #e2e8f0;
+}
+
 .creator-stat-icon .creator-icon {
   width: 24px;
   height: 24px;
@@ -2461,6 +2524,7 @@ pre {
   line-height: 1.35;
 }
 
+.status-badge,
 .creator-status-pill {
   width: fit-content;
   display: inline-flex;
@@ -2472,6 +2536,41 @@ pre {
   background: #e0f2fe;
   font-size: 0.78rem;
   font-weight: 900;
+}
+
+.status-badge-success,
+.status-success {
+  color: #166534;
+  background: #dcfce7;
+}
+
+.status-badge-warning,
+.status-warning {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.status-badge-info,
+.status-info {
+  color: #155e75;
+  background: #cffafe;
+}
+
+.status-badge-danger,
+.status-danger {
+  color: #991b1b;
+  background: #fee2e2;
+}
+
+.status-badge-neutral,
+.status-neutral {
+  color: #475569;
+  background: #e2e8f0;
+}
+
+.status-badge-small {
+  padding: 5px 9px;
+  font-size: 0.78rem;
 }
 
 .creator-status-pill.status-draft,
@@ -2491,8 +2590,8 @@ pre {
 }
 
 .creator-status-pill.status-approved {
-  color: #854d0e;
-  background: #fef9c3;
+  color: #166534;
+  background: #dcfce7;
 }
 
 .creator-status-pill.status-published {
@@ -2502,9 +2601,17 @@ pre {
 
 .creator-status-pill.status-in_review,
 .creator-status-pill.status-review,
-.creator-status-pill.status-pending_review {
-  color: #155e75;
-  background: #cffafe;
+.creator-status-pill.status-pending_review,
+.creator-status-pill.status-submitted {
+  color: #92400e;
+  background: #fef3c7;
+}
+
+.creator-status-pill.status-archived,
+.creator-status-pill.status-cancelled,
+.creator-status-pill.status-inactive {
+  color: #475569;
+  background: #e2e8f0;
 }
 
 .creator-access-pill,
@@ -2758,6 +2865,235 @@ pre {
 .creator-profile-stats span {
   color: #64748b;
   font-weight: 800;
+}
+
+.creator-profile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.creator-profile-social {
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.creator-profile-cover {
+  position: relative;
+  min-height: 260px;
+  background: #0f766e;
+}
+
+.creator-profile-cover img,
+.creator-profile-cover-fallback {
+  width: 100%;
+  height: 100%;
+  min-height: 260px;
+  display: block;
+  object-fit: cover;
+}
+
+.creator-profile-cover-fallback {
+  background:
+    radial-gradient(circle at 20% 22%, rgba(255, 255, 255, 0.28), transparent 26%),
+    linear-gradient(135deg, rgba(4, 157, 217, 0.88), rgba(20, 184, 166, 0.72) 46%, rgba(21, 38, 89, 0.86));
+  background-size: cover;
+  background-position: center;
+}
+
+.creator-profile-upload,
+.creator-profile-avatar-upload {
+  cursor: pointer;
+}
+
+.creator-profile-upload {
+  position: absolute;
+  right: 18px;
+  bottom: 18px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 999px;
+  padding: 10px 14px;
+  color: #ffffff;
+  font-size: 0.86rem;
+  font-weight: 900;
+  background: rgba(15, 23, 42, 0.62);
+  backdrop-filter: blur(10px);
+}
+
+.creator-profile-upload input,
+.creator-profile-avatar-upload input {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.creator-profile-summary {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 22px;
+  align-items: start;
+  padding: 0 28px 26px;
+}
+
+.creator-profile-avatar-large {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  margin-top: -58px;
+  border: 5px solid #ffffff;
+  border-radius: 999px;
+  overflow: visible;
+  box-shadow: 0 18px 42px rgba(15, 23, 42, 0.18);
+}
+
+.creator-profile-avatar-large img {
+  border-radius: inherit;
+}
+
+.creator-profile-avatar-upload {
+  position: absolute;
+  right: 2px;
+  bottom: 4px;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 3px solid #ffffff;
+  border-radius: 999px;
+  color: #0f172a;
+  background: #e0f2fe;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
+}
+
+.creator-profile-status {
+  margin-bottom: 2px;
+}
+
+.creator-profile-headline {
+  margin: 0;
+  color: #0f766e;
+  font-weight: 900;
+}
+
+.creator-profile-meta a,
+.creator-profile-meta span {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 7px 10px;
+  color: #475569;
+  background: #f1f5f9;
+  text-decoration: none;
+}
+
+.creator-profile-status-stats article {
+  border-top: 4px solid transparent;
+}
+
+.creator-profile-stat-success { border-top-color: #22c55e; }
+.creator-profile-stat-warning { border-top-color: #f59e0b; }
+.creator-profile-stat-info { border-top-color: #0284c7; }
+.creator-profile-stat-danger { border-top-color: #ef4444; }
+.creator-profile-stat-neutral { border-top-color: #94a3b8; }
+
+.creator-profile-editor-card {
+  padding: 20px;
+}
+
+.creator-profile-editor-form {
+  display: grid;
+  gap: 16px;
+}
+
+.creator-profile-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.creator-profile-editor-wide {
+  grid-column: 1 / -1;
+}
+
+.creator-profile-works {
+  display: grid;
+  gap: 12px;
+}
+
+.creator-profile-works article {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid #dbe4ef;
+  border-radius: 16px;
+  padding: 14px 16px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(21, 38, 89, 0.05);
+}
+
+.creator-profile-works article > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.creator-profile-works strong {
+  color: #0f172a;
+}
+
+.creator-profile-works span {
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .creator-profile-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .creator-profile-actions .btn,
+  .creator-profile-actions button {
+    flex: 1 1 160px;
+  }
+
+  .creator-profile-cover,
+  .creator-profile-cover img,
+  .creator-profile-cover-fallback {
+    min-height: 190px;
+  }
+
+  .creator-profile-summary {
+    grid-template-columns: 1fr;
+    padding: 0 18px 22px;
+  }
+
+  .creator-profile-avatar-large {
+    width: 104px;
+    height: 104px;
+    margin-top: -48px;
+  }
+
+  .creator-profile-editor-grid,
+  .creator-profile-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .creator-profile-works article {
+    align-items: flex-start;
+    flex-direction: column;
+  }
 }
 
 .creator-shell .page-heading-row h1,
@@ -4841,16 +5177,23 @@ pre {
 
 .admin-status {
   display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border-radius: 999px;
   padding: 5px 9px;
   font-size: 0.78rem;
   font-weight: 900;
 }
 
-.admin-status-success { color: #166534; background: #dcfce7; }
-.admin-status-warning { color: #854d0e; background: #fef3c7; }
-.admin-status-danger { color: #991b1b; background: #fee2e2; }
-.admin-status-info { color: #075985; background: #e0f2fe; }
+.admin-status-success,
+.admin-status.status-badge-success { color: #166534; background: #dcfce7; }
+.admin-status-warning,
+.admin-status.status-badge-warning { color: #92400e; background: #fef3c7; }
+.admin-status-danger,
+.admin-status.status-badge-danger { color: #991b1b; background: #fee2e2; }
+.admin-status-info,
+.admin-status.status-badge-info { color: #075985; background: #e0f2fe; }
+.admin-status.status-badge-neutral { color: #475569; background: #e2e8f0; }
 
 .admin-empty-state {
   border: 1px dashed #cbd5e1;
@@ -7192,27 +7535,28 @@ table {
     min-height: auto;
   }
 
-  .hero-cover-wall {
-    grid-template-columns: repeat(3, minmax(96px, 1fr));
-    gap: 12px;
-    padding: 24px 10px 0;
-  }
-
-  .hero-cover-wall img {
-    min-height: 190px;
-    border-radius: 12px;
-  }
-
   .home-hero {
+    min-height: 100vh;
+  }
+
+  .hero-content {
     grid-template-columns: minmax(0, 1fr);
-    min-height: auto;
-    gap: 18px;
-    padding-block: 18px 34px;
+    gap: 24px;
+    padding-top: 104px;
+    padding-bottom: 40px;
+  }
+
+  /* Book drops below the copy on small screens, without covering anything. */
+  .home-book-stage {
+    justify-self: center;
+    order: 2;
+    min-height: 360px;
+    max-width: 100%;
   }
 
   .home-hero-copy h1 {
-    font-size: clamp(2.35rem, 15vw, 4rem);
-    line-height: 0.96;
+    font-size: clamp(2.6rem, 14vw, 4.4rem);
+    line-height: 0.92;
   }
 
   .floating-book-shell {
@@ -7601,18 +7945,15 @@ table {
 /* Scroll-driven horizontal gallery of 3D models. Soft muted lagoon band, no
    heavy black field. Cards are pure DOM (poster/placeholder); the real
    Model3DViewer Canvas mounts only when a card is opened. */
+/* Own identity, full-bleed section (not a centered panel). Bacalar turquoise
+   (#63a2b0) as the accent over a deep blue base, distinct from the hero. */
 .model-showcase {
   position: relative;
   width: 100%;
   background:
-    linear-gradient(
-      180deg,
-      rgba(11, 61, 74, 0) 0%,
-      rgba(11, 61, 74, 0.32) 16%,
-      rgba(15, 76, 92, 0.46) 50%,
-      rgba(11, 61, 74, 0.32) 84%,
-      rgba(11, 61, 74, 0) 100%
-    );
+    radial-gradient(70% 70% at 16% 18%, rgba(99, 162, 176, 0.34), transparent 46%),
+    radial-gradient(60% 60% at 92% 88%, rgba(99, 162, 176, 0.16), transparent 52%),
+    linear-gradient(180deg, #06141b 0%, #123640 46%, #0a232c 100%);
 }
 
 .model-showcase-sticky {
@@ -7626,8 +7967,15 @@ table {
   height: 100vh;
   height: 100dvh;
   justify-content: center;
-  gap: clamp(20px, 4vh, 40px);
+  gap: clamp(24px, 5vh, 56px);
+  padding-top: clamp(72px, 9vh, 104px);
   overflow: hidden;
+}
+
+/* Soft fade at both edges so cards glide in/out instead of being hard-clipped. */
+.model-showcase.is-pinned .model-showcase-viewport {
+  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 6%, #000 94%, transparent 100%);
+  mask-image: linear-gradient(90deg, transparent 0, #000 6%, #000 94%, transparent 100%);
 }
 
 .model-showcase.is-strip .model-showcase-sticky {
@@ -7643,11 +7991,11 @@ table {
 .model-showcase-head h2 {
   margin: 0;
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(1.9rem, 4.4vw, 3.2rem);
-  line-height: 1.02;
-  letter-spacing: 0.01em;
+  font-size: clamp(2.4rem, 5.6vw, 4.4rem);
+  line-height: 0.98;
+  letter-spacing: -0.01em;
   color: #ffffff;
-  text-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
 }
 
 .model-showcase-head p {
@@ -7686,13 +8034,15 @@ table {
   margin-right: clamp(16px, 5vw, 64px);
 }
 
+/* No transition on the scroll-linked transform: it must track the scroll
+   position 1:1 (a transition here causes lag and rubber-banding). */
 .model-showcase.is-pinned .model-showcase-track {
-  transition: transform 0.05s linear;
+  transition: none;
 }
 
 .model-showcase-card {
   flex: 0 0 auto;
-  width: clamp(258px, 30vw, 392px);
+  width: clamp(320px, 36vw, 480px);
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -7886,4 +8236,24 @@ table {
   .model-showcase-spinner {
     animation-duration: 1.6s;
   }
+}
+
+/* Refined 3D viewer header controls (used by the showcase + reader). Compact,
+   clean pills instead of bulky blocks. */
+.model3d-actions .btn {
+  padding: 9px 18px;
+  border-radius: 999px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.model3d-actions .btn-ghost {
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.model3d-actions .btn-ghost:hover {
+  background: rgba(48, 207, 242, 0.16);
+  border-color: rgba(48, 207, 242, 0.4);
 }

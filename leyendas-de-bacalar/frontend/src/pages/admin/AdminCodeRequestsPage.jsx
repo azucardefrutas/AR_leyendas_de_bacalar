@@ -73,7 +73,7 @@ function AdminCodeRequestsPage() {
           { key: 'edition', header: 'Edicion', render: (row) => row.physical_editions?.edition_name || row.edition_id || 'Sin edicion' },
           { key: 'quantity_requested', header: 'Cantidad' },
           { key: 'reason', header: 'Motivo' },
-          { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status || 'pending'} /> },
+          { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status || 'pending'} context="code" /> },
           { key: 'created_at', header: 'Fecha', render: (row) => row.created_at ? new Date(row.created_at).toLocaleDateString() : 'Sin fecha' },
           { key: 'actions', header: 'Acciones', render: (row) => <Button onClick={() => openGenerateModal(row)}>Generar lote</Button> },
         ]}

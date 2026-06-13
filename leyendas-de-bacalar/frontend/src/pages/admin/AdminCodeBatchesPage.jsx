@@ -87,7 +87,7 @@ function AdminCodeBatchesPage() {
           { key: 'id', header: 'Lote', render: (row) => String(row.id).slice(0, 8) },
           { key: 'edition', header: 'Edicion', render: getEditionLabel },
           { key: 'quantity', header: 'Cantidad' },
-          { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status || 'generated'} /> },
+          { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status || 'generated'} context="code" /> },
           { key: 'prefix', header: 'Prefijo', render: (row) => row.prefix || '-' },
           { key: 'created_at', header: 'Creado', render: (row) => row.created_at ? new Date(row.created_at).toLocaleDateString() : 'Sin fecha' },
           { key: 'actions', header: 'Codigos', render: (row) => <button className="admin-link-button" onClick={() => selectBatch(row)}>Ver codigos</button> },
@@ -113,7 +113,7 @@ function AdminCodeBatchesPage() {
             emptyMessage="Este lote no tiene access_codes asociados. Revisa la generacion del lote."
             columns={[
               { key: 'display_code', header: 'Codigo', render: getVisibleCode },
-              { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status || 'unused'} /> },
+              { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status || 'unused'} context="code" /> },
               { key: 'redeemed_at', header: 'Canjeado', render: (row) => row.redeemed_at ? new Date(row.redeemed_at).toLocaleString() : 'No' },
               { key: 'assigned_to_user_id', header: 'Usuario', render: (row) => row.assigned_to_user_id || row.redeemed_by_user_id || '-' },
             ]}
