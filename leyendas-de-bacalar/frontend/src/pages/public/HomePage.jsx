@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import FloatingBook from '../../components/3d/FloatingBook.jsx';
+import ModelShowcaseSection from '../../components/3d/ModelShowcaseSection.jsx';
 import Button from '../../components/ui/Button.jsx';
 import LandingIntroOverlay from '../../components/landing/LandingIntroOverlay.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
@@ -48,6 +49,11 @@ function HomePage() {
           <FloatingBook />
         </div>
       </section>
+
+      <ModelShowcaseSection
+        title="Modelos 3D de las leyendas"
+        subtitle="Recorre las criaturas y objetos de Bacalar. Desplázate para explorarlos y ábrelos para girarlos con el mouse o el dedo."
+      />
 
       <div className="home-content-spacer" id="acerca" aria-hidden="true" />
     </section>

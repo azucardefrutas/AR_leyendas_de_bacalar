@@ -7596,3 +7596,294 @@ table {
     width: 72px;
   }
 }
+
+/* ===================== 3D Model Showcase ===================== */
+/* Scroll-driven horizontal gallery of 3D models. Soft muted lagoon band, no
+   heavy black field. Cards are pure DOM (poster/placeholder); the real
+   Model3DViewer Canvas mounts only when a card is opened. */
+.model-showcase {
+  position: relative;
+  width: 100%;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(11, 61, 74, 0) 0%,
+      rgba(11, 61, 74, 0.32) 16%,
+      rgba(15, 76, 92, 0.46) 50%,
+      rgba(11, 61, 74, 0.32) 84%,
+      rgba(11, 61, 74, 0) 100%
+    );
+}
+
+.model-showcase-sticky {
+  display: flex;
+  flex-direction: column;
+}
+
+.model-showcase.is-pinned .model-showcase-sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100dvh;
+  justify-content: center;
+  gap: clamp(20px, 4vh, 40px);
+  overflow: hidden;
+}
+
+.model-showcase.is-strip .model-showcase-sticky {
+  padding-block: clamp(40px, 7vw, 72px);
+  gap: clamp(20px, 4vw, 32px);
+}
+
+.model-showcase-head {
+  padding-inline: clamp(16px, 5vw, 64px);
+  max-width: 720px;
+}
+
+.model-showcase-head h2 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.9rem, 4.4vw, 3.2rem);
+  line-height: 1.02;
+  letter-spacing: 0.01em;
+  color: #ffffff;
+  text-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+}
+
+.model-showcase-head p {
+  margin: 12px 0 0;
+  color: rgba(234, 251, 255, 0.78);
+  font-size: clamp(0.98rem, 1.4vw, 1.12rem);
+  line-height: 1.6;
+}
+
+.model-showcase-viewport {
+  width: 100%;
+  min-height: 0;
+}
+
+.model-showcase.is-strip .model-showcase-viewport {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.model-showcase.is-strip .model-showcase-viewport::-webkit-scrollbar {
+  display: none;
+}
+
+.model-showcase-track {
+  display: flex;
+  align-items: stretch;
+  gap: clamp(18px, 2.4vw, 36px);
+  padding-left: clamp(16px, 5vw, 64px);
+  will-change: transform;
+}
+
+.model-showcase-track > :last-child {
+  margin-right: clamp(16px, 5vw, 64px);
+}
+
+.model-showcase.is-pinned .model-showcase-track {
+  transition: transform 0.05s linear;
+}
+
+.model-showcase-card {
+  flex: 0 0 auto;
+  width: clamp(258px, 30vw, 392px);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  scroll-snap-align: center;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.model-showcase-card.is-disabled {
+  cursor: default;
+}
+
+.model-showcase-poster {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  border-radius: 24px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 18px 44px rgba(2, 14, 24, 0.42);
+  transition: transform 220ms ease-out, box-shadow 220ms ease-out;
+}
+
+.model-showcase-poster-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.model-showcase-poster-fallback {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.model-showcase-poster-fallback svg {
+  width: 38%;
+  height: 38%;
+}
+
+.model-showcase-card:not(.is-disabled):hover .model-showcase-poster,
+.model-showcase-card:not(.is-disabled):focus-visible .model-showcase-poster {
+  transform: translateY(-6px);
+  box-shadow: 0 28px 60px rgba(2, 14, 24, 0.55);
+}
+
+.model-showcase-card:not(.is-disabled):active .model-showcase-poster {
+  transform: translateY(-2px) scale(0.992);
+}
+
+.model-showcase-card:focus-visible {
+  outline: none;
+}
+
+.model-showcase-card:focus-visible .model-showcase-poster {
+  outline: 2px solid var(--bacalar-cyan);
+  outline-offset: 3px;
+}
+
+.model-showcase-badge {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #eafbff;
+  background: rgba(6, 24, 38, 0.58);
+  border: 1px solid rgba(48, 207, 242, 0.34);
+  backdrop-filter: blur(6px);
+}
+
+.model-showcase-open {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #eafbff;
+  background: rgba(6, 24, 38, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(6px);
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 200ms ease-out, transform 200ms ease-out;
+}
+
+.model-showcase-open svg {
+  width: 18px;
+  height: 18px;
+}
+
+.model-showcase-card:hover .model-showcase-open,
+.model-showcase-card:focus-visible .model-showcase-open {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.model-showcase-soon {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: rgba(234, 251, 255, 0.86);
+  background: rgba(6, 24, 38, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.model-showcase-card.is-disabled .model-showcase-poster {
+  filter: grayscale(0.25);
+  opacity: 0.78;
+}
+
+.model-showcase-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-inline: 4px;
+}
+
+.model-showcase-name {
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.model-showcase-legend {
+  font-size: 0.86rem;
+  color: rgba(234, 251, 255, 0.62);
+}
+
+.model-showcase-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-inline: clamp(16px, 5vw, 64px);
+  color: rgba(234, 251, 255, 0.74);
+  font-size: 1rem;
+}
+
+.model-showcase-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid rgba(48, 207, 242, 0.28);
+  border-top-color: var(--bacalar-cyan);
+  animation: modelShowcaseSpin 0.8s linear infinite;
+}
+
+@keyframes modelShowcaseSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 767px) {
+  .model-showcase-card {
+    width: min(80vw, 360px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .model-showcase-poster,
+  .model-showcase-open,
+  .model-showcase.is-pinned .model-showcase-track {
+    transition: none;
+  }
+
+  .model-showcase-card:not(.is-disabled):hover .model-showcase-poster,
+  .model-showcase-card:not(.is-disabled):focus-visible .model-showcase-poster {
+    transform: none;
+  }
+
+  .model-showcase-spinner {
+    animation-duration: 1.6s;
+  }
+}

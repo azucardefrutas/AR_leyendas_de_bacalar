@@ -7,6 +7,12 @@
       "skillPath": "skills/brandkit/SKILL.md",
       "computedHash": "735007879f5110aeae1e981a53fe74a12afde70347f9773dacd50e4697a091bf"
     },
+    "component-interface-design": {
+      "source": "qodex-ai/ai-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/component-interface-design/SKILL.md",
+      "computedHash": "288d182012d0b5b0c24258dded0d2bf701de10282d50ec91dc26a33952a4c1ee"
+    },
     "design-taste-frontend": {
       "source": "leonxlnx/taste-skill",
       "sourceType": "github",
@@ -84,6 +90,18 @@
       "sourceType": "github",
       "skillPath": "skills/stitch-skill/SKILL.md",
       "computedHash": "c96b580192b34167efa01f460bbc669ff4315cf97f3cf6ff85ded8029aa720b8"
+    },
+    "user-interface-designer": {
+      "source": "qodex-ai/ai-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/user-interface-designer/SKILL.md",
+      "computedHash": "03b924af8143cd323cd7f2773d3d83b51d6e9ea6eb0d9ee1581be0179f98d08b"
+    },
+    "web-interface-design": {
+      "source": "ratacat/claude-skills",
+      "sourceType": "github",
+      "skillPath": "skills/web-interface-design/SKILL.md",
+      "computedHash": "67b35745f2a8d56dfe0429a9727523f081aaedcccf7ab11e078c4c1e676c251b"
     }
   }
 }
