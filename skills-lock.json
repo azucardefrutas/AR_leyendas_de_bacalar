@@ -19,6 +19,12 @@
       "skillPath": "skills/component-interface-design/SKILL.md",
       "computedHash": "288d182012d0b5b0c24258dded0d2bf701de10282d50ec91dc26a33952a4c1ee"
     },
+    "context-mode": {
+      "source": "mksglu/claude-context-mode",
+      "sourceType": "github",
+      "skillPath": "skills/context-mode/SKILL.md",
+      "computedHash": "1962755c8f5995762dff3e14b1d2703ae15c37e83fb10d5077ce2ddc595538e7"
+    },
     "design-taste-frontend": {
       "source": "leonxlnx/taste-skill",
       "sourceType": "github",

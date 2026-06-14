@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import SiteNavbar from '../components/ui/SiteNavbar.jsx';
+import LoadingState from '../components/ui/LoadingState.jsx';
 
 function PublicLayout() {
   const location = useLocation();
@@ -11,7 +12,9 @@ function PublicLayout() {
     <div className="app-shell">
       <SiteNavbar />
       <Container className="page-container">
-        <Outlet />
+        <Suspense fallback={<LoadingState message="Cargando..." />}>
+          <Outlet />
+        </Suspense>
       </Container>
     </div>
   );

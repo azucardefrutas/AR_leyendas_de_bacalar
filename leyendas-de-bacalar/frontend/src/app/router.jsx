@@ -1,5 +1,8 @@
-import React from "react";
+import React, { lazy } from "react";
 import { createBrowserRouter, Navigate } from 'react-router-dom';
+// Guards + layouts stay static: they are tiny and form the persistent shell that
+// must render instantly (and a Suspense boundary inside each layout shell handles
+// the lazy page chunks below, so the navbar/sidebar stays visible while loading).
 import CreatorAccessGuard from '../components/auth/CreatorAccessGuard.jsx';
 import ProtectedRoute from '../components/auth/ProtectedRoute.jsx';
 import RedirectAuthenticatedRoute from '../components/auth/RedirectAuthenticatedRoute.jsx';
@@ -10,31 +13,7 @@ import AuthLayout from '../layouts/AuthLayout.jsx';
 import CreatorLayout from '../layouts/CreatorLayout.jsx';
 import PublicLayout from '../layouts/PublicLayout.jsx';
 import ReaderLayout from '../layouts/ReaderLayout.jsx';
-import AdminActivityPage from '../pages/admin/AdminActivityPage.jsx';
-import AdminAssetsPage from '../pages/admin/AdminAssetsPage.jsx';
-import AdminAuthorsPage from '../pages/admin/AdminAuthorsPage.jsx';
-import AdminCodeBatchesPage from '../pages/admin/AdminCodeBatchesPage.jsx';
-import AdminCodeRequestsPage from '../pages/admin/AdminCodeRequestsPage.jsx';
-import AdminCreatorApplicationsPage from '../pages/admin/AdminCreatorApplicationsPage.jsx';
-import AdminDashboardPage from '../pages/admin/AdminDashboardPage.jsx';
-import AdminLegendsPage from '../pages/admin/AdminLegendsPage.jsx';
-import AdminReviewsPage from '../pages/admin/AdminReviewsPage.jsx';
-import AdminSettingsPage from '../pages/admin/AdminSettingsPage.jsx';
-import AdminOrdersPage from '../pages/admin/AdminOrdersPage.jsx';
-import AdminSubscriptionsPage from '../pages/admin/AdminSubscriptionsPage.jsx';
-import AdminUsersPage from '../pages/admin/AdminUsersPage.jsx';
-import AuthCallbackPage from '../pages/auth/AuthCallbackPage.jsx';
-import CheckEmailPage from '../pages/auth/CheckEmailPage.jsx';
-import LoginPage from '../pages/auth/LoginPage.jsx';
-import RegisterPage from '../pages/auth/RegisterPage.jsx';
-import CodeRequestsPage from '../pages/creator/CodeRequestsPage.jsx';
-import CreateLegendPage from '../pages/creator/CreateLegendPage.jsx';
-import CreatorDashboardPage from '../pages/creator/CreatorDashboardPage.jsx';
-import CreatorLegendsPage from '../pages/creator/CreatorLegendsPage.jsx';
-import CreatorProfilePage from '../pages/creator/CreatorProfilePage.jsx';
-import CreatorReviewsPage from '../pages/creator/CreatorReviewsPage.jsx';
-import EditLegendPage from '../pages/creator/EditLegendPage.jsx';
-import UploadAssetsPage from '../pages/creator/UploadAssetsPage.jsx';
+// Public fast-path pages stay static so the most-visited routes paint immediately.
 import AccessDeniedPage from '../pages/public/AccessDeniedPage.jsx';
 import CatalogPage from '../pages/public/CatalogPage.jsx';
 import CreatorApplyPage from '../pages/public/CreatorApplyPage.jsx';
@@ -45,12 +24,41 @@ import LegendDetailPage from '../pages/public/LegendDetailPage.jsx';
 import NotFoundPage from '../pages/public/NotFoundPage.jsx';
 import PrivacyPage from '../pages/public/PrivacyPage.jsx';
 import TermsPage from '../pages/public/TermsPage.jsx';
-import LibraryPage from '../pages/reader/LibraryPage.jsx';
-import ProfilePage from '../pages/reader/ProfilePage.jsx';
-import PurchasesPage from '../pages/reader/PurchasesPage.jsx';
-import ReadingPage from '../pages/reader/ReadingPage.jsx';
-import RedeemCodePage from '../pages/reader/RedeemCodePage.jsx';
-import SubscriptionPage from '../pages/reader/SubscriptionPage.jsx';
+
+// Lazy-loaded route trees: each becomes its own chunk so it no longer ships in the
+// initial bundle. Admin pulls recharts, creator pulls the editor, reader pulls the
+// book viewer, auth pulls the login forms — none of which the first paint needs.
+const AdminActivityPage = lazy(() => import('../pages/admin/AdminActivityPage.jsx'));
+const AdminAssetsPage = lazy(() => import('../pages/admin/AdminAssetsPage.jsx'));
+const AdminAuthorsPage = lazy(() => import('../pages/admin/AdminAuthorsPage.jsx'));
+const AdminCodeBatchesPage = lazy(() => import('../pages/admin/AdminCodeBatchesPage.jsx'));
+const AdminCodeRequestsPage = lazy(() => import('../pages/admin/AdminCodeRequestsPage.jsx'));
+const AdminCreatorApplicationsPage = lazy(() => import('../pages/admin/AdminCreatorApplicationsPage.jsx'));
+const AdminDashboardPage = lazy(() => import('../pages/admin/AdminDashboardPage.jsx'));
+const AdminLegendsPage = lazy(() => import('../pages/admin/AdminLegendsPage.jsx'));
+const AdminReviewsPage = lazy(() => import('../pages/admin/AdminReviewsPage.jsx'));
+const AdminSettingsPage = lazy(() => import('../pages/admin/AdminSettingsPage.jsx'));
+const AdminOrdersPage = lazy(() => import('../pages/admin/AdminOrdersPage.jsx'));
+const AdminSubscriptionsPage = lazy(() => import('../pages/admin/AdminSubscriptionsPage.jsx'));
+const AdminUsersPage = lazy(() => import('../pages/admin/AdminUsersPage.jsx'));
+const AuthCallbackPage = lazy(() => import('../pages/auth/AuthCallbackPage.jsx'));
+const CheckEmailPage = lazy(() => import('../pages/auth/CheckEmailPage.jsx'));
+const LoginPage = lazy(() => import('../pages/auth/LoginPage.jsx'));
+const RegisterPage = lazy(() => import('../pages/auth/RegisterPage.jsx'));
+const CodeRequestsPage = lazy(() => import('../pages/creator/CodeRequestsPage.jsx'));
+const CreateLegendPage = lazy(() => import('../pages/creator/CreateLegendPage.jsx'));
+const CreatorDashboardPage = lazy(() => import('../pages/creator/CreatorDashboardPage.jsx'));
+const CreatorLegendsPage = lazy(() => import('../pages/creator/CreatorLegendsPage.jsx'));
+const CreatorProfilePage = lazy(() => import('../pages/creator/CreatorProfilePage.jsx'));
+const CreatorReviewsPage = lazy(() => import('../pages/creator/CreatorReviewsPage.jsx'));
+const EditLegendPage = lazy(() => import('../pages/creator/EditLegendPage.jsx'));
+const UploadAssetsPage = lazy(() => import('../pages/creator/UploadAssetsPage.jsx'));
+const LibraryPage = lazy(() => import('../pages/reader/LibraryPage.jsx'));
+const ProfilePage = lazy(() => import('../pages/reader/ProfilePage.jsx'));
+const PurchasesPage = lazy(() => import('../pages/reader/PurchasesPage.jsx'));
+const ReadingPage = lazy(() => import('../pages/reader/ReadingPage.jsx'));
+const RedeemCodePage = lazy(() => import('../pages/reader/RedeemCodePage.jsx'));
+const SubscriptionPage = lazy(() => import('../pages/reader/SubscriptionPage.jsx'));
 
 export const router = createBrowserRouter([
   {

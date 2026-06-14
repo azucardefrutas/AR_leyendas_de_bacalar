@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { Outlet } from 'react-router-dom';
 import SiteNavbar from '../ui/SiteNavbar.jsx';
 import Sidebar from './Sidebar.jsx';
+import LoadingState from '../ui/LoadingState.jsx';
 
 function DashboardShell({ title, items }) {
   return (
@@ -10,7 +11,9 @@ function DashboardShell({ title, items }) {
       <div className="dashboard-shell">
         <Sidebar title={title} items={items} />
         <section className="dashboard-content">
-          <Outlet />
+          <Suspense fallback={<LoadingState />}>
+            <Outlet />
+          </Suspense>
         </section>
       </div>
     </div>

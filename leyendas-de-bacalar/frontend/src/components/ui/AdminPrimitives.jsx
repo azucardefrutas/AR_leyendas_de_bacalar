@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.js';
 import StatusBadge from '../../shared/status/StatusBadge.jsx';
 import Button from './Button.jsx';
+import LoadingState from './LoadingState.jsx';
 
 export const adminNavItems = [
   { label: 'Dashboard', to: '/admin', icon: 'dashboard', end: true },
@@ -150,7 +151,9 @@ export function AdminLayoutShell() {
       </aside>
 
       <main className="admin-main">
-        <Outlet />
+        <Suspense fallback={<LoadingState />}>
+          <Outlet />
+        </Suspense>
       </main>
     </div>
   );

@@ -26,7 +26,7 @@ function LegendCard({ legend }) {
     <Link className="poster-card" to={`/legend/${legend.slug}`} aria-label={legend.title}>
       <div className="poster-card-art">
         {coverUrl ? (
-          <img src={coverUrl} alt={`Portada de ${legend.title}`} loading="lazy" />
+          <img src={coverUrl} alt={`Portada de ${legend.title}`} loading="lazy" decoding="async" />
         ) : (
           <div className="poster-card-fallback"><span>{getInitials(legend.title)}</span></div>
         )}

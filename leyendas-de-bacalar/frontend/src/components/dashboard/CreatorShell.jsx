@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.js';
 import { UserIcon } from '../ui/CreatorIcons.jsx';
+import LoadingState from '../ui/LoadingState.jsx';
 
 function useCreatorClock() {
   const [now, setNow] = useState(() => new Date());
@@ -117,7 +118,9 @@ function CreatorShell({ items }) {
       </aside>
 
       <main className="creator-main">
-        <Outlet />
+        <Suspense fallback={<LoadingState />}>
+          <Outlet />
+        </Suspense>
       </main>
     </div>
   );
