@@ -96,7 +96,13 @@ function ReadingPage() {
   const renderStatus = sourceDocument?.renderStatus ?? 'not_rendered';
   const renderedPages = bundle?.renderedPages ?? [];
   const legendPages = bundle?.legendPages ?? [];
-  const hotspots = bundle?.hotspots ?? [];
+  const markerAssets = bundle?.markerAssets ?? [];
+  const hotspots = (bundle?.hotspots ?? []).map((hotspot) => ({
+    ...hotspot,
+    markerAsset: hotspot.markerAssetId
+      ? markerAssets.find((asset) => String(asset.id) === String(hotspot.markerAssetId)) || null
+      : null,
+  }));
   const arScenes = bundle?.arScenes ?? [];
   const modelAssets = bundle?.modelAssets ?? [];
   const readerPages = buildReaderPagesFromBundle(bundle);

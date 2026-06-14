@@ -13,10 +13,16 @@ function hotspotHasModel(hotspot) {
   return Boolean(hotspot.scene || hotspot.ar_scene_id);
 }
 
+function getHotspotMarkerUrl(hotspot) {
+  const marker = hotspot.markerAsset || hotspot.marker_asset || null;
+  return marker?.url || marker?.fileUrl || marker?.public_url || marker?.file_url || marker?.external_url || '';
+}
+
 function HotspotMarker({ hotspot, index, onClick }) {
   const widthPct = Number(hotspot.width) > 0 ? `${Math.min(1, Number(hotspot.width)) * 100}%` : null;
   const heightPct = Number(hotspot.height) > 0 ? `${Math.min(1, Number(hotspot.height)) * 100}%` : null;
   const withModel = hotspotHasModel(hotspot);
+  const markerUrl = getHotspotMarkerUrl(hotspot);
 
   return (
     <button
@@ -37,7 +43,11 @@ function HotspotMarker({ hotspot, index, onClick }) {
         onClick(hotspot);
       }}
     >
-      {withModel && <span className="reader-hotspot-badge">3D</span>}
+      {markerUrl ? (
+        <img src={markerUrl} alt="" aria-hidden="true" />
+      ) : (
+        withModel && <span className="reader-hotspot-badge">3D</span>
+      )}
     </button>
   );
 }

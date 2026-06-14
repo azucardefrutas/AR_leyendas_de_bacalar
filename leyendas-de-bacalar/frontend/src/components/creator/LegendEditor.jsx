@@ -82,7 +82,7 @@ const resourceDefinitions = [
     key: 'marker',
     tab: 'ar',
     title: 'Marcador AR',
-    description: 'Imagen fisica o visual que puede vincularse a la escena y al hotspot.',
+    description: 'Imagen opcional que puede mostrarse encima de la pagina como marcador visual.',
     recommendation: 'Recomendado: imagen nitida con buen contraste.',
     assetType: 'marker_image',
     kind: 'ar_marker',
@@ -158,6 +158,20 @@ function findMarkerForScene(arMarkers = [], sceneId) {
   return arMarkers.find((marker) => String(marker.ar_scene_id) === String(sceneId)) || null;
 }
 
+function getMarkerAssetId(marker = {}) {
+  return marker.marker_asset_id || marker.asset_id || marker.assets?.id || marker.asset?.id || null;
+}
+
+function getMarkerLabel(marker = {}) {
+  const asset = getResourceAsset(marker);
+  return asset?.metadata?.original_name || marker.marker_code || marker.label || 'Marcador visual';
+}
+
+function getSceneLabel(scene = {}) {
+  const asset = getResourceAsset(scene);
+  return scene.name || asset?.metadata?.original_name || asset?.filename || 'Modelo 3D';
+}
+
 function getExistingResource(resources, key) {
   if (!resources) return null;
   if (key === 'cover' || key === 'banner') {
@@ -204,9 +218,10 @@ function ResourceCard({ definition, value, existing, disabled, saving, onChange,
   const savedRecord = value.record?.asset || value.record;
   const previewUrl = value.previewUrl || getResourceUrl(savedRecord) || getResourceUrl(existing) || value.url;
   const canPreviewImage = previewUrl && ['cover', 'banner', 'marker_image'].includes(definition.assetType);
+  const isArResource = definition.tab === 'ar';
 
   return (
-    <Card className="creator-resource-card">
+    <Card className={`creator-resource-card ${isArResource ? 'compact' : ''}`}>
       <div className="creator-resource-heading">
         <span><MaterialIcon name={icon} /></span>
         <div>
@@ -292,7 +307,7 @@ function LegendEditor({ legendId }) {
   const [resources, setResources] = useState(defaultResources);
   const [existingResources, setExistingResources] = useState({ media: [], documents: [], arScenes: [], arMarkers: [] });
   const [activeScene, setActiveScene] = useState(null);
-  const [arPageNumber, setArPageNumber] = useState(1);
+  const [arPageNumber] = useState(1);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savingResourceKey, setSavingResourceKey] = useState(null);
@@ -306,7 +321,7 @@ function LegendEditor({ legendId }) {
     loading: false,
   });
   const [documentRenderSummary, setDocumentRenderSummary] = useState({ status: null, count: 0, pageCount: null, pages: [] });
-  const [hotspotSummary, setHotspotSummary] = useState({ total: 0, associated: 0 });
+  const [hotspotSummary, setHotspotSummary] = useState({ total: 0, associated: 0, items: [] });
   const [isSourceDocumentOpen, setIsSourceDocumentOpen] = useState(true);
   const [isInteractiveReadingOpen, setIsInteractiveReadingOpen] = useState(true);
   const [error, setError] = useState(null);
@@ -377,6 +392,10 @@ function LegendEditor({ legendId }) {
   const visiblePages = useMemo(() => pages.filter((page) => !page._delete), [pages]);
   const selectedPage = visiblePages.find((page) => page.client_id === selectedPageKey) ?? visiblePages[0];
   const selectedPageIndex = pages.findIndex((page) => page.client_id === selectedPage?.client_id);
+  const hotspotAssociationItems = useMemo(
+    () => (hotspotSummary.items ?? []).filter((item) => Boolean(item.arSceneId)),
+    [hotspotSummary.items],
+  );
   const canEdit = canEditVersion(version);
   const isReviewLocked = !canEdit;
   const declarationsAccepted = Object.values(declarations).every(Boolean);
@@ -403,9 +422,9 @@ function LegendEditor({ legendId }) {
       pageCount: primarySourceDocument?.page_count ?? primarySourceDocument?.pageCount ?? null,
       pages: [],
     });
-    setHotspotSummary({ total: 0, associated: 0 });
+    setHotspotSummary({ total: 0, associated: 0, items: [] });
     setIsSourceDocumentOpen(Boolean(primarySourceDocument));
-    setIsInteractiveReadingOpen(!primarySourceDocument || visiblePages.length > 0);
+    setIsInteractiveReadingOpen(!primarySourceDocument);
   }, [primarySourceDocument?.id]);
 
   function updateField(field, value) {
@@ -486,7 +505,7 @@ function LegendEditor({ legendId }) {
     const savedPages = data.length ? data.map((page) => ({ ...page, client_id: page.id })) : [createPage(1)];
     setPages(savedPages);
     setSelectedPageKey(savedPages[0]?.client_id ?? null);
-    setMessage('Paginas guardadas.');
+    setMessage(primarySourceDocument ? 'Texto editorial guardado.' : 'Paginas guardadas.');
     return true;
   }
 
@@ -595,7 +614,9 @@ function LegendEditor({ legendId }) {
     if (definition.kind === 'ar_model' && !arPage?.id) {
       updateResource(definition.key, {
         ...value,
-        error: 'Guarda al menos una pagina de la leyenda antes de crear la escena 3D.',
+        error: primarySourceDocument
+          ? 'La base actual no permite crear una escena 3D nueva directamente desde un PDF renderizado. Puedes asociar modelos existentes sobre la pagina renderizada.'
+          : 'Crea una pagina editorial antes de preparar una escena 3D para historias sin PDF renderizado.',
       });
       setSavingResourceKey(null);
       return;
@@ -843,6 +864,7 @@ function LegendEditor({ legendId }) {
               onToggle={() => setIsSourceDocumentOpen((current) => !current)}
               onRenderStateChange={setDocumentRenderSummary}
               onHotspotSummaryChange={setHotspotSummary}
+              onGoToResources={() => setActiveTab('ar')}
             />
           )}
 
@@ -856,7 +878,7 @@ function LegendEditor({ legendId }) {
               </div>
             )
           ) : (
-            <section className="creator-section-block">
+            <section className="creator-section-block creator-editorial-support">
               <button
                 type="button"
                 className="creator-accordion-header"
@@ -864,13 +886,13 @@ function LegendEditor({ legendId }) {
                 aria-expanded={isInteractiveReadingOpen}
                 aria-controls={interactiveReadingPanelId}
               >
-                <span className="creator-accordion-icon">LI</span>
+                <span className="creator-accordion-icon">TXT</span>
                 <div className="creator-accordion-copy">
-                  <h2>Lectura interactiva</h2>
-                  <p>Edita las paginas generadas o creadas manualmente.</p>
+                  <h2>Texto extraido / apoyo editorial</h2>
+                  <p>Texto extraido del PDF para apoyo editorial. No afecta la colocacion visual de marcadores sobre el libro renderizado.</p>
                 </div>
                 <span className="creator-accordion-badges">
-                  <span className="creator-accordion-badge">{visiblePages.length} paginas</span>
+                  <span className="creator-accordion-badge">{visiblePages.length} textos</span>
                   <span className="creator-accordion-badge">Version {version.version_number || 1}</span>
                   <span className="creator-accordion-badge">{versionStatusLabel}</span>
                 </span>
@@ -879,7 +901,7 @@ function LegendEditor({ legendId }) {
 
               <div id={interactiveReadingPanelId} className={`creator-accordion-panel ${isInteractiveReadingOpen ? 'open' : 'closed'}`}>
                 <div className="creator-review-grid compact">
-                  <span className="ready">Total de paginas: {visiblePages.length}</span>
+                  <span className="ready">Textos editoriales: {visiblePages.length}</span>
                   <span>Version {version.version_number || 1}</span>
                   <span>Estado: {versionStatusLabel}</span>
                 </div>
@@ -941,7 +963,7 @@ function LegendEditor({ legendId }) {
                     <span>Version {version.version_number || 1}</span>
                   </div>
                   <div className="creator-review-actions">
-                    <Button type="button" onClick={handleSavePages} disabled={saving || isReviewLocked}>{saving ? 'Guardando...' : 'Guardar paginas'}</Button>
+                    <Button type="button" onClick={handleSavePages} disabled={saving || isReviewLocked}>{saving ? 'Guardando...' : 'Guardar texto editorial'}</Button>
                   </div>
                 </div>
                 </div>
@@ -986,27 +1008,19 @@ function LegendEditor({ legendId }) {
             <div className="creator-editor-card-title">
               <span>3</span>
               <div>
-                <h2>Modelos, marcadores y escenas</h2>
-                <p>Sube recursos por separado. Despues coloca el hotspot sobre la pagina preparada y asocia la escena.</p>
+                <h2>Modelos y marcadores</h2>
+                <p>Sube recursos por separado. La asociacion se hace sobre una pagina renderizada en Documento / libro.</p>
               </div>
             </div>
             <div className="creator-ar-link-row">
-              <label className="field" htmlFor="ar-page">
-                <span>Pagina base para nueva escena 3D</span>
-                <select id="ar-page" className="select" value={arPageNumber} onChange={(event) => setArPageNumber(event.target.value)} disabled={isReviewLocked}>
-                  {visiblePages.map((page) => (
-                    <option key={page.client_id} value={page.page_number}>Pagina {page.page_number}</option>
-                  ))}
-                </select>
-              </label>
-              <p>La escena necesita una pagina guardada. Si tu historia viene de PDF, prepara el libro y usa la seccion Documento / libro para colocar el hotspot sobre la pagina renderizada.</p>
+              <p>Selecciona una pagina renderizada del libro, coloca el marcador pequeno y elige el modelo desde Documento / libro.</p>
             </div>
           </Card>
 
           <section className="creator-resource-group">
             <div className="creator-resource-group-heading">
               <h3>Modelos 3D</h3>
-              <p>{modelCount ? `${modelCount} escena(s) con modelo registrada(s).` : 'Sube un GLB/GLTF para crear una escena.'}</p>
+              <p>{modelCount ? `${modelCount} modelo(s) listo(s) para asociar.` : 'Sube un GLB/GLTF optimizado. No se carga en la lista, solo al probar.'}</p>
             </div>
             <ResourceCard
               definition={resourceDefinitions.find((definition) => definition.key === 'model3d')}
@@ -1022,7 +1036,7 @@ function LegendEditor({ legendId }) {
           <section className="creator-resource-group">
             <div className="creator-resource-group-heading">
               <h3>Marcadores / imagenes</h3>
-              <p>{markerCount ? `${markerCount} marcador(es) registrado(s).` : 'Sube la imagen que servira como marcador fisico o visual.'}</p>
+              <p>{markerCount ? `${markerCount} marcador(es) registrado(s).` : 'Sube una imagen pequena y nitida para usarla como marcador visual.'}</p>
             </div>
             <ResourceCard
               definition={resourceDefinitions.find((definition) => definition.key === 'marker')}
@@ -1037,21 +1051,47 @@ function LegendEditor({ legendId }) {
 
           <section className="creator-resource-group">
             <div className="creator-resource-group-heading">
-              <h3>Escenas AR</h3>
-              <p>Prueba el modelo desde aqui o asocialo a un cuadro desde Documento / libro.</p>
+              <h3>Asociaciones disponibles</h3>
+              <p>Prueba modelos existentes o editalos colocando un marcador en Documento / libro.</p>
             </div>
-            {modelCount ? (
+            {hotspotAssociationItems.length ? (
+              <div className="creator-scene-list creator-association-list">
+                {hotspotAssociationItems.map((item) => {
+                  const scene = existingResources.arScenes.find((candidate) => String(candidate.id) === String(item.arSceneId));
+                  const marker = item.markerAssetId
+                    ? existingResources.arMarkers.find((candidate) => String(getMarkerAssetId(candidate)) === String(item.markerAssetId))
+                    : null;
+                  return (
+                    <article key={item.id} className="creator-scene-item creator-association-item">
+                      <div>
+                        <strong>Pagina {item.pageNumber} - marcador colocado</strong>
+                        <span>Modelo: {getSceneLabel(scene)}{marker ? ` - Marcador: ${getMarkerLabel(marker)}` : ' - sin imagen de marcador'}</span>
+                      </div>
+                      <div className="creator-association-actions">
+                        <Button type="button" variant="ghost" onClick={() => setActiveTab('content')}>
+                          Editar en pagina
+                        </Button>
+                        {scene && (
+                          <Button type="button" variant="ghost" onClick={() => setActiveScene(scene)}>
+                            Probar
+                          </Button>
+                        )}
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : modelCount ? (
               <div className="creator-scene-list">
                 {existingResources.arScenes
                   .filter((scene) => String(scene.status || '').toLowerCase() !== 'archived')
                   .map((scene) => {
                     const marker = findMarkerForScene(existingResources.arMarkers, scene.id);
-                    const scenePage = visiblePages.find((page) => String(page.id) === String(scene.page_id));
                     return (
                       <article key={scene.id} className="creator-scene-item">
                         <div>
-                          <strong>{scene.name || 'Escena 3D'}</strong>
-                          <span>Pagina {scenePage?.page_number || 'guardada'} · {marker ? 'marcador vinculado' : 'sin marcador'}</span>
+                          <strong>{getSceneLabel(scene)}</strong>
+                          <span>{marker ? `Marcador visual: ${getMarkerLabel(marker)}` : 'Disponible para asociar desde Documento / libro'}</span>
                         </div>
                         <Button type="button" variant="ghost" onClick={() => setActiveScene(scene)}>
                           Probar modelo
@@ -1061,7 +1101,7 @@ function LegendEditor({ legendId }) {
                   })}
               </div>
             ) : (
-              <p className="creator-muted">Todavia no hay escenas. Guarda un modelo 3D para crear la primera.</p>
+              <p className="creator-muted">Todavia no hay modelos disponibles para asociar.</p>
             )}
           </section>
         </div>
