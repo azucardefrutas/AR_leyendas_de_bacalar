@@ -100,6 +100,9 @@ function ModelShowcaseSection({
   const targetXRef = useRef(0);
   const currentXRef = useRef(0);
   const frameRef = useRef(null);
+  const releaseScrollRef = useRef(0);
+  const snapTimeoutRef = useRef(null);
+  const snappingRef = useRef(false);
 
   useEffect(() => {
     if (providedItems) return undefined;
@@ -145,7 +148,9 @@ function ModelShowcaseSection({
       const track = trackRef.current;
       if (!viewport || !track) return;
       const maxX = Math.max(track.scrollWidth - viewport.clientWidth, 0);
-      setPinHeight(window.innerHeight + maxX);
+      const releaseScroll = Math.min(Math.max(window.innerHeight * 0.22, 120), 220);
+      releaseScrollRef.current = releaseScroll;
+      setPinHeight(window.innerHeight + maxX + releaseScroll);
     };
 
     measure();
@@ -160,6 +165,8 @@ function ModelShowcaseSection({
       targetXRef.current = 0;
       currentXRef.current = 0;
       if (trackRef.current) trackRef.current.style.transform = '';
+      if (snapTimeoutRef.current) window.clearTimeout(snapTimeoutRef.current);
+      snapTimeoutRef.current = null;
       return undefined;
     }
 
@@ -194,12 +201,40 @@ function ModelShowcaseSection({
 
       const rect = section.getBoundingClientRect();
       const total = Math.max(section.offsetHeight - window.innerHeight, 1);
-      const scrolled = Math.min(Math.max(-rect.top, 0), total);
-      const progress = scrolled / total;
+      const travelTotal = Math.max(total - releaseScrollRef.current, 1);
+      const rawScrolled = Math.max(-rect.top, 0);
+      const scrolled = Math.min(rawScrolled, travelTotal);
+      const progress = scrolled / travelTotal;
       const maxX = Math.max(track.scrollWidth - viewport.clientWidth, 0);
       targetXRef.current = progress * maxX;
       section.style.setProperty('--sc-progress', progress.toFixed(4));
       queueAnimation();
+
+      if (snapTimeoutRef.current) window.clearTimeout(snapTimeoutRef.current);
+      if (!snappingRef.current && items.length > 1 && maxX > 0 && rawScrolled > 0 && rawScrolled < travelTotal) {
+        snapTimeoutRef.current = window.setTimeout(() => {
+          const cards = Array.from(track.querySelectorAll('.model-showcase-card'));
+          if (!cards.length) return;
+
+          const currentX = progress * maxX;
+          const viewportCenter = viewport.clientWidth / 2;
+          const snapPoints = cards.map((card) => {
+            const cardCenter = card.offsetLeft + card.offsetWidth / 2;
+            return Math.min(Math.max(cardCenter - viewportCenter, 0), maxX);
+          });
+          const nearestX = snapPoints.reduce((nearest, point) => (
+            Math.abs(point - currentX) < Math.abs(nearest - currentX) ? point : nearest
+          ), snapPoints[0]);
+          const sectionTop = window.scrollY + rect.top;
+          const targetScrollTop = sectionTop + (nearestX / maxX) * travelTotal;
+
+          snappingRef.current = true;
+          window.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
+          window.setTimeout(() => {
+            snappingRef.current = false;
+          }, 520);
+        }, 150);
+      }
     };
 
     update();
@@ -209,7 +244,9 @@ function ModelShowcaseSection({
       window.removeEventListener('scroll', update, { capture: true });
       window.removeEventListener('resize', update);
       if (frameRef.current) window.cancelAnimationFrame(frameRef.current);
+      if (snapTimeoutRef.current) window.clearTimeout(snapTimeoutRef.current);
       frameRef.current = null;
+      snapTimeoutRef.current = null;
     };
   }, [pinned, pinHeight, items.length]);
 

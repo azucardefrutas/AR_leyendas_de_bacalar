@@ -8497,6 +8497,9 @@ table {
 
 .model-showcase {
   min-height: 100vh;
+  --showcase-nav-safe: clamp(108px, 12vh, 132px);
+  --showcase-bottom-safe: clamp(30px, 5vh, 58px);
+  --showcase-card-width: min(34vw, 560px, calc((100dvh - var(--showcase-nav-safe) - var(--showcase-bottom-safe) - 76px) / 1.08));
   color: #ffffff;
   background:
     linear-gradient(180deg, #051116 0%, rgba(6, 22, 33, 0.96) 14%, rgba(18, 34, 62, 0.9) 54%, #06141b 100%),
@@ -8541,9 +8544,12 @@ table {
 
 .model-showcase.is-pinned .model-showcase-sticky {
   top: 0;
-  padding-block: clamp(74px, 10vh, 112px) clamp(46px, 8vh, 84px);
+  height: 100vh;
+  height: 100dvh;
+  padding-block: var(--showcase-nav-safe) var(--showcase-bottom-safe);
   justify-content: center;
   gap: 0;
+  box-sizing: border-box;
 }
 
 .model-showcase-a11y {
@@ -8575,8 +8581,8 @@ table {
 .model-showcase.is-pinned .model-showcase-viewport {
   display: flex;
   align-items: center;
-  min-height: min(74vh, 760px);
-  overflow: visible;
+  min-height: calc(100dvh - var(--showcase-nav-safe) - var(--showcase-bottom-safe));
+  overflow: hidden;
   -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 4.5%, #000 95.5%, transparent 100%);
   mask-image: linear-gradient(90deg, transparent 0, #000 4.5%, #000 95.5%, transparent 100%);
 }
@@ -8592,7 +8598,7 @@ table {
 }
 
 .model-showcase-card {
-  width: clamp(380px, 38vw, 620px);
+  width: clamp(360px, var(--showcase-card-width), 560px);
   display: block;
   flex: 0 0 auto;
   padding: 0;
@@ -8750,6 +8756,7 @@ table {
 @media (max-width: 767px) {
   .model-showcase {
     min-height: auto;
+    --showcase-card-width: min(82vw, 390px);
   }
 
   .model-showcase.is-strip .model-showcase-sticky {
@@ -8763,7 +8770,7 @@ table {
   }
 
   .model-showcase-card {
-    width: min(82vw, 390px);
+    width: var(--showcase-card-width);
   }
 
   .model-showcase-poster {
