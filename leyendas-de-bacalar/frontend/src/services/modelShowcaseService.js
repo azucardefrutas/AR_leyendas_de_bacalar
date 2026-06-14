@@ -61,7 +61,7 @@ const LOCAL_SHOWCASE_MODELS = [
     id: 'local-upb',
     name: 'Universidad Politécnica de Bacalar',
     legendTitle: 'Objeto cultural',
-    modelPath: '/landing-intro/models/UPB.glb',
+    modelPath: '/landing-intro/models/upb_real.glb',
     posterPath: '/landing-intro/Img_models/UPB.webp',
     background: 'linear-gradient(155deg, #dde8f4 0%, #cad9ee 100%)', // azul claro
   },

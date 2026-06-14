@@ -8226,8 +8226,10 @@ table {
 }
 
 .model-showcase.is-pinned .model-showcase-sticky {
-  position: sticky;
-  top: 0;
+  /* position / top / bottom are set by JS (fixed-pin); see ModelShowcaseSection.jsx.
+     left + width keep it spanning the viewport while pinned. */
+  left: 0;
+  width: 100%;
   height: 100vh;
   height: 100dvh;
   justify-content: center;

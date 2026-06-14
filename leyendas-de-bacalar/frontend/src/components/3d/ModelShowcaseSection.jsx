@@ -6,6 +6,10 @@ import {
 
 const Model3DViewer = lazy(() => import('./Model3DViewer.jsx'));
 
+// Vertical scroll distance for the pinned carousel = viewport + maxX * SCROLL_RATIO.
+// < 1 tightens the pin so the cards traverse fully with less "dead" vertical scroll.
+const SCROLL_RATIO = 0.6;
+
 function CubeIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" aria-hidden="true">
@@ -106,13 +110,9 @@ function ModelShowcaseSection({
   const [openItem, setOpenItem] = useState(null);
 
   const sectionRef = useRef(null);
+  const stickyRef = useRef(null);
   const viewportRef = useRef(null);
   const trackRef = useRef(null);
-  const targetXRef = useRef(0);
-  const currentXRef = useRef(0);
-  const frameRef = useRef(null);
-  const snapTimeoutRef = useRef(null);
-  const snappingRef = useRef(false);
 
   useEffect(() => {
     if (providedItems) return undefined;
@@ -158,7 +158,7 @@ function ModelShowcaseSection({
       const track = trackRef.current;
       if (!viewport || !track) return;
       const maxX = Math.max(track.scrollWidth - viewport.clientWidth, 0);
-      setPinHeight(window.innerHeight + maxX);
+      setPinHeight(window.innerHeight + maxX * SCROLL_RATIO);
     };
 
     measure();
@@ -168,93 +168,57 @@ function ModelShowcaseSection({
 
   useEffect(() => {
     if (!pinned) {
-      if (frameRef.current) window.cancelAnimationFrame(frameRef.current);
-      frameRef.current = null;
-      targetXRef.current = 0;
-      currentXRef.current = 0;
       if (trackRef.current) trackRef.current.style.transform = '';
-      if (snapTimeoutRef.current) window.clearTimeout(snapTimeoutRef.current);
-      snapTimeoutRef.current = null;
+      if (stickyRef.current) {
+        stickyRef.current.style.position = '';
+        stickyRef.current.style.top = '';
+        stickyRef.current.style.bottom = '';
+      }
       return undefined;
     }
-
-    const animate = () => {
-      const track = trackRef.current;
-      if (!track) {
-        frameRef.current = null;
-        return;
-      }
-
-      const delta = targetXRef.current - currentXRef.current;
-      currentXRef.current += delta * 0.16;
-      if (Math.abs(delta) < 0.35) currentXRef.current = targetXRef.current;
-      track.style.transform = `translate3d(${-currentXRef.current}px, 0, 0)`;
-
-      if (Math.abs(targetXRef.current - currentXRef.current) > 0.35) {
-        frameRef.current = window.requestAnimationFrame(animate);
-      } else {
-        frameRef.current = null;
-      }
-    };
-
-    const queueAnimation = () => {
-      if (!frameRef.current) frameRef.current = window.requestAnimationFrame(animate);
-    };
 
     const update = () => {
       const section = sectionRef.current;
       const viewport = viewportRef.current;
       const track = trackRef.current;
-      if (!section || !viewport || !track) return;
+      const pin = stickyRef.current;
+      if (!section || !viewport || !track || !pin) return;
 
       const rect = section.getBoundingClientRect();
-      const total = Math.max(section.offsetHeight - window.innerHeight, 1);
-      const travelTotal = total;
-      const rawScrolled = Math.max(-rect.top, 0);
-      const scrolled = Math.min(rawScrolled, travelTotal);
+      const travelTotal = Math.max(section.offsetHeight - window.innerHeight, 1);
+      const scrolled = Math.min(Math.max(-rect.top, 0), travelTotal);
       const progress = scrolled / travelTotal;
       const maxX = Math.max(track.scrollWidth - viewport.clientWidth, 0);
-      targetXRef.current = progress * maxX;
-      section.style.setProperty('--sc-progress', progress.toFixed(4));
-      queueAnimation();
 
-      if (snapTimeoutRef.current) window.clearTimeout(snapTimeoutRef.current);
-      if (!snappingRef.current && items.length > 1 && maxX > 0 && rawScrolled > 0 && rawScrolled < travelTotal) {
-        snapTimeoutRef.current = window.setTimeout(() => {
-          const cards = Array.from(track.querySelectorAll('.model-showcase-card'));
-          if (!cards.length) return;
-
-          const currentX = progress * maxX;
-          const viewportCenter = viewport.clientWidth / 2;
-          const snapPoints = cards.map((card) => {
-            const cardCenter = card.offsetLeft + card.offsetWidth / 2;
-            return Math.min(Math.max(cardCenter - viewportCenter, 0), maxX);
-          });
-          const nearestX = snapPoints.reduce((nearest, point) => (
-            Math.abs(point - currentX) < Math.abs(nearest - currentX) ? point : nearest
-          ), snapPoints[0]);
-          const sectionTop = window.scrollY + rect.top;
-          const targetScrollTop = sectionTop + (nearestX / maxX) * travelTotal;
-
-          snappingRef.current = true;
-          window.scrollTo({ top: targetScrollTop, behavior: 'smooth' });
-          window.setTimeout(() => {
-            snappingRef.current = false;
-          }, 520);
-        }, 150);
+      // JS-driven pin using position:fixed. The app's global `overflow-x: hidden`
+      // turns #root/body into scroll containers, which breaks position:sticky; a
+      // fixed pin is relative to the viewport and immune to that. Three phases:
+      // before the zone -> absolute at top, inside -> fixed, after -> absolute at bottom.
+      if (rect.top > 0) {
+        pin.style.position = 'absolute';
+        pin.style.top = '0';
+        pin.style.bottom = 'auto';
+      } else if (-rect.top < travelTotal) {
+        pin.style.position = 'fixed';
+        pin.style.top = '0';
+        pin.style.bottom = 'auto';
+      } else {
+        pin.style.position = 'absolute';
+        pin.style.top = 'auto';
+        pin.style.bottom = '0';
       }
+
+      // Track the scroll 1:1 — no smoothing and no snapping.
+      track.style.transform = `translate3d(${(-(progress * maxX)).toFixed(2)}px, 0, 0)`;
+      section.style.setProperty('--sc-progress', progress.toFixed(4));
     };
 
     update();
-    window.addEventListener('scroll', update, { passive: true, capture: true });
+    window.addEventListener('scroll', update, { passive: true });
     window.addEventListener('resize', update);
     return () => {
-      window.removeEventListener('scroll', update, { capture: true });
+      window.removeEventListener('scroll', update);
       window.removeEventListener('resize', update);
-      if (frameRef.current) window.cancelAnimationFrame(frameRef.current);
-      if (snapTimeoutRef.current) window.clearTimeout(snapTimeoutRef.current);
-      frameRef.current = null;
-      snapTimeoutRef.current = null;
     };
   }, [pinned, pinHeight, items.length]);
 
@@ -276,7 +240,7 @@ function ModelShowcaseSection({
       style={sectionStyle}
       aria-label={ariaLabel}
     >
-      <div className="model-showcase-sticky">
+      <div className="model-showcase-sticky" ref={stickyRef}>
         <div className="model-showcase-a11y">
           <h2>Galeria de piezas 3D</h2>
         </div>

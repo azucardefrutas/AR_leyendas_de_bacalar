@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import SiteNavbar from '../components/ui/SiteNavbar.jsx';
+import SiteFooter from '../components/ui/SiteFooter.jsx';
 import LoadingState from '../components/ui/LoadingState.jsx';
 
 function PublicLayout() {
@@ -16,6 +17,8 @@ function PublicLayout() {
           <Outlet />
         </Suspense>
       </Container>
+      {/* Brand footer is part of the landing experience only. */}
+      {isHome && <SiteFooter />}
     </div>
   );
 }
