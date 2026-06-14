@@ -23,8 +23,19 @@ function OpenIcon() {
   );
 }
 
+function normalizeLabel(value = '') {
+  return String(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/\.[^.]+$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function ShowcaseCard({ item, onOpen }) {
   const disabled = !item.modelUrl;
+  const showLegendTitle = item.legendTitle && normalizeLabel(item.legendTitle) !== normalizeLabel(item.name);
   const content = (
     <>
       <span className="model-showcase-poster" style={{ background: item.background }}>
@@ -52,7 +63,7 @@ function ShowcaseCard({ item, onOpen }) {
       </span>
       <span className="model-showcase-meta">
         <span className="model-showcase-name">{item.name}</span>
-        {item.legendTitle && <span className="model-showcase-legend">{item.legendTitle}</span>}
+        {showLegendTitle && <span className="model-showcase-legend">{item.legendTitle}</span>}
       </span>
     </>
   );
@@ -100,7 +111,6 @@ function ModelShowcaseSection({
   const targetXRef = useRef(0);
   const currentXRef = useRef(0);
   const frameRef = useRef(null);
-  const releaseScrollRef = useRef(0);
   const snapTimeoutRef = useRef(null);
   const snappingRef = useRef(false);
 
@@ -148,9 +158,7 @@ function ModelShowcaseSection({
       const track = trackRef.current;
       if (!viewport || !track) return;
       const maxX = Math.max(track.scrollWidth - viewport.clientWidth, 0);
-      const releaseScroll = Math.min(Math.max(window.innerHeight * 0.22, 120), 220);
-      releaseScrollRef.current = releaseScroll;
-      setPinHeight(window.innerHeight + maxX + releaseScroll);
+      setPinHeight(window.innerHeight + maxX);
     };
 
     measure();
@@ -201,7 +209,7 @@ function ModelShowcaseSection({
 
       const rect = section.getBoundingClientRect();
       const total = Math.max(section.offsetHeight - window.innerHeight, 1);
-      const travelTotal = Math.max(total - releaseScrollRef.current, 1);
+      const travelTotal = total;
       const rawScrolled = Math.max(-rect.top, 0);
       const scrolled = Math.min(rawScrolled, travelTotal);
       const progress = scrolled / travelTotal;

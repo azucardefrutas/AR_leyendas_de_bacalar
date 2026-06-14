@@ -8501,12 +8501,12 @@ table {
   --showcase-bottom-safe: clamp(30px, 5vh, 58px);
   --showcase-card-width: min(34vw, 560px, calc((100dvh - var(--showcase-nav-safe) - var(--showcase-bottom-safe) - 76px) / 1.08));
   color: #ffffff;
-  background:
-    linear-gradient(180deg, #051116 0%, rgba(6, 22, 33, 0.96) 14%, rgba(18, 34, 62, 0.9) 54%, #06141b 100%),
-    linear-gradient(115deg, rgba(99, 162, 176, 0.52) 0%, rgba(99, 162, 176, 0.1) 34%, transparent 62%),
-    linear-gradient(250deg, rgba(126, 88, 168, 0.32) 0%, transparent 44%);
+  background: #63a2b0;
   overflow: clip;
   isolation: isolate;
+  box-shadow:
+    inset 0 78px 96px rgba(5, 17, 22, 0.24),
+    inset 0 -58px 78px rgba(5, 17, 22, 0.18);
 }
 
 .model-showcase::before,
@@ -8522,19 +8522,20 @@ table {
   top: 8%;
   height: 46%;
   background:
-    linear-gradient(96deg, transparent 0%, rgba(255, 255, 255, 0.08) 24%, rgba(99, 162, 176, 0.2) 48%, rgba(126, 88, 168, 0.14) 66%, transparent 100%),
-    linear-gradient(180deg, transparent, rgba(142, 214, 238, 0.1), transparent);
-  filter: blur(42px);
-  opacity: 0.85;
+    linear-gradient(96deg, transparent 0%, rgba(255, 255, 255, 0.06) 34%, rgba(6, 24, 38, 0.08) 62%, transparent 100%),
+    linear-gradient(180deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  filter: blur(44px);
+  opacity: 0.38;
 }
 
 .model-showcase::after {
   bottom: 6%;
   height: 40%;
   background:
-    linear-gradient(105deg, rgba(6, 18, 30, 0.1) 0%, rgba(99, 162, 176, 0.2) 42%, rgba(141, 110, 191, 0.18) 66%, transparent 100%),
-    linear-gradient(0deg, rgba(99, 162, 176, 0.16), transparent);
-  filter: blur(48px);
+    linear-gradient(105deg, rgba(6, 18, 30, 0.08) 0%, rgba(255, 255, 255, 0.05) 50%, transparent 100%),
+    linear-gradient(0deg, rgba(6, 24, 38, 0.12), transparent);
+  filter: blur(50px);
+  opacity: 0.42;
 }
 
 .model-showcase-sticky {
@@ -8630,8 +8631,8 @@ table {
   border-radius: clamp(28px, 3vw, 42px);
   border: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow:
-    0 34px 90px rgba(2, 12, 22, 0.52),
-    0 0 70px rgba(99, 162, 176, 0.13),
+    0 28px 64px rgba(2, 12, 22, 0.28),
+    0 0 46px rgba(255, 255, 255, 0.08),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
@@ -8655,8 +8656,8 @@ table {
 .model-showcase-card-button:focus-visible .model-showcase-poster {
   transform: translate3d(0, -8px, 0) scale(1.01);
   box-shadow:
-    0 42px 108px rgba(2, 12, 22, 0.62),
-    0 0 88px rgba(99, 162, 176, 0.22),
+    0 34px 76px rgba(2, 12, 22, 0.34),
+    0 0 56px rgba(255, 255, 255, 0.12),
     inset 0 1px 0 rgba(255, 255, 255, 0.24);
 }
 
@@ -8700,6 +8701,14 @@ table {
   justify-content: center;
   min-height: 50vh;
   padding-inline: clamp(18px, 5vw, 72px);
+}
+
+.home-content-spacer {
+  min-height: 1px;
+  height: 1px;
+  margin-top: -1px;
+  background: #63a2b0;
+  scroll-margin-top: 96px;
 }
 
 @keyframes homeHeroCopyIn {

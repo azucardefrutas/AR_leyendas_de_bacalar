@@ -67,13 +67,55 @@ const LOCAL_SHOWCASE_MODELS = [
   },
 ];
 
+const LOCAL_MODEL_LOOKUP = new Map(
+  LOCAL_SHOWCASE_MODELS.map((model) => [
+    normalizeModelKey(model.modelPath),
+    {
+      name: model.name,
+      legendTitle: model.legendTitle,
+      poster: encodePath(model.posterPath),
+      background: model.background,
+    },
+  ]),
+);
+
 // Browsers/loaders need spaces and accented characters percent-encoded.
 function encodePath(path) {
   return path ? encodeURI(path) : '';
 }
 
+function normalizeModelKey(value = '') {
+  const raw = String(value || '')
+    .split('?')[0]
+    .split('#')[0]
+    .split('/')
+    .pop()
+    .trim();
+  if (!raw) return '';
+
+  return decodeURIComponent(raw)
+    .replace(/^\d+-/, '')
+    .replace(/\.[^.]+$/, '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function getModelKeyFromAsset(asset = {}, modelUrl = '') {
+  return normalizeModelKey(asset.storage_path || asset.file_url || asset.external_url || modelUrl);
+}
+
+function cleanModelName(value = '') {
+  const base = normalizeModelKey(value);
+  if (!base) return 'Modelo 3D';
+  return base.replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 // Shape every item the showcase renders so the component stays dumb.
-function buildItem({ id, name, legendTitle, modelUrl, poster, background }) {
+function buildItem({ id, name, legendTitle, modelUrl, poster, background, modelKey }) {
   const url = modelUrl || '';
   return {
     id,
@@ -82,6 +124,7 @@ function buildItem({ id, name, legendTitle, modelUrl, poster, background }) {
     modelUrl: url,
     poster: poster || '',
     background: background || SHOWCASE_GRADIENTS[0],
+    modelKey: modelKey || normalizeModelKey(url || name),
     // Minimal scene object so the existing Model3DViewer can show a header.
     scene: { name: name || 'Modelo 3D', description: null, assets: { url } },
   };
@@ -104,6 +147,18 @@ function getStoredFileName(storagePath = '') {
   const segment = String(storagePath).split('/').pop() || '';
   const withoutTimestamp = segment.replace(/^\d+-/, '');
   return decodeURIComponent(withoutTimestamp).replace(/\.[^.]+$/, '') || 'Modelo 3D';
+}
+
+function uniqueByModel(items = []) {
+  const seen = new Set();
+  const unique = [];
+  for (const item of items) {
+    const key = item.modelKey || normalizeModelKey(item.modelUrl || item.name);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    unique.push(item);
+  }
+  return unique;
 }
 
 function resolveModelAssetUrl(client, asset) {
@@ -154,21 +209,25 @@ async function getDatabaseShowcaseModels(client) {
 
     const modelUrl = resolveModelAssetUrl(client, asset);
     if (!modelUrl) continue;
+    const modelKey = getModelKeyFromAsset(asset, modelUrl);
+    const localMatch = LOCAL_MODEL_LOOKUP.get(modelKey);
+    const rawName = asset.metadata?.display_name || asset.metadata?.original_name || getStoredFileName(asset.storage_path);
 
     items.push(
       buildItem({
         id: String(asset.id),
-        name: asset.metadata?.original_name || getStoredFileName(asset.storage_path),
-        legendTitle: legendTitleById.get(legendId),
+        name: localMatch?.name || cleanModelName(rawName),
+        legendTitle: localMatch?.legendTitle || legendTitleById.get(legendId),
         modelUrl,
-        poster: '',
-        background: SHOWCASE_GRADIENTS[paletteIndex % SHOWCASE_GRADIENTS.length],
+        poster: localMatch?.poster || '',
+        background: localMatch?.background || SHOWCASE_GRADIENTS[paletteIndex % SHOWCASE_GRADIENTS.length],
+        modelKey,
       }),
     );
     paletteIndex += 1;
   }
 
-  return items;
+  return uniqueByModel(items);
 }
 
 /**
@@ -194,20 +253,21 @@ function withTimeout(promise, ms) {
 }
 
 export async function getShowcaseModels() {
+  const localItems = getLocalShowcaseModels();
   if (!supabase) {
-    return { data: getLocalShowcaseModels(), source: 'local', error: getSupabaseConfigError() };
+    return { data: localItems, source: 'local', error: getSupabaseConfigError() };
   }
 
   try {
     const dbItems = await withTimeout(getDatabaseShowcaseModels(supabase), DB_LOOKUP_TIMEOUT_MS);
     if (dbItems.length) {
-      return { data: dbItems, source: 'database', error: null };
+      return { data: uniqueByModel([...dbItems, ...localItems]), source: 'database', error: null };
     }
   } catch (error) {
     if (import.meta.env.DEV) console.error('[modelShowcase] unexpected error', error);
   }
 
-  return { data: getLocalShowcaseModels(), source: 'local', error: null };
+  return { data: localItems, source: 'local', error: null };
 }
 
 /**
