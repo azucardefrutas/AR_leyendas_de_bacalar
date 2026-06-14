@@ -103,7 +103,7 @@ const arResourceDefinitions = [
     key: 'model3d',
     step: 'ar',
     title: 'Modelo 3D',
-    description: 'Archivo GLB/GLTF opcional para preparar una escena AR.',
+    description: 'Archivo GLB/GLTF para preparar una escena AR.',
     assetType: 'model_3d',
     kind: 'ar_model',
     accept: '.glb,.gltf',
@@ -1268,7 +1268,7 @@ function CreateLegendPage() {
               <span>3</span>
               <div>
                 <h2>Vista previa del documento</h2>
-                <p>Revisa el archivo fuente guardado antes de continuar con recursos opcionales.</p>
+                <p>Revisa el archivo fuente guardado antes de preparar portada, modelo, marcador y asociacion por pagina.</p>
               </div>
             </div>
             <DocumentPreviewPanel sourceDocument={sourceDocument} />
@@ -1280,7 +1280,7 @@ function CreateLegendPage() {
             <div className="creator-editor-card-title">
               <span>{sourceMode === 'upload' ? '4' : '4'}</span>
               <div>
-                <h2>3D / AR opcional</h2>
+                <h2>Recursos 3D / AR</h2>
                 <p>Puedes enriquecer la obra ahora o dejarlo para despues. La revision puede continuar sin esto.</p>
               </div>
             </div>
@@ -1298,7 +1298,7 @@ function CreateLegendPage() {
               </div>
             ) : (
               <p className="creator-checklist-note">
-                En una leyenda subida como documento, los recursos 3D/AR quedaran asociados a la obra y podran vincularse al lector AR mas adelante.
+                En una leyenda subida como documento, guarda los recursos y abre el editor completo para colocar el marcador sobre una pagina renderizada y asociar el modelo.
               </p>
             )}
             <div className="creator-resource-grid creator-resource-grid-roomy">
@@ -1377,7 +1377,7 @@ function CreateLegendPage() {
               <span className={declarationsAccepted ? 'ready' : ''}>Declaraciones aceptadas</span>
               <span className={resources.cover.saved ? 'ready' : ''}>Portada {resources.cover.saved ? 'lista' : 'recomendada'}</span>
               <span className={resources.banner.saved ? 'ready' : ''}>Banner {resources.banner.saved ? 'listo' : 'recomendado'}</span>
-              <span className={resources.model3d.saved || resources.marker.saved ? 'ready' : ''}>3D / AR {resources.model3d.saved || resources.marker.saved ? 'preparado' : 'opcional'}</span>
+              <span className={resources.model3d.saved || resources.marker.saved ? 'ready' : ''}>3D / AR {resources.model3d.saved || resources.marker.saved ? 'preparado' : 'pendiente'}</span>
             </div>
             <p className="creator-checklist-note">
               El boton final envia a revision administrativa. No publica la obra.

@@ -27,10 +27,10 @@ import {
 import ArSceneModal from '../3d/ArSceneModal.jsx';
 
 const tabs = [
-  { key: 'general', label: 'Datos generales', icon: 'contract_edit' },
-  { key: 'content', label: 'Contenido', icon: 'article' },
-  { key: 'resources', label: 'Recursos', icon: 'photo_library' },
-  { key: 'ar', label: '3D / AR', icon: 'view_in_ar' },
+  { key: 'general', label: 'Datos de historia', icon: 'contract_edit' },
+  { key: 'resources', label: 'Portada / banner', icon: 'photo_library' },
+  { key: 'content', label: 'Documento / libro', icon: 'article' },
+  { key: 'ar', label: 'Modelos y marcadores', icon: 'view_in_ar' },
   { key: 'declarations', label: 'Declaraciones', icon: 'gavel' },
   { key: 'review', label: 'Revision', icon: 'task_alt' },
 ];
@@ -82,7 +82,7 @@ const resourceDefinitions = [
     key: 'marker',
     tab: 'ar',
     title: 'Marcador AR',
-    description: 'Imagen fisica que activara una escena AR mas adelante.',
+    description: 'Imagen fisica o visual que puede vincularse a la escena y al hotspot.',
     recommendation: 'Recomendado: imagen nitida con buen contraste.',
     assetType: 'marker_image',
     kind: 'ar_marker',
@@ -175,6 +175,27 @@ function getExistingResource(resources, key) {
 
 function hasResource(resources, key) {
   return Boolean(getExistingResource(resources, key));
+}
+
+function countScenes(resources = {}) {
+  return (resources.arScenes ?? []).filter((scene) => String(scene.status || '').toLowerCase() !== 'archived').length;
+}
+
+function countMarkers(resources = {}) {
+  return (resources.arMarkers ?? []).filter((marker) => String(marker.status || '').toLowerCase() !== 'archived').length;
+}
+
+function getDocumentRenderSummary(sourceDocument, liveSummary = {}) {
+  const status = liveSummary.status || sourceDocument?.render_status || sourceDocument?.renderStatus || null;
+  const renderedCount = liveSummary.count ?? sourceDocument?.rendered_page_count ?? sourceDocument?.renderedPageCount ?? 0;
+  const pageCount = liveSummary.pageCount ?? sourceDocument?.page_count ?? sourceDocument?.pageCount ?? null;
+
+  return {
+    status,
+    renderedCount: Number(renderedCount || 0),
+    pageCount: Number(pageCount || 0),
+    ready: status === 'ready' && Number(renderedCount || 0) > 0,
+  };
 }
 
 function ResourceCard({ definition, value, existing, disabled, saving, onChange, onSave }) {
@@ -284,6 +305,8 @@ function LegendEditor({ legendId }) {
     error: '',
     loading: false,
   });
+  const [documentRenderSummary, setDocumentRenderSummary] = useState({ status: null, count: 0, pageCount: null, pages: [] });
+  const [hotspotSummary, setHotspotSummary] = useState({ total: 0, associated: 0 });
   const [isSourceDocumentOpen, setIsSourceDocumentOpen] = useState(true);
   const [isInteractiveReadingOpen, setIsInteractiveReadingOpen] = useState(true);
   const [error, setError] = useState(null);
@@ -358,8 +381,11 @@ function LegendEditor({ legendId }) {
   const isReviewLocked = !canEdit;
   const declarationsAccepted = Object.values(declarations).every(Boolean);
   const declarationError = declarationsAccepted ? null : new Error('Acepta las declaraciones editoriales antes de enviar a revision.');
-  const reviewError = validateReadyForReview({ legend: form, pages }) || declarationError;
   const primarySourceDocument = getPrimarySourceDocument(existingResources.documents);
+  const reviewError = validateReadyForReview({ legend: form, pages, hasSourceDocument: Boolean(primarySourceDocument) }) || declarationError;
+  const renderChecklist = getDocumentRenderSummary(primarySourceDocument, documentRenderSummary);
+  const modelCount = countScenes(existingResources);
+  const markerCount = countMarkers(existingResources);
   const sceneForSelectedPage = findSceneForPage(existingResources.arScenes, selectedPage?.id);
   const versionStatusLabel = getLegendDisplayStatus(version?.status).label;
   const interactiveReadingPanelId = `interactive-reading-panel-${version?.id || 'current'}`;
@@ -371,6 +397,13 @@ function LegendEditor({ legendId }) {
       error: '',
       loading: false,
     });
+    setDocumentRenderSummary({
+      status: primarySourceDocument?.render_status || primarySourceDocument?.renderStatus || null,
+      count: primarySourceDocument?.rendered_page_count ?? primarySourceDocument?.renderedPageCount ?? 0,
+      pageCount: primarySourceDocument?.page_count ?? primarySourceDocument?.pageCount ?? null,
+      pages: [],
+    });
+    setHotspotSummary({ total: 0, associated: 0 });
     setIsSourceDocumentOpen(Boolean(primarySourceDocument));
     setIsInteractiveReadingOpen(!primarySourceDocument || visiblePages.length > 0);
   }, [primarySourceDocument?.id]);
@@ -559,6 +592,14 @@ function LegendEditor({ legendId }) {
 
     const value = resources[definition.key];
     const arPage = visiblePages.find((page) => Number(page.page_number) === Number(arPageNumber));
+    if (definition.kind === 'ar_model' && !arPage?.id) {
+      updateResource(definition.key, {
+        ...value,
+        error: 'Guarda al menos una pagina de la leyenda antes de crear la escena 3D.',
+      });
+      setSavingResourceKey(null);
+      return;
+    }
     const result = await saveLegendResource({
       legendId: legend.id,
       pageId: definition.kind === 'ar_model' ? arPage?.id : null,
@@ -566,7 +607,7 @@ function LegendEditor({ legendId }) {
     });
 
     if (!result.error && definition.kind === 'ar_marker') {
-      const sceneId = existingResources.arScenes?.[0]?.id;
+      const sceneId = findSceneForPage(existingResources.arScenes, arPage?.id)?.id || existingResources.arScenes?.[0]?.id;
       if (sceneId && result.data?.asset?.id) {
         await createArMarker({ legendId: legend.id, sceneId, markerAssetId: result.data.asset.id });
       }
@@ -593,7 +634,7 @@ function LegendEditor({ legendId }) {
   }
 
   async function handleSubmitReview() {
-    const validationError = validateReadyForReview({ legend: form, pages });
+    const validationError = validateReadyForReview({ legend: form, pages, hasSourceDocument: Boolean(primarySourceDocument) });
     if (validationError) {
       setError(validationError);
       setActiveTab('review');
@@ -616,10 +657,12 @@ function LegendEditor({ legendId }) {
       return;
     }
 
-    const pagesSaved = await handleSavePages();
-    if (!pagesSaved) {
-      setSubmitting(false);
-      return;
+    if (visiblePages.length > 0) {
+      const pagesSaved = await handleSavePages();
+      if (!pagesSaved) {
+        setSubmitting(false);
+        return;
+      }
     }
 
     const { error: submitError } = await submitLegendForReview(version.id);
@@ -774,10 +817,10 @@ function LegendEditor({ legendId }) {
           <div className="creator-editor-card-title">
             <span>2</span>
             <div>
-              <h2>Contenido de la leyenda</h2>
+              <h2>Documento, libro y marcadores</h2>
               <p>
                 {primarySourceDocument
-                  ? 'Documento original y lectura interactiva opcional.'
+                  ? 'Prepara el PDF como libro, elige una pagina renderizada y coloca marcadores cuadrados.'
                   : `${visiblePages.length} paginas en esta version.`}
               </p>
             </div>
@@ -798,6 +841,8 @@ function LegendEditor({ legendId }) {
               onAddManualPage={addPage}
               isOpen={isSourceDocumentOpen}
               onToggle={() => setIsSourceDocumentOpen((current) => !current)}
+              onRenderStateChange={setDocumentRenderSummary}
+              onHotspotSummaryChange={setHotspotSummary}
             />
           )}
 
@@ -908,19 +953,30 @@ function LegendEditor({ legendId }) {
       )}
 
       {activeTab === 'resources' && (
-        <div className="creator-resource-grid creator-resource-grid-roomy">
-          {resourceDefinitions.filter((definition) => definition.tab === 'resources').map((definition) => (
-            <ResourceCard
-              key={definition.key}
-              definition={definition}
-              value={resources[definition.key]}
-              existing={getExistingResource(existingResources, definition.key)}
-              disabled={isReviewLocked}
-              saving={savingResourceKey === definition.key}
-              onChange={(value) => updateResource(definition.key, value)}
-              onSave={handleSaveResource}
-            />
-          ))}
+        <div className="page-stack">
+          <Card className="creator-editor-card">
+            <div className="creator-editor-card-title">
+              <span>2</span>
+              <div>
+                <h2>Portada y banner</h2>
+                <p>Sube las imagenes visibles en catalogo y detalle antes de preparar la publicacion.</p>
+              </div>
+            </div>
+            <div className="creator-resource-grid creator-resource-grid-roomy">
+              {resourceDefinitions.filter((definition) => definition.tab === 'resources').map((definition) => (
+                <ResourceCard
+                  key={definition.key}
+                  definition={definition}
+                  value={resources[definition.key]}
+                  existing={getExistingResource(existingResources, definition.key)}
+                  disabled={isReviewLocked}
+                  saving={savingResourceKey === definition.key}
+                  onChange={(value) => updateResource(definition.key, value)}
+                  onSave={handleSaveResource}
+                />
+              ))}
+            </div>
+          </Card>
         </div>
       )}
 
@@ -930,37 +986,84 @@ function LegendEditor({ legendId }) {
             <div className="creator-editor-card-title">
               <span>3</span>
               <div>
-                <h2>Experiencia 3D y AR</h2>
-                <p>Prepara modelo 3D, marcador fisico y asociacion con una pagina.</p>
+                <h2>Modelos, marcadores y escenas</h2>
+                <p>Sube recursos por separado. Despues coloca el hotspot sobre la pagina preparada y asocia la escena.</p>
               </div>
             </div>
             <div className="creator-ar-link-row">
               <label className="field" htmlFor="ar-page">
-                <span>Asociar escena 3D a pagina</span>
+                <span>Pagina base para nueva escena 3D</span>
                 <select id="ar-page" className="select" value={arPageNumber} onChange={(event) => setArPageNumber(event.target.value)} disabled={isReviewLocked}>
                   {visiblePages.map((page) => (
                     <option key={page.client_id} value={page.page_number}>Pagina {page.page_number}</option>
                   ))}
                 </select>
               </label>
-              <p>Si registras un modelo 3D, se preparara una escena AR vinculada a la pagina elegida.</p>
+              <p>La escena necesita una pagina guardada. Si tu historia viene de PDF, prepara el libro y usa la seccion Documento / libro para colocar el hotspot sobre la pagina renderizada.</p>
             </div>
           </Card>
 
-          <div className="creator-resource-grid creator-resource-grid-roomy">
-            {resourceDefinitions.filter((definition) => definition.tab === 'ar').map((definition) => (
-              <ResourceCard
-                key={definition.key}
-                definition={definition}
-                value={resources[definition.key]}
-                existing={getExistingResource(existingResources, definition.key)}
-                disabled={isReviewLocked}
-                saving={savingResourceKey === definition.key}
-                onChange={(value) => updateResource(definition.key, value)}
-                onSave={handleSaveResource}
-              />
-            ))}
-          </div>
+          <section className="creator-resource-group">
+            <div className="creator-resource-group-heading">
+              <h3>Modelos 3D</h3>
+              <p>{modelCount ? `${modelCount} escena(s) con modelo registrada(s).` : 'Sube un GLB/GLTF para crear una escena.'}</p>
+            </div>
+            <ResourceCard
+              definition={resourceDefinitions.find((definition) => definition.key === 'model3d')}
+              value={resources.model3d}
+              existing={getExistingResource(existingResources, 'model3d')}
+              disabled={isReviewLocked}
+              saving={savingResourceKey === 'model3d'}
+              onChange={(value) => updateResource('model3d', value)}
+              onSave={handleSaveResource}
+            />
+          </section>
+
+          <section className="creator-resource-group">
+            <div className="creator-resource-group-heading">
+              <h3>Marcadores / imagenes</h3>
+              <p>{markerCount ? `${markerCount} marcador(es) registrado(s).` : 'Sube la imagen que servira como marcador fisico o visual.'}</p>
+            </div>
+            <ResourceCard
+              definition={resourceDefinitions.find((definition) => definition.key === 'marker')}
+              value={resources.marker}
+              existing={getExistingResource(existingResources, 'marker')}
+              disabled={isReviewLocked}
+              saving={savingResourceKey === 'marker'}
+              onChange={(value) => updateResource('marker', value)}
+              onSave={handleSaveResource}
+            />
+          </section>
+
+          <section className="creator-resource-group">
+            <div className="creator-resource-group-heading">
+              <h3>Escenas AR</h3>
+              <p>Prueba el modelo desde aqui o asocialo a un cuadro desde Documento / libro.</p>
+            </div>
+            {modelCount ? (
+              <div className="creator-scene-list">
+                {existingResources.arScenes
+                  .filter((scene) => String(scene.status || '').toLowerCase() !== 'archived')
+                  .map((scene) => {
+                    const marker = findMarkerForScene(existingResources.arMarkers, scene.id);
+                    const scenePage = visiblePages.find((page) => String(page.id) === String(scene.page_id));
+                    return (
+                      <article key={scene.id} className="creator-scene-item">
+                        <div>
+                          <strong>{scene.name || 'Escena 3D'}</strong>
+                          <span>Pagina {scenePage?.page_number || 'guardada'} · {marker ? 'marcador vinculado' : 'sin marcador'}</span>
+                        </div>
+                        <Button type="button" variant="ghost" onClick={() => setActiveScene(scene)}>
+                          Probar modelo
+                        </Button>
+                      </article>
+                    );
+                  })}
+              </div>
+            ) : (
+              <p className="creator-muted">Todavia no hay escenas. Guarda un modelo 3D para crear la primera.</p>
+            )}
+          </section>
         </div>
       )}
 
@@ -1037,11 +1140,19 @@ function LegendEditor({ legendId }) {
           <div className="creator-review-grid">
             <span className={form.title && form.synopsis && form.short_synopsis ? 'ready' : ''}>Datos generales</span>
             <span className={genres.length ? 'ready' : ''}>Generos: {genres.length || 'pendientes'}</span>
-            <span className={visiblePages.some((page) => page.text_content?.trim()) ? 'ready' : ''}>Paginas con texto: {visiblePages.filter((page) => page.text_content?.trim()).length}</span>
+            <span className={primarySourceDocument || visiblePages.some((page) => page.text_content?.trim()) ? 'ready' : ''}>
+              Documento/contenido {primarySourceDocument ? 'cargado' : `${visiblePages.filter((page) => page.text_content?.trim()).length} pagina(s)`}
+            </span>
+            <span className={renderChecklist.ready ? 'ready' : ''}>
+              Paginas renderizadas {renderChecklist.ready ? `${renderChecklist.renderedCount}` : 'pendientes'}
+            </span>
             <span className={hasResource(existingResources, 'cover') ? 'ready' : ''}>Portada {hasResource(existingResources, 'cover') ? 'cargada' : 'pendiente'}</span>
-            <span className={hasResource(existingResources, 'banner') ? 'ready' : ''}>Banner {hasResource(existingResources, 'banner') ? 'cargado' : 'opcional'}</span>
-            <span className={hasResource(existingResources, 'model3d') ? 'ready' : ''}>Modelo 3D {hasResource(existingResources, 'model3d') ? 'listo' : 'opcional'}</span>
-            <span className={hasResource(existingResources, 'marker') ? 'ready' : ''}>Marcador AR {hasResource(existingResources, 'marker') ? 'listo' : 'opcional'}</span>
+            <span className={hasResource(existingResources, 'banner') ? 'ready' : ''}>Banner {hasResource(existingResources, 'banner') ? 'cargado' : 'pendiente'}</span>
+            <span className={modelCount ? 'ready' : ''}>Modelos 3D {modelCount ? `${modelCount} listo(s)` : 'pendientes'}</span>
+            <span className={markerCount ? 'ready' : ''}>Marcadores {markerCount ? `${markerCount} listo(s)` : 'pendientes'}</span>
+            <span className={hotspotSummary.associated ? 'ready' : ''}>
+              Hotspots asociados {hotspotSummary.associated ? `${hotspotSummary.associated}/${hotspotSummary.total}` : 'pendientes'}
+            </span>
             <span className={declarationsAccepted ? 'ready' : ''}>Declaraciones {declarationsAccepted ? 'aceptadas' : 'pendientes'}</span>
           </div>
 
