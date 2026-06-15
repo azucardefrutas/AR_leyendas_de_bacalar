@@ -66,15 +66,52 @@ function getHotspotMarkerUrl(hotspot) {
 }
 
 function HotspotMarker({ hotspot, index, onClick }) {
+  const btnRef = useRef(null);
+  const onClickRef = useRef(onClick);
+  const hotspotRef = useRef(hotspot);
+  onClickRef.current = onClick;
+  hotspotRef.current = hotspot;
+
   const widthPct = Number(hotspot.width) > 0 ? `${Math.min(1, Number(hotspot.width)) * 100}%` : null;
   const heightPct = Number(hotspot.height) > 0 ? `${Math.min(1, Number(hotspot.height)) * 100}%` : null;
   const withModel = hotspotHasModel(hotspot);
   const markerUrl = getHotspotMarkerUrl(hotspot);
 
+  // The page-flip library (react-pageflip) attaches NATIVE listeners on an ancestor
+  // and flips on pointer/click. React's synthetic stopPropagation fires too late to
+  // stop them, so tapping a marker also turned the page. We attach native listeners
+  // on the marker that (a) swallow the flip-start events and (b) open the model on
+  // the native click — so the marker captures the tap and the book never flips.
+  useEffect(() => {
+    const el = btnRef.current;
+    if (!el) return undefined;
+    const stop = (event) => { event.stopPropagation(); };
+    const open = (event) => {
+      event.stopPropagation();
+      event.preventDefault();
+      onClickRef.current?.(hotspotRef.current);
+    };
+    el.addEventListener('pointerdown', stop);
+    el.addEventListener('mousedown', stop);
+    el.addEventListener('touchstart', stop);
+    el.addEventListener('mouseup', stop);
+    el.addEventListener('touchend', stop);
+    el.addEventListener('click', open);
+    return () => {
+      el.removeEventListener('pointerdown', stop);
+      el.removeEventListener('mousedown', stop);
+      el.removeEventListener('touchstart', stop);
+      el.removeEventListener('mouseup', stop);
+      el.removeEventListener('touchend', stop);
+      el.removeEventListener('click', open);
+    };
+  }, [withModel]);
+
   if (!withModel) return null;
 
   return (
     <button
+      ref={btnRef}
       type="button"
       className={`reader-hotspot ${withModel ? 'has-model' : 'no-model'}`}
       style={{
@@ -83,19 +120,13 @@ function HotspotMarker({ hotspot, index, onClick }) {
         ...(widthPct ? { width: widthPct } : null),
         ...(heightPct ? { height: heightPct } : null),
       }}
-      title={hotspot.label || (withModel ? 'Ver modelo 3D' : 'Marcador sin modelo 3D')}
+      title={hotspot.label || 'Ver modelo 3D'}
       aria-label={hotspot.label || `Marcador ${index + 1}`}
-      onMouseDown={(event) => event.stopPropagation()}
-      onTouchStart={(event) => event.stopPropagation()}
-      onClick={(event) => {
-        event.stopPropagation();
-        onClick(hotspot);
-      }}
     >
       {markerUrl ? (
         <img src={markerUrl} alt="" aria-hidden="true" />
       ) : (
-        withModel && <span className="reader-hotspot-badge">3D</span>
+        <span className="reader-hotspot-badge">3D</span>
       )}
     </button>
   );
