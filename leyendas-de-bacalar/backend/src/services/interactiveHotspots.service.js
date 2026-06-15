@@ -286,6 +286,42 @@ export const createScene = async ({ legendId, userId, roles, payload = {} }) => 
   return data;
 };
 
+// List the legend's 3D scenes for the creator selector. Runs with the service role so
+// it can read scenes with a null page_id (rendered-PDF models), which the ar_scenes
+// RLS SELECT policy (keyed on is_page_creator(page_id)) would hide from the frontend.
+// Each scene's name is set to the model file name so the selector is human-readable.
+export const listScenes = async ({ legendId, userId, roles }) => {
+  await getLegendAccessContext({ legendId, userId, roles });
+
+  const { data: assets, error: assetsError } = await supabaseAdmin
+    .from('assets')
+    .select('id, metadata')
+    .eq('asset_type', 'model_3d')
+    .eq('metadata->>legend_id', legendId);
+  if (assetsError) throw new HotspotError('Could not load models.', 500, { reason: assetsError.message });
+
+  const modelAssetIds = (assets ?? []).map((asset) => asset.id);
+  if (!modelAssetIds.length) return [];
+
+  const { data: scenes, error } = await supabaseAdmin
+    .from('ar_scenes')
+    .select(SCENE_COLUMNS)
+    .in('model_asset_id', modelAssetIds)
+    .order('created_at', { ascending: false });
+  if (error) throw new HotspotError('Could not load scenes.', 500, { reason: error.message });
+
+  const nameByAsset = new Map(
+    (assets ?? []).map((asset) => [String(asset.id), asset.metadata?.original_name || asset.metadata?.filename || null]),
+  );
+
+  return (scenes ?? [])
+    .filter((scene) => String(scene.status || '').toLowerCase() !== 'archived')
+    .map((scene) => ({
+      ...scene,
+      name: nameByAsset.get(String(scene.model_asset_id)) || scene.name || 'Modelo 3D',
+    }));
+};
+
 export const updateHotspot = async ({ legendId, hotspotId, userId, roles, payload }) => {
   const existing = await loadHotspot(hotspotId);
   if (legendId && String(existing.legend_id) !== String(legendId)) {

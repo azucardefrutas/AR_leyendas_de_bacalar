@@ -6,6 +6,7 @@ import {
   deleteLegendHotspot,
   getDocumentRenderStatus,
   listLegendHotspots,
+  listLegendScenes,
   startDocumentRender,
   updateLegendHotspot,
 } from '../../services/backendApiService.js';
@@ -324,8 +325,16 @@ function SourceDocumentPreview({
   const loadScenes = useCallback(async () => {
     if (!legendId) return;
     try {
-      const resources = await getLegendResources(legendId);
-      setArScenes((resources.data?.arScenes ?? []).filter(
+      const [resources, sceneResponse] = await Promise.all([
+        getLegendResources(legendId),
+        listLegendScenes(legendId).catch(() => ({ scenes: [] })),
+      ]);
+      // Scenes come from the backend (service role) so models tied to a rendered PDF
+      // page (page_id null) are visible; the anon RLS list hides those. Fall back to
+      // the anon list only if the backend returned nothing.
+      const backendScenes = sceneResponse?.scenes ?? [];
+      const scenes = backendScenes.length ? backendScenes : (resources.data?.arScenes ?? []);
+      setArScenes(scenes.filter(
         (scene) => String(scene.status || '').toLowerCase() !== 'archived',
       ));
       setArMarkers(resources.data?.arMarkers ?? []);

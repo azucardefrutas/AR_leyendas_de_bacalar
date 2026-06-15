@@ -7,6 +7,7 @@ import {
   createScene,
   deleteHotspot,
   listHotspots,
+  listScenes,
   updateHotspot,
 } from '../services/interactiveHotspots.service.js';
 
@@ -44,6 +45,20 @@ router.post('/:legendId/hotspots', requireCreatorOrAdmin, async (req, res, next)
     });
 
     res.status(201).json({ ok: true, hotspot });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/:legendId/scenes', requireCreatorOrAdmin, async (req, res, next) => {
+  try {
+    const scenes = await listScenes({
+      legendId: req.params.legendId,
+      userId: req.user.id,
+      roles: req.user.roles,
+    });
+
+    res.json({ ok: true, scenes });
   } catch (error) {
     next(error);
   }
