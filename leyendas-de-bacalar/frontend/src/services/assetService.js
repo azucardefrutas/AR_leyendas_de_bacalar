@@ -671,13 +671,12 @@ export async function linkLegendSourceDocument({ legendId, assetId, documentType
 
 export async function createArScene({ legendId, pageId = null, modelAssetId, title = 'Escena AR' }) {
   if (isInvalidId(modelAssetId)) return { data: null, error: friendlyAssetError('No pudimos preparar la escena AR.') };
-  if (isInvalidId(pageId)) return { data: null, error: friendlyAssetError('Guarda una pagina antes de vincular el modelo 3D a una escena AR.') };
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: null, error: clientError };
 
   const { data: userId } = await getCurrentUserId();
   const payload = {
-    page_id: pageId,
+    page_id: isInvalidId(pageId) ? null : pageId,
     name: title || 'Escena AR',
     description: legendId ? `Escena AR vinculada a leyenda ${legendId}` : null,
     model_asset_id: modelAssetId,
@@ -741,30 +740,74 @@ export async function getLegendResources(legendId) {
     }
 
     const pageIds = await getLegendPageIds(client, legendId);
-    const scenesResult = pageIds.length
+    const modelAssetsResult = await client
+      .from('assets')
+      .select('id')
+      .eq('asset_type', 'model_3d')
+      .eq('metadata->>legend_id', legendId);
+    if (modelAssetsResult.error) logStorageError('select model assets', { table: 'assets', error: modelAssetsResult.error });
+
+    const markerAssetsResult = await client
+      .from('assets')
+      .select('*')
+      .eq('asset_type', 'marker_image')
+      .eq('metadata->>legend_id', legendId);
+    if (markerAssetsResult.error) logStorageError('select marker assets', { table: 'assets', error: markerAssetsResult.error });
+
+    const modelAssetIds = (modelAssetsResult.data ?? []).map((asset) => asset.id).filter(Boolean);
+    const pageScenesResult = pageIds.length
       ? await client.from('ar_scenes').select('*').in('page_id', pageIds)
       : { data: [], error: null };
-    if (scenesResult.error) logStorageError('select ar scenes', { table: 'ar_scenes', error: scenesResult.error });
+    const assetScenesResult = modelAssetIds.length
+      ? await client.from('ar_scenes').select('*').in('model_asset_id', modelAssetIds)
+      : { data: [], error: null };
+    if (pageScenesResult.error) logStorageError('select ar scenes by page', { table: 'ar_scenes', error: pageScenesResult.error });
+    if (assetScenesResult.error) logStorageError('select ar scenes by model', { table: 'ar_scenes', error: assetScenesResult.error });
 
-    const sceneIds = (scenesResult.data ?? []).map((scene) => scene.id).filter(Boolean);
+    const sceneMap = new Map();
+    for (const scene of [...(pageScenesResult.data ?? []), ...(assetScenesResult.data ?? [])]) {
+      if (scene?.id) sceneMap.set(String(scene.id), scene);
+    }
+    const sceneRows = [...sceneMap.values()];
+
+    const sceneIds = sceneRows.map((scene) => scene.id).filter(Boolean);
     const markersResult = sceneIds.length
       ? await client.from('ar_markers').select('*').in('ar_scene_id', sceneIds)
       : { data: [], error: null };
     if (markersResult.error) logStorageError('select ar markers', { table: 'ar_markers', error: markersResult.error });
 
-    const [media, documents, arScenes, arMarkers] = await Promise.all([
+    const [media, documents, arScenes, linkedArMarkers, markerAssets] = await Promise.all([
       hydrateRowsWithAssets(client, mediaResult.data ?? []),
       hydrateRowsWithAssets(client, documentsResult.data ?? []),
-      hydrateRowsWithAssets(client, scenesResult.data ?? []),
+      hydrateRowsWithAssets(client, sceneRows),
       hydrateRowsWithAssets(client, markersResult.data ?? []),
+      Promise.all((markerAssetsResult.data ?? []).map((asset) => resolveAssetForClient(client, asset))),
     ]);
+
+    const markerMap = new Map();
+    for (const marker of linkedArMarkers) {
+      const markerAssetId = marker.marker_asset_id || marker.assets?.id || marker.asset?.id || marker.id;
+      if (markerAssetId) markerMap.set(String(markerAssetId), marker);
+    }
+    for (const asset of markerAssets.filter(Boolean)) {
+      if (!asset?.id || markerMap.has(String(asset.id))) continue;
+      markerMap.set(String(asset.id), {
+        id: `asset-${asset.id}`,
+        marker_asset_id: asset.id,
+        marker_code: asset.metadata?.original_name || 'Marcador visual',
+        marker_type: 'image_marker',
+        status: 'draft',
+        ar_scene_id: null,
+        assets: asset,
+      });
+    }
 
     return {
       data: {
         media,
         documents,
         arScenes,
-        arMarkers,
+        arMarkers: [...markerMap.values()],
       },
       error: null,
     };
@@ -817,7 +860,7 @@ export async function saveLegendResource({ legendId, pageId, resource }) {
       legendId,
       pageId,
       modelAssetId: assetResult.data.id,
-      title: 'Escena AR de leyenda',
+      title: uploadedAsset.metadata?.original_name || resource.file?.name || 'Modelo 3D',
     });
     if (sceneResult.error) return sceneResult;
     return { data: { asset: assetResult.data, scene: sceneResult.data }, error: null };

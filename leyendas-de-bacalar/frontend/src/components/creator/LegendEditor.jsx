@@ -172,6 +172,23 @@ function getSceneLabel(scene = {}) {
   return scene.name || asset?.metadata?.original_name || asset?.filename || 'Modelo 3D';
 }
 
+function getCameraArConfig(scene = {}) {
+  return scene.interaction_config?.camera_ar
+    || scene.interactionConfig?.cameraAr
+    || scene.interactionConfig?.camera_ar
+    || scene.metadata?.camera_ar
+    || scene.metadata?.ar_camera
+    || null;
+}
+
+function isCameraArReady(scene = {}) {
+  const config = getCameraArConfig(scene);
+  return Boolean(
+    config?.enabled
+    && (config.trackingUrl || config.tracking_url || config.trackingAssetUrl || config.mindUrl || config.pattUrl),
+  );
+}
+
 function getExistingResource(resources, key) {
   if (!resources) return null;
   if (key === 'cover' || key === 'banner') {
@@ -210,6 +227,30 @@ function getDocumentRenderSummary(sourceDocument, liveSummary = {}) {
     pageCount: Number(pageCount || 0),
     ready: status === 'ready' && Number(renderedCount || 0) > 0,
   };
+}
+
+function getCreatorReviewError({
+  baseError,
+  primarySourceDocument,
+  renderChecklist,
+  modelCount,
+  hotspotAssociatedCount,
+  declarationsAccepted,
+}) {
+  if (baseError) return baseError;
+  if (primarySourceDocument && !renderChecklist.ready) {
+    return new Error('Falta preparar el libro para tener paginas renderizadas.');
+  }
+  if (!modelCount) {
+    return new Error('Falta subir un modelo 3D.');
+  }
+  if (primarySourceDocument && !hotspotAssociatedCount) {
+    return new Error('Falta asociar un modelo a una pagina renderizada.');
+  }
+  if (!declarationsAccepted) {
+    return new Error('Acepta las declaraciones editoriales antes de enviar a revision.');
+  }
+  return null;
 }
 
 function ResourceCard({ definition, value, existing, disabled, saving, onChange, onSave }) {
@@ -399,12 +440,20 @@ function LegendEditor({ legendId }) {
   const canEdit = canEditVersion(version);
   const isReviewLocked = !canEdit;
   const declarationsAccepted = Object.values(declarations).every(Boolean);
-  const declarationError = declarationsAccepted ? null : new Error('Acepta las declaraciones editoriales antes de enviar a revision.');
   const primarySourceDocument = getPrimarySourceDocument(existingResources.documents);
-  const reviewError = validateReadyForReview({ legend: form, pages, hasSourceDocument: Boolean(primarySourceDocument) }) || declarationError;
+  const baseReviewError = validateReadyForReview({ legend: form, pages, hasSourceDocument: Boolean(primarySourceDocument) });
   const renderChecklist = getDocumentRenderSummary(primarySourceDocument, documentRenderSummary);
   const modelCount = countScenes(existingResources);
   const markerCount = countMarkers(existingResources);
+  const cameraArReady = (existingResources.arScenes ?? []).some(isCameraArReady);
+  const reviewError = getCreatorReviewError({
+    baseError: baseReviewError,
+    primarySourceDocument,
+    renderChecklist,
+    modelCount,
+    hotspotAssociatedCount: hotspotSummary.associated,
+    declarationsAccepted,
+  });
   const sceneForSelectedPage = findSceneForPage(existingResources.arScenes, selectedPage?.id);
   const versionStatusLabel = getLegendDisplayStatus(version?.status).label;
   const interactiveReadingPanelId = `interactive-reading-panel-${version?.id || 'current'}`;
@@ -611,16 +660,6 @@ function LegendEditor({ legendId }) {
 
     const value = resources[definition.key];
     const arPage = visiblePages.find((page) => Number(page.page_number) === Number(arPageNumber));
-    if (definition.kind === 'ar_model' && !arPage?.id) {
-      updateResource(definition.key, {
-        ...value,
-        error: primarySourceDocument
-          ? 'La base actual no permite crear una escena 3D nueva directamente desde un PDF renderizado. Puedes asociar modelos existentes sobre la pagina renderizada.'
-          : 'Crea una pagina editorial antes de preparar una escena 3D para historias sin PDF renderizado.',
-      });
-      setSavingResourceKey(null);
-      return;
-    }
     const result = await saveLegendResource({
       legendId: legend.id,
       pageId: definition.kind === 'ar_model' ? arPage?.id : null,
@@ -655,15 +694,14 @@ function LegendEditor({ legendId }) {
   }
 
   async function handleSubmitReview() {
-    const validationError = validateReadyForReview({ legend: form, pages, hasSourceDocument: Boolean(primarySourceDocument) });
-    if (validationError) {
-      setError(validationError);
+    if (reviewError) {
+      setError(reviewError);
       setActiveTab('review');
       return;
     }
 
     if (!declarationsAccepted) {
-      setError(declarationError);
+      setError(new Error('Acepta las declaraciones editoriales antes de enviar a revision.'));
       setActiveTab('declarations');
       return;
     }
@@ -1104,6 +1142,22 @@ function LegendEditor({ legendId }) {
               <p className="creator-muted">Todavia no hay modelos disponibles para asociar.</p>
             )}
           </section>
+
+          <section className="creator-resource-group creator-ar-optional">
+            <div className="creator-resource-group-heading">
+              <h3>Camara AR, opcional</h3>
+              <p>
+                El lector digital funciona con el icono sobre la pagina. La camara AR se mostrara solo cuando una escena tenga configuracion completa con archivo .mind o .patt.
+              </p>
+            </div>
+            <div className="creator-review-grid compact">
+              <span className={cameraArReady ? 'ready' : ''}>
+                {cameraArReady ? 'Camara AR lista' : 'Camara AR pendiente'}
+              </span>
+              <span>Reconocimiento por imagen: archivo .mind</span>
+              <span>Marcador cuadrado fisico: archivo .patt</span>
+            </div>
+          </section>
         </div>
       )}
 
@@ -1178,20 +1232,23 @@ function LegendEditor({ legendId }) {
           </div>
 
           <div className="creator-review-grid">
-            <span className={form.title && form.synopsis && form.short_synopsis ? 'ready' : ''}>Datos generales</span>
+            <span className={form.title && form.synopsis && form.short_synopsis ? 'ready' : ''}>Historia guardada</span>
             <span className={genres.length ? 'ready' : ''}>Generos: {genres.length || 'pendientes'}</span>
             <span className={primarySourceDocument || visiblePages.some((page) => page.text_content?.trim()) ? 'ready' : ''}>
-              Documento/contenido {primarySourceDocument ? 'cargado' : `${visiblePages.filter((page) => page.text_content?.trim()).length} pagina(s)`}
+              PDF/documento {primarySourceDocument ? 'cargado' : `${visiblePages.filter((page) => page.text_content?.trim()).length} pagina(s)`}
             </span>
             <span className={renderChecklist.ready ? 'ready' : ''}>
-              Paginas renderizadas {renderChecklist.ready ? `${renderChecklist.renderedCount}` : 'pendientes'}
+              Libro preparado {renderChecklist.ready ? `${renderChecklist.renderedCount} paginas` : 'pendiente'}
             </span>
             <span className={hasResource(existingResources, 'cover') ? 'ready' : ''}>Portada {hasResource(existingResources, 'cover') ? 'cargada' : 'pendiente'}</span>
             <span className={hasResource(existingResources, 'banner') ? 'ready' : ''}>Banner {hasResource(existingResources, 'banner') ? 'cargado' : 'pendiente'}</span>
-            <span className={modelCount ? 'ready' : ''}>Modelos 3D {modelCount ? `${modelCount} listo(s)` : 'pendientes'}</span>
-            <span className={markerCount ? 'ready' : ''}>Marcadores {markerCount ? `${markerCount} listo(s)` : 'pendientes'}</span>
+            <span className={modelCount ? 'ready' : ''}>Modelo 3D {modelCount ? `${modelCount} listo(s)` : 'pendiente'}</span>
+            <span className={markerCount ? 'ready' : ''}>Marcador visual {markerCount ? `${markerCount} cargado(s)` : 'opcional'}</span>
             <span className={hotspotSummary.associated ? 'ready' : ''}>
-              Hotspots asociados {hotspotSummary.associated ? `${hotspotSummary.associated}/${hotspotSummary.total}` : 'pendientes'}
+              Hotspot listo para lector {hotspotSummary.associated ? `${hotspotSummary.associated}/${hotspotSummary.total}` : 'pendiente'}
+            </span>
+            <span className={cameraArReady ? 'ready optional' : 'optional'}>
+              Camara AR {cameraArReady ? 'configurada' : 'opcional, puede configurarse despues'}
             </span>
             <span className={declarationsAccepted ? 'ready' : ''}>Declaraciones {declarationsAccepted ? 'aceptadas' : 'pendientes'}</span>
           </div>

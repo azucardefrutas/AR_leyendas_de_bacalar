@@ -71,6 +71,8 @@ function HotspotMarker({ hotspot, index, onClick }) {
   const withModel = hotspotHasModel(hotspot);
   const markerUrl = getHotspotMarkerUrl(hotspot);
 
+  if (!withModel) return null;
+
   return (
     <button
       type="button"

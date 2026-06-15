@@ -3,9 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import Button from '../../components/ui/Button.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
-import Modal from '../../components/ui/Modal.jsx';
 import PhysicalBookActivationModal from '../../components/reader/PhysicalBookActivationModal.jsx';
-import ArSceneModal from '../../components/3d/ArSceneModal.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useRoles } from '../../hooks/useRoles.js';
 import { getLegendBySlug } from '../../services/legendService.js';
@@ -14,8 +12,12 @@ import { buildReaderPagesFromBundle } from '../../utils/readerPages.js';
 
 // Lazy: the book viewer (react-pageflip) only loads when a legend actually opens.
 const ConalitegStyleReader = lazy(() => import('../../components/reader/ConalitegStyleReader.jsx'));
+// Lazy: the 3D viewer (three.js) loads only when the reader taps a model marker. The
+// reader opens it DIRECTLY over the book — no intermediate info card. The AR-scene card
+// (with the optional "Ver con camara AR" link) stays in the creator's ArSceneModal.
+const Model3DViewer = lazy(() => import('../../components/3d/Model3DViewer.jsx'));
 
-// Adapt a reader-bundle ar_scene + model asset to what ArSceneModal expects.
+// Adapt a reader-bundle ar_scene + model asset to the shape Model3DViewer expects.
 function buildScene(arScene, modelAssets = []) {
   if (!arScene) return null;
   const model = arScene.modelAssetId
@@ -26,6 +28,8 @@ function buildScene(arScene, modelAssets = []) {
     name: arScene.name,
     description: arScene.description,
     status: arScene.status,
+    page_id: arScene.pageId,
+    interactionConfig: arScene.interactionConfig || {},
     assets: model
       ? {
           url: model.url || '',
@@ -49,7 +53,6 @@ function ReadingPage() {
   const [locked, setLocked] = useState(false);
   const [activationOpen, setActivationOpen] = useState(false);
   const [sceneModal, setSceneModal] = useState(null);
-  const [hotspotNotice, setHotspotNotice] = useState(false);
   const [rendering, setRendering] = useState(false);
 
   const loadReader = useCallback(async () => {
@@ -113,15 +116,13 @@ function ReadingPage() {
     || Boolean(user?.id && bundle?.legend?.creatorId && String(user.id) === String(bundle.legend.creatorId));
 
   function handleHotspotClick(hotspot) {
-    if (hotspot.arSceneId) {
-      const arScene = arScenes.find((scene) => String(scene.id) === String(hotspot.arSceneId));
-      const scene = buildScene(arScene, modelAssets);
-      if (scene) {
-        setSceneModal({ scene, pageNumber: hotspot.sourcePageNumber ?? null });
-        return;
-      }
+    if (!hotspot.arSceneId) return;
+    const arScene = arScenes.find((scene) => String(scene.id) === String(hotspot.arSceneId));
+    const scene = buildScene(arScene, modelAssets);
+    // Reader only opens markers that actually have a 3D model — never an empty viewer.
+    if (scene?.assets?.url) {
+      setSceneModal({ scene, pageNumber: hotspot.sourcePageNumber ?? null });
     }
-    setHotspotNotice(true);
   }
 
   async function handlePrepareBook(force = false) {
@@ -207,16 +208,13 @@ function ReadingPage() {
       )}
 
       {sceneModal && (
-        <ArSceneModal scene={sceneModal.scene} pageNumber={sceneModal.pageNumber} onClose={() => setSceneModal(null)} />
-      )}
-
-      {hotspotNotice && (
-        <Modal title="Marcador sin modelo 3D" onClose={() => setHotspotNotice(false)}>
-          <div className="hotspot-empty-modal">
-            <p>Este marcador todavia no tiene modelo 3D asociado.</p>
-            <Button type="button" variant="ghost" onClick={() => setHotspotNotice(false)}>Cerrar</Button>
-          </div>
-        </Modal>
+        <Suspense fallback={<LoadingState message="Cargando modelo 3D..." />}>
+          <Model3DViewer
+            scene={sceneModal.scene}
+            title={sceneModal.scene?.name}
+            onClose={() => setSceneModal(null)}
+          />
+        </Suspense>
       )}
     </section>
   );

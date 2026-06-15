@@ -80,12 +80,28 @@ const assertPageInLegend = async (legendId, pageId) => {
 const assertSceneInLegend = async (legendId, sceneId) => {
   const { data: scene, error } = await supabaseAdmin
     .from('ar_scenes')
-    .select('id, page_id')
+    .select('id, page_id, model_asset_id')
     .eq('id', sceneId)
     .maybeSingle();
   if (error) throw new HotspotError('Could not validate AR scene.', 500, { reason: error.message });
-  if (!scene || !scene.page_id) throw new HotspotError('AR scene does not belong to this legend.', 400);
-  await assertPageInLegend(legendId, scene.page_id);
+  if (!scene) throw new HotspotError('AR scene does not belong to this legend.', 400);
+
+  if (scene.page_id) {
+    await assertPageInLegend(legendId, scene.page_id);
+    return;
+  }
+
+  if (scene.model_asset_id) {
+    const { data: asset, error: assetError } = await supabaseAdmin
+      .from('assets')
+      .select('id, metadata')
+      .eq('id', scene.model_asset_id)
+      .maybeSingle();
+    if (assetError) throw new HotspotError('Could not validate AR scene asset.', 500, { reason: assetError.message });
+    if (asset?.metadata?.legend_id && String(asset.metadata.legend_id) === String(legendId)) return;
+  }
+
+  throw new HotspotError('AR scene does not belong to this legend.', 400);
 };
 
 const assertAssetInLegend = async (legendId, assetId) => {

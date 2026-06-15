@@ -355,7 +355,7 @@ const loadScenes = async (sceneIds) => {
 
   const { data, error } = await supabaseAdmin
     .from('ar_scenes')
-    .select('id, page_id, name, description, status, model_asset_id, created_by, created_at')
+    .select('id, page_id, name, description, status, model_asset_id, interaction_config, created_by, created_at')
     .in('id', ids);
 
   if (error) throw new ReaderBundleError('Could not load AR scenes.', 500, getDatabaseErrorDetails('ar_scenes', error));
@@ -468,6 +468,7 @@ export const getReaderBundle = async ({ legendId, userId = null, roles = [] }) =
       description: scene.description,
       status: scene.status,
       modelAssetId: scene.model_asset_id,
+      interactionConfig: scene.interaction_config || {},
     })),
     modelAssets: modelAssetIds
       .map((assetId) => serializeAsset(linkedAssetsById.get(String(assetId))))

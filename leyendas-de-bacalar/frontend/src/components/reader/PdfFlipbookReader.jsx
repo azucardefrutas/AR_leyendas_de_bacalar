@@ -10,7 +10,7 @@ const RENDER_TARGET_WIDTH = 820;
 const MAX_PAGE_DISPLAY_WIDTH = 460;
 
 function hotspotHasModel(hotspot) {
-  return Boolean(hotspot.scene || hotspot.ar_scene_id);
+  return Boolean(hotspot.scene || hotspot.arSceneId || hotspot.ar_scene_id);
 }
 
 function getHotspotMarkerUrl(hotspot) {
@@ -23,6 +23,8 @@ function HotspotMarker({ hotspot, index, onClick }) {
   const heightPct = Number(hotspot.height) > 0 ? `${Math.min(1, Number(hotspot.height)) * 100}%` : null;
   const withModel = hotspotHasModel(hotspot);
   const markerUrl = getHotspotMarkerUrl(hotspot);
+
+  if (!withModel) return null;
 
   return (
     <button

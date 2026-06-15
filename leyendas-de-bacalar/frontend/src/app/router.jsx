@@ -41,6 +41,7 @@ const AdminSettingsPage = lazy(() => import('../pages/admin/AdminSettingsPage.js
 const AdminOrdersPage = lazy(() => import('../pages/admin/AdminOrdersPage.jsx'));
 const AdminSubscriptionsPage = lazy(() => import('../pages/admin/AdminSubscriptionsPage.jsx'));
 const AdminUsersPage = lazy(() => import('../pages/admin/AdminUsersPage.jsx'));
+const ArExperiencePage = lazy(() => import('../pages/ar/ArExperiencePage.jsx'));
 const AuthCallbackPage = lazy(() => import('../pages/auth/AuthCallbackPage.jsx'));
 const CheckEmailPage = lazy(() => import('../pages/auth/CheckEmailPage.jsx'));
 const LoginPage = lazy(() => import('../pages/auth/LoginPage.jsx'));
@@ -70,6 +71,8 @@ export const router = createBrowserRouter([
       { path: '/reader/library', element: <LibraryPage /> },
       { path: '/legend/:slug', element: <LegendDetailPage /> },
       { path: '/legend/:slug/read', element: <ReadingPage /> },
+      { path: '/ar/scene/:sceneId', element: <ArExperiencePage /> },
+      { path: '/ar/:legendSlug', element: <ArExperiencePage /> },
       { path: '/about', element: <Navigate to="/#acerca" replace /> },
       { path: '/terms', element: <Navigate to="/terms/readers" replace /> },
       { path: '/privacy', element: <Navigate to="/privacy/readers" replace /> },

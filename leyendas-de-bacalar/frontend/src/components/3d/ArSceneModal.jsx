@@ -18,9 +18,29 @@ function getMarkerAsset(marker = {}) {
   return marker?.assets || marker?.asset || null;
 }
 
+function getCameraArConfig(scene = {}) {
+  return scene.interaction_config?.camera_ar
+    || scene.interactionConfig?.cameraAr
+    || scene.interactionConfig?.camera_ar
+    || scene.metadata?.camera_ar
+    || scene.metadata?.ar_camera
+    || null;
+}
+
+function isCameraArReady(scene = {}) {
+  const config = getCameraArConfig(scene);
+  return Boolean(
+    config?.enabled
+    && (config.trackingUrl || config.tracking_url || config.trackingAssetUrl || config.mindUrl || config.pattUrl),
+  );
+}
+
 const sceneStatusLabels = {
   draft: 'Borrador',
   in_review: 'En revision',
+  active: 'Activa',
+  inactive: 'Inactiva',
+  rejected: 'Rechazada',
   published: 'Publicada',
   approved: 'Aprobada',
   archived: 'Archivada',
@@ -48,6 +68,7 @@ function ArSceneModal({ scene, marker = null, pageNumber = null, onClose }) {
   const markerAsset = getMarkerAsset(marker);
   const statusLabel = sceneStatusLabels[String(scene.status || '').toLowerCase()] || scene.status || 'No disponible';
   const modelName = modelAsset?.metadata?.original_name || modelAsset?.name || 'Modelo 3D';
+  const cameraArReady = isCameraArReady(scene);
 
   return (
     <Modal title={scene.name || 'Escena 3D'} onClose={onClose}>
@@ -100,6 +121,11 @@ function ArSceneModal({ scene, marker = null, pageNumber = null, onClose }) {
               <a className="btn btn-ghost" href={modelUrl} target="_blank" rel="noreferrer">
                 Abrir / descargar
               </a>
+              {cameraArReady && (
+                <a className="btn btn-ghost" href={`/ar/scene/${scene.id}`}>
+                  Ver con camara AR
+                </a>
+              )}
             </>
           ) : (
             <span className="ar-scene-modal-empty">Esta escena todavia no tiene un modelo 3D asociado.</span>

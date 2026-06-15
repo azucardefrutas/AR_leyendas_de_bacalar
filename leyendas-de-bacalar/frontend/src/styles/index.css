@@ -4047,6 +4047,84 @@ pre {
   text-align: center;
 }
 
+.rendered-page-chip-list {
+  display: inline-flex;
+  max-width: 100%;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px;
+  scrollbar-width: thin;
+}
+
+.rendered-page-chip-list button {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border: 1px solid #dbe4ef;
+  border-radius: 999px;
+  color: #334155;
+  background: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 900;
+  cursor: pointer;
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.rendered-page-chip-list button:hover,
+.rendered-page-chip-list button:focus-visible {
+  transform: translateY(-1px);
+  border-color: #30cff2;
+  color: #0369a1;
+  outline: none;
+}
+
+.rendered-page-chip-list button.active {
+  border-color: #0891b2;
+  color: #ffffff;
+  background: #0891b2;
+  box-shadow: 0 8px 18px rgba(8, 145, 178, 0.18);
+}
+
+.hotspot-quick-card {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(280px, 1.4fr);
+  gap: 14px;
+  align-items: start;
+  margin: 0 12px 12px;
+  border: 1px solid #cbe8ef;
+  border-radius: 14px;
+  padding: 14px;
+  background:
+    linear-gradient(135deg, rgba(99, 162, 176, 0.12), rgba(255, 255, 255, 0.92) 56%),
+    #ffffff;
+}
+
+.hotspot-quick-copy {
+  display: grid;
+  gap: 6px;
+}
+
+.hotspot-quick-copy p {
+  margin: 0;
+  color: #475569;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.hotspot-quick-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(190px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.hotspot-quick-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .hotspot-size-control,
 .hotspot-inline-size {
   display: flex;
@@ -4675,6 +4753,13 @@ pre {
   background: #ffffff;
 }
 
+.creator-ar-optional {
+  border-color: #cbe8ef;
+  background:
+    linear-gradient(135deg, rgba(99, 162, 176, 0.12), rgba(255, 255, 255, 0.94) 48%),
+    #ffffff;
+}
+
 .creator-review-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
@@ -4694,6 +4779,18 @@ pre {
   color: #166534;
   border-color: #bbf7d0;
   background: #f0fdf4;
+}
+
+.creator-review-grid span.optional {
+  color: #475569;
+  border-color: #cbe8ef;
+  background: #f6fbfc;
+}
+
+.creator-review-grid span.optional.ready {
+  color: #0f766e;
+  border-color: rgba(45, 212, 191, 0.52);
+  background: rgba(204, 251, 241, 0.42);
 }
 
 .creator-declaration-list {
@@ -7233,6 +7330,177 @@ body.model3d-open .site-header {
   font-size: 0.85rem;
 }
 
+/* Optional camera AR route. Loaded as an isolated route; no global AR scripts. */
+.ar-experience-page {
+  min-height: 100vh;
+  display: grid;
+  align-content: start;
+  gap: 22px;
+  padding: clamp(24px, 5vw, 64px);
+  color: #e8f7f8;
+  background:
+    radial-gradient(circle at 16% 10%, rgba(99, 162, 176, 0.34), transparent 28rem),
+    radial-gradient(circle at 82% 18%, rgba(124, 58, 237, 0.18), transparent 26rem),
+    linear-gradient(135deg, #06191e 0%, #0a2630 48%, #10213f 100%);
+}
+
+.ar-experience-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.ar-experience-header h1 {
+  margin: 0;
+  color: #ffffff;
+  font-size: clamp(2rem, 5vw, 4.2rem);
+  line-height: 0.95;
+}
+
+.ar-experience-header p {
+  margin: 6px 0 0;
+  color: rgba(232, 247, 248, 0.78);
+}
+
+.ar-experience-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(260px, 0.6fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.ar-camera-card,
+.ar-permission-help {
+  border: 1px solid rgba(146, 217, 226, 0.26);
+  border-radius: 22px;
+  background: rgba(7, 28, 35, 0.72);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.26);
+}
+
+.ar-camera-card {
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+}
+
+.ar-camera-stage {
+  position: relative;
+  min-height: min(72vh, 620px);
+  background: #020b0f;
+}
+
+.ar-camera-video {
+  width: 100%;
+  height: 100%;
+  min-height: inherit;
+  display: block;
+  object-fit: cover;
+}
+
+.ar-camera-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 8px;
+  padding: 24px;
+  text-align: center;
+  background:
+    radial-gradient(circle at 50% 36%, rgba(99, 162, 176, 0.18), transparent 18rem),
+    linear-gradient(145deg, rgba(10, 38, 48, 0.98), rgba(4, 14, 20, 0.98));
+}
+
+.ar-camera-placeholder span,
+.ar-status-pill,
+.ar-engine-note span {
+  width: fit-content;
+  border: 1px solid rgba(99, 162, 176, 0.5);
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: #b9f5f7;
+  background: rgba(99, 162, 176, 0.16);
+  font-size: 0.72rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.ar-camera-placeholder span {
+  margin: 0 auto;
+}
+
+.ar-camera-placeholder strong {
+  color: #ffffff;
+  font-size: clamp(1.2rem, 3vw, 2rem);
+}
+
+.ar-camera-placeholder p,
+.ar-camera-controls p,
+.ar-permission-help p,
+.ar-permission-help li,
+.ar-engine-note p {
+  color: rgba(232, 247, 248, 0.76);
+}
+
+.ar-camera-controls {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  padding: clamp(18px, 3vw, 28px);
+}
+
+.ar-camera-controls h2 {
+  margin: 10px 0 4px;
+  color: #ffffff;
+}
+
+.ar-camera-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ar-engine-note {
+  display: grid;
+  gap: 8px;
+  border: 1px solid rgba(99, 162, 176, 0.24);
+  border-radius: 16px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.ar-engine-note strong {
+  color: #ffffff;
+}
+
+.ar-permission-help {
+  padding: clamp(18px, 3vw, 28px);
+}
+
+.ar-permission-help h2 {
+  margin: 0 0 10px;
+  color: #ffffff;
+}
+
+.ar-permission-help ul {
+  display: grid;
+  gap: 10px;
+  padding-left: 18px;
+}
+
+@media (max-width: 940px) {
+  .ar-experience-header,
+  .ar-experience-grid,
+  .ar-camera-card {
+    grid-template-columns: 1fr;
+  }
+
+  .ar-experience-header {
+    display: grid;
+  }
+}
+
 /* Creator: small format recommendation hint in resource cards */
 .creator-resource-recommendation {
   margin: 4px 0 0;
@@ -8035,8 +8303,19 @@ table {
 
   .catalog-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 14px;
+  gap: 14px;
+}
+
+@media (max-width: 860px) {
+  .hotspot-quick-card,
+  .hotspot-quick-controls {
+    grid-template-columns: 1fr;
   }
+
+  .hotspot-quick-actions {
+    grid-column: auto;
+  }
+}
 
   .poster-card-meta h3 {
     font-size: 0.86rem;

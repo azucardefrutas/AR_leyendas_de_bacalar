@@ -18,6 +18,9 @@ const MAX_HOTSPOT_SIZE = 0.2;
 const sceneStatusLabels = {
   draft: 'borrador',
   in_review: 'en revision',
+  active: 'activa',
+  inactive: 'inactiva',
+  rejected: 'rechazada',
   published: 'publicada',
   approved: 'aprobada',
   archived: 'archivada',
@@ -93,7 +96,10 @@ function getReadyRenderedPages(renderState) {
       pageNumber: getRenderedPageNumber(page),
       imageUrl: getRenderedPageImageUrl(page),
     }))
-    .filter((page) => page.status === 'ready' && page.imageUrl)
+    // Show any page that actually has a rendered image, regardless of the status
+    // string the backend reports. If the signed URL later fails/expires, the <img>
+    // onError shows a clear retry instead of hiding a page that has an image.
+    .filter((page) => page.imageUrl && Number.isInteger(page.pageNumber) && page.pageNumber > 0)
     .sort((a, b) => Number(a.pageNumber) - Number(b.pageNumber));
 }
 
@@ -185,6 +191,8 @@ function SourceDocumentPreview({
   const [associatingHotspotId, setAssociatingHotspotId] = useState(null);
   const [selectedSceneId, setSelectedSceneId] = useState('');
   const [selectedMarkerAssetId, setSelectedMarkerAssetId] = useState('');
+  const [quickSceneId, setQuickSceneId] = useState('');
+  const [quickMarkerAssetId, setQuickMarkerAssetId] = useState('');
   const [modalScene, setModalScene] = useState(null);
   const [hotspotSize, setHotspotSize] = useState(DEFAULT_HOTSPOT_SIZE);
   const [pageImageError, setPageImageError] = useState('');
@@ -234,14 +242,14 @@ function SourceDocumentPreview({
   const showPdfFallback = signedUrl && !hasRenderedPageRecords && renderState.status !== 'ready';
   const canEditHotspots = !disabled && isPdf && Boolean(legendId) && Boolean(sourceDocument?.id);
   const hotspotsForPage = hotspots.filter((hotspot) => Number(hotspot.source_page_number) === Number(selectedPdfPage));
-  const markerOptions = arMarkers
+  const markerOptions = useMemo(() => arMarkers
     .map((marker) => ({
       id: getMarkerAssetId(marker),
       label: getMarkerLabel(marker),
       imageUrl: getResourceUrl(marker),
       marker,
     }))
-    .filter((marker, index, list) => marker.id && list.findIndex((item) => String(item.id) === String(marker.id)) === index);
+    .filter((marker, index, list) => marker.id && list.findIndex((item) => String(item.id) === String(marker.id)) === index), [arMarkers]);
 
   const renderAutoTried = useRef(false);
 
@@ -352,6 +360,24 @@ function SourceDocumentPreview({
   }, [loadScenes]);
 
   useEffect(() => {
+    if (!arScenes.length) {
+      setQuickSceneId('');
+      return;
+    }
+    setQuickSceneId((current) => (
+      current && arScenes.some((scene) => String(scene.id) === String(current))
+        ? current
+        : String(arScenes[0].id)
+    ));
+  }, [arScenes]);
+
+  useEffect(() => {
+    if (quickMarkerAssetId && !markerOptions.some((marker) => String(marker.id) === String(quickMarkerAssetId))) {
+      setQuickMarkerAssetId('');
+    }
+  }, [markerOptions, quickMarkerAssetId]);
+
+  useEffect(() => {
     if (!renderedPageOptions.length) return;
     if (!renderedPageOptions.includes(Number(selectedPdfPage))) {
       setSelectedPdfPage(renderedPageOptions[0]);
@@ -396,6 +422,45 @@ function SourceDocumentPreview({
       }
     } catch (createError) {
       setHotspotError('No se pudo crear el marcador.');
+    } finally {
+      setHotspotBusy(false);
+    }
+  }
+
+  async function handleQuickAssociation() {
+    if (!canEditHotspots || hotspotBusy) return;
+    if (!quickSceneId) {
+      setHotspotError('No hay modelos 3D cargados. Sube uno en Modelos y marcadores.');
+      return;
+    }
+    if (!renderedPageOptions.length) {
+      setHotspotError('Primero prepara el libro para elegir una pagina renderizada.');
+      return;
+    }
+
+    const size = normalizeSize(hotspotSize);
+    setHotspotBusy(true);
+    setHotspotError('');
+    setHotspotMessage('');
+    try {
+      await createLegendHotspot(legendId, {
+        target_type: 'source_document',
+        source_document_id: sourceDocument.id,
+        source_page_number: Number(selectedPdfPage),
+        hotspot_type: 'marker',
+        label: `Marcador pagina ${selectedPdfPage}`,
+        x: 0.5,
+        y: 0.72,
+        width: size,
+        height: size,
+        ar_scene_id: quickSceneId,
+        marker_asset_id: quickMarkerAssetId || null,
+      });
+      await loadHotspots();
+      await loadScenes();
+      setHotspotMessage(`Asociacion guardada en pagina ${selectedPdfPage}.`);
+    } catch (createError) {
+      setHotspotError('No se pudo guardar la asociacion.');
     } finally {
       setHotspotBusy(false);
     }
@@ -607,6 +672,21 @@ function SourceDocumentPreview({
                     Siguiente
                   </Button>
                 </div>
+                {renderedPageOptions.length > 0 && (
+                  <div className="rendered-page-chip-list" aria-label="Paginas renderizadas disponibles">
+                    {renderedPageOptions.map((number) => (
+                      <button
+                        key={number}
+                        type="button"
+                        className={Number(selectedPdfPage) === Number(number) ? 'active' : ''}
+                        onClick={() => { setSelectedPdfPage(Number(number)); setPlacingHotspot(false); }}
+                        disabled={hotspotBusy}
+                      >
+                        {number}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <Button
                   type="button"
                   variant={placingHotspot ? '' : 'ghost'}
@@ -615,6 +695,11 @@ function SourceDocumentPreview({
                 >
                   {placingHotspot ? 'Cancelar' : 'Agregar marcador'}
                 </Button>
+                {onGoToResources && (
+                  <Button type="button" variant="ghost" onClick={onGoToResources} disabled={hotspotBusy}>
+                    Subir modelo 3D
+                  </Button>
+                )}
                 <label className="hotspot-size-control" htmlFor="hotspot-size">
                   <span>Tamano</span>
                   <input
@@ -635,6 +720,76 @@ function SourceDocumentPreview({
                       : `${hotspotsForPage.length} marcador(es) en pagina ${selectedPdfPage}`)
                     : 'Prepara o actualiza el libro para usar la pagina renderizada real.'}
                 </span>
+              </div>
+            )}
+
+            {canEditHotspots && (
+              <div className="hotspot-quick-card">
+                <div className="hotspot-quick-copy">
+                  <span className="source-document-render-label">Asociar modelo 3D a una pagina del libro</span>
+                  <p>
+                    Elige el modelo y guarda una asociacion rapida. Se colocara un marcador pequeno en la parte inferior de la pagina; despues puedes moverlo con el editor manual.
+                  </p>
+                </div>
+                {arScenes.length === 0 ? (
+                  <div className="hotspot-association-empty">
+                    <p className="creator-muted">No hay modelos 3D cargados.</p>
+                    {onGoToResources && (
+                      <Button type="button" variant="ghost" onClick={onGoToResources}>
+                        Subir modelo 3D
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="hotspot-quick-controls">
+                    <label className="hotspot-scene-select">
+                      <span>Modelo 3D</span>
+                      <select
+                        value={quickSceneId}
+                        onChange={(event) => setQuickSceneId(event.target.value)}
+                        disabled={hotspotBusy}
+                      >
+                        {arScenes.map((sceneOption) => (
+                          <option key={sceneOption.id} value={sceneOption.id}>
+                            {(sceneOption.name || 'Modelo 3D')} ({sceneStatusLabel(sceneOption.status)})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="hotspot-scene-select">
+                      <span>Marcador visual opcional</span>
+                      <select
+                        value={quickMarkerAssetId}
+                        onChange={(event) => setQuickMarkerAssetId(event.target.value)}
+                        disabled={hotspotBusy}
+                      >
+                        <option value="">Sin imagen por ahora</option>
+                        {markerOptions.map((markerOption) => (
+                          <option key={markerOption.id} value={markerOption.id}>
+                            {markerOption.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="hotspot-quick-actions">
+                      <Button
+                        type="button"
+                        onClick={handleQuickAssociation}
+                        disabled={hotspotBusy || !quickSceneId || !renderedPageOptions.length}
+                      >
+                        Guardar asociacion
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setModalScene({ scene: getSceneById(quickSceneId), marker: null, pageNumber: selectedPdfPage })}
+                        disabled={hotspotBusy || !quickSceneId}
+                      >
+                        Probar modelo
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
