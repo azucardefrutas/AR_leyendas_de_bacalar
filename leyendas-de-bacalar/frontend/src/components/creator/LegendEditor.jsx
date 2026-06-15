@@ -445,6 +445,9 @@ function LegendEditor({ legendId }) {
   const renderChecklist = getDocumentRenderSummary(primarySourceDocument, documentRenderSummary);
   const modelCount = countScenes(existingResources);
   const markerCount = countMarkers(existingResources);
+  // Camera AR is hidden from the creator flow for now (kept in code, isolated).
+  // Flip to true to bring the optional camera-AR configuration UI back.
+  const SHOW_CAMERA_AR = false;
   const cameraArReady = (existingResources.arScenes ?? []).some(isCameraArReady);
   const reviewError = getCreatorReviewError({
     baseError: baseReviewError,
@@ -1143,21 +1146,23 @@ function LegendEditor({ legendId }) {
             )}
           </section>
 
-          <section className="creator-resource-group creator-ar-optional">
-            <div className="creator-resource-group-heading">
-              <h3>Camara AR, opcional</h3>
-              <p>
-                El lector digital funciona con el icono sobre la pagina. La camara AR se mostrara solo cuando una escena tenga configuracion completa con archivo .mind o .patt.
-              </p>
-            </div>
-            <div className="creator-review-grid compact">
-              <span className={cameraArReady ? 'ready' : ''}>
-                {cameraArReady ? 'Camara AR lista' : 'Camara AR pendiente'}
-              </span>
-              <span>Reconocimiento por imagen: archivo .mind</span>
-              <span>Marcador cuadrado fisico: archivo .patt</span>
-            </div>
-          </section>
+          {SHOW_CAMERA_AR && (
+            <section className="creator-resource-group creator-ar-optional">
+              <div className="creator-resource-group-heading">
+                <h3>Camara AR, opcional</h3>
+                <p>
+                  El lector digital funciona con el icono sobre la pagina. La camara AR se mostrara solo cuando una escena tenga configuracion completa con archivo .mind o .patt.
+                </p>
+              </div>
+              <div className="creator-review-grid compact">
+                <span className={cameraArReady ? 'ready' : ''}>
+                  {cameraArReady ? 'Camara AR lista' : 'Camara AR pendiente'}
+                </span>
+                <span>Reconocimiento por imagen: archivo .mind</span>
+                <span>Marcador cuadrado fisico: archivo .patt</span>
+              </div>
+            </section>
+          )}
         </div>
       )}
 
@@ -1247,9 +1252,11 @@ function LegendEditor({ legendId }) {
             <span className={hotspotSummary.associated ? 'ready' : ''}>
               Hotspot listo para lector {hotspotSummary.associated ? `${hotspotSummary.associated}/${hotspotSummary.total}` : 'pendiente'}
             </span>
-            <span className={cameraArReady ? 'ready optional' : 'optional'}>
-              Camara AR {cameraArReady ? 'configurada' : 'opcional, puede configurarse despues'}
-            </span>
+            {SHOW_CAMERA_AR && (
+              <span className={cameraArReady ? 'ready optional' : 'optional'}>
+                Camara AR {cameraArReady ? 'configurada' : 'opcional, puede configurarse despues'}
+              </span>
+            )}
             <span className={declarationsAccepted ? 'ready' : ''}>Declaraciones {declarationsAccepted ? 'aceptadas' : 'pendientes'}</span>
           </div>
 
