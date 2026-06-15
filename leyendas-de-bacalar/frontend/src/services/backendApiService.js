@@ -287,6 +287,17 @@ export function createLegendHotspot(legendId, payload) {
   });
 }
 
+// Creates (or reuses) the AR scene that links a 3D model to the legend. Done via the
+// backend (service role) because the ar_scenes RLS INSERT policy rejects scenes with a
+// null page_id (rendered-PDF models). Returns { ok, scene }.
+export function createLegendScene(legendId, payload) {
+  return requestBackend(`/api/v1/legends/${encodeURIComponent(legendId)}/scenes`, {
+    method: 'POST',
+    operation: 'create-scene',
+    body: payload,
+  });
+}
+
 export function updateLegendHotspot(legendId, hotspotId, payload) {
   return requestBackend(
     `/api/v1/legends/${encodeURIComponent(legendId)}/hotspots/${encodeURIComponent(hotspotId)}`,

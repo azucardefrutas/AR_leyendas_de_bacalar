@@ -245,6 +245,47 @@ export const createHotspot = async ({ legendId, userId, roles, payload }) => {
   return data;
 };
 
+const SCENE_COLUMNS = 'id, page_id, name, description, status, model_asset_id, interaction_config, created_by, created_at';
+
+// Create (or reuse) the AR scene that links a 3D model to a legend. Runs with the
+// service role so it bypasses the ar_scenes RLS INSERT policy, which requires
+// is_page_creator(page_id) and therefore rejects scenes tied to a rendered PDF page
+// (page_id is null). Ownership is enforced here via the legend access context and the
+// model asset's legend.
+export const createScene = async ({ legendId, userId, roles, payload = {} }) => {
+  await getLegendAccessContext({ legendId, userId, roles });
+
+  const modelAssetId = payload.model_asset_id;
+  if (!modelAssetId) throw new HotspotError('model_asset_id is required.', 400);
+  await assertAssetInLegend(legendId, modelAssetId);
+
+  // Idempotent: reuse the scene already linked to this model instead of duplicating.
+  const { data: existingRows, error: existingError } = await supabaseAdmin
+    .from('ar_scenes')
+    .select(SCENE_COLUMNS)
+    .eq('model_asset_id', modelAssetId)
+    .limit(1);
+  if (existingError) throw new HotspotError('Could not load AR scene.', 500, { reason: existingError.message });
+  if (existingRows && existingRows.length > 0) return existingRows[0];
+
+  const record = {
+    page_id: payload.page_id || null,
+    name: payload.name || 'Escena 3D',
+    description: payload.description ?? null,
+    model_asset_id: modelAssetId,
+    status: 'draft',
+    created_by: userId,
+  };
+
+  const { data, error } = await supabaseAdmin
+    .from('ar_scenes')
+    .insert(record)
+    .select(SCENE_COLUMNS)
+    .single();
+  if (error || !data) throw new HotspotError('Could not create AR scene.', 500, { reason: error?.message });
+  return data;
+};
+
 export const updateHotspot = async ({ legendId, hotspotId, userId, roles, payload }) => {
   const existing = await loadHotspot(hotspotId);
   if (legendId && String(existing.legend_id) !== String(legendId)) {

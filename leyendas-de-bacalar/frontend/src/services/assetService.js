@@ -1,6 +1,7 @@
 import { getCurrentUser } from './authService.js';
 import { getSupabaseConfigError, supabase } from '../lib/supabaseClient.js';
 import {
+  createLegendScene,
   prepareLegendUpload,
   registerLegendUpload,
   uploadFileToSignedUrl,
@@ -669,30 +670,29 @@ export async function linkLegendSourceDocument({ legendId, assetId, documentType
   return linkSourceDocument({ legendId, assetId, documentType });
 }
 
-export async function createArScene({ legendId, pageId = null, modelAssetId, title = 'Escena AR' }) {
+// Create (or reuse) the AR scene for a model. Goes through the backend (service role)
+// because the ar_scenes RLS INSERT policy requires is_page_creator(page_id) and rejects
+// scenes for rendered-PDF models (page_id null). The backend enforces ownership via the
+// model asset's legend, so this stays secure without touching RLS.
+export async function createArScene({ legendId, pageId = null, modelAssetId, title = 'Escena 3D' }) {
   if (isInvalidId(modelAssetId)) return { data: null, error: friendlyAssetError('No pudimos preparar la escena AR.') };
-  const { data: client, error: clientError } = getClient();
-  if (clientError) return { data: null, error: clientError };
+  if (isInvalidId(legendId)) return { data: null, error: friendlyAssetError('No pudimos preparar la escena AR.') };
 
-  const { data: userId } = await getCurrentUserId();
-  const payload = {
-    page_id: isInvalidId(pageId) ? null : pageId,
-    name: title || 'Escena AR',
-    description: legendId ? `Escena AR vinculada a leyenda ${legendId}` : null,
-    model_asset_id: modelAssetId,
-    status: 'draft',
-    created_by: userId || null,
-  };
-  const { data, error } = await client.from('ar_scenes').insert(payload).select().single();
-  if (error) {
-    logStorageError('insert ar scene relation', {
-      table: 'ar_scenes',
-      payload,
-      error,
+  try {
+    const response = await createLegendScene(legendId, {
+      model_asset_id: modelAssetId,
+      page_id: isInvalidId(pageId) ? null : pageId,
+      name: title || 'Escena 3D',
     });
-    return { data: null, error: friendlyAssetError('No pudimos preparar la escena AR.', { supabaseError: error, table: 'ar_scenes' }) };
+    return { data: response?.scene ?? null, error: null };
+  } catch (error) {
+    return {
+      data: null,
+      // Surface the backend's real message so failures are clear (per requirement),
+      // falling back to the friendly default only when there's no message.
+      error: friendlyAssetError(error?.message || 'No pudimos preparar la escena AR.', { backendError: error }),
+    };
   }
-  return { data, error: null };
 }
 
 export async function createArMarker({ legendId, sceneId, markerAssetId }) {
