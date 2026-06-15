@@ -6832,6 +6832,14 @@ pre {
   border-bottom: 1px solid rgba(15, 23, 42, 0.08);
 }
 
+/* Reader opens the model bare: no technical title/description — just the model and
+   the close / fullscreen controls floating at the top-right. */
+.model3d-header.is-bare {
+  justify-content: flex-end;
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
 .model3d-heading h3 {
   margin: 0;
   color: #0e2230;

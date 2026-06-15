@@ -211,8 +211,8 @@ function ReadingPage() {
         <Suspense fallback={<LoadingState message="Cargando modelo 3D..." />}>
           <Model3DViewer
             scene={sceneModal.scene}
-            title={sceneModal.scene?.name}
             onClose={() => setSceneModal(null)}
+            hideHeading
           />
         </Suspense>
       )}

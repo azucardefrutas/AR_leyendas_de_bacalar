@@ -65,7 +65,7 @@ function ModelCanvas({ url, onError }) {
  * creator editor and the reader. No new dependencies (three / @react-three already
  * present). The heavy three.js code is loaded lazily by the caller.
  */
-function Model3DViewer({ scene = null, modelUrl = '', title = '', onClose }) {
+function Model3DViewer({ scene = null, modelUrl = '', title = '', onClose, hideHeading = false }) {
   const [expanded, setExpanded] = useState(false);
   const [failed, setFailed] = useState(false);
   const url = modelUrl || getModelUrl(scene);
@@ -86,11 +86,13 @@ function Model3DViewer({ scene = null, modelUrl = '', title = '', onClose }) {
       aria-label={`Visor 3D: ${name}`}
     >
       <div className="model3d-panel">
-        <header className="model3d-header">
-          <div className="model3d-heading">
-            <h3>{name}</h3>
-            {scene?.description && <p>{scene.description}</p>}
-          </div>
+        <header className={`model3d-header ${hideHeading ? 'is-bare' : ''}`}>
+          {!hideHeading && (
+            <div className="model3d-heading">
+              <h3>{name}</h3>
+              {scene?.description && <p>{scene.description}</p>}
+            </div>
+          )}
           <div className="model3d-actions">
             <Button type="button" variant="ghost" onClick={() => setExpanded((value) => !value)}>
               {expanded ? 'Reducir' : 'Pantalla completa'}
