@@ -9,6 +9,7 @@ function SiteNavbar() {
   const { isAuthenticated, signOut, user } = useAuth();
   const { roles } = useRoles();
   const location = useLocation();
+  const isHome = location.pathname === '/';
   const isAdmin = roles.includes('admin');
   const isCreator = roles.includes('creator');
   const emailAlias = user?.email?.split('@')?.[0];
@@ -23,9 +24,15 @@ function SiteNavbar() {
         <NavLink to="/reader/library">Biblioteca</NavLink>
       </nav>
 
-      <Link className="brand-center" to="/" aria-label="Leyendas de Bacalar - Inicio">
-        <img src="/upb-logo_2025.webp" alt="Leyendas de Bacalar" />
-      </Link>
+      {/* Logo temporarily hidden on the home page only; placeholder keeps the
+          3-column navbar layout stable. Remove this conditional to restore it. */}
+      {isHome ? (
+        <span className="brand-center" aria-hidden="true" />
+      ) : (
+        <Link className="brand-center" to="/" aria-label="Leyendas de Bacalar - Inicio">
+          <img src="/upb-logo_2025.webp" alt="Leyendas de Bacalar" />
+        </Link>
+      )}
 
       <div className="nav-right">
         <nav className="nav-right-links" aria-label="Mas navegacion">
