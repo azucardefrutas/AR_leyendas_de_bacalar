@@ -1,2 +1,9 @@
 [mcp_servers.supabase]
 url = "https://mcp.supabase.com/mcp?project_ref=wkkzgyhyarqwxoqcdaul&read_only=true&features=docs%2Cdatabase"
+
+[mcp_servers.shadcn]
+command = "npx"
+args = [
+    "shadcn@latest",
+    "mcp",
+]
