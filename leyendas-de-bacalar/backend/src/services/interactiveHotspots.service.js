@@ -1,5 +1,21 @@
 import { supabaseAdmin } from '../config/supabaseAdmin.js';
 import { getLegendAccessContext } from './legendAccess.service.js';
+import { getPublicUrlForAsset } from './storage.service.js';
+
+// Resolve a directly-loadable URL for a 3D model asset so the creator editor can render
+// the real model (tray thumbnail + placed marker). Models live in the public
+// `legend-assets` bucket, so a public URL is enough; we still prefer an explicit
+// file_url/external_url when present. Best-effort: returns the asset decorated with `url`
+// (empty string if it cannot be resolved, in which case the UI shows a graceful fallback).
+const decorateModelAsset = (asset) => {
+  if (!asset) return null;
+  const bucket = asset.metadata?.bucket || 'legend-assets';
+  let url = asset.file_url || asset.external_url || '';
+  if (!url && asset.storage_path) {
+    url = getPublicUrlForAsset({ bucket, path: asset.storage_path }) || '';
+  }
+  return { ...asset, bucket, url, public_url: url };
+};
 
 class HotspotError extends Error {
   constructor(message, statusCode = 500, details = {}) {
@@ -295,7 +311,7 @@ export const listScenes = async ({ legendId, userId, roles }) => {
 
   const { data: assets, error: assetsError } = await supabaseAdmin
     .from('assets')
-    .select('id, metadata')
+    .select('id, storage_path, file_url, external_url, mime_type, file_size, asset_type, metadata')
     .eq('asset_type', 'model_3d')
     .eq('metadata->>legend_id', legendId);
   if (assetsError) throw new HotspotError('Could not load models.', 500, { reason: assetsError.message });
@@ -310,16 +326,22 @@ export const listScenes = async ({ legendId, userId, roles }) => {
     .order('created_at', { ascending: false });
   if (error) throw new HotspotError('Could not load scenes.', 500, { reason: error.message });
 
-  const nameByAsset = new Map(
-    (assets ?? []).map((asset) => [String(asset.id), asset.metadata?.original_name || asset.metadata?.filename || null]),
+  // Decorate each model asset with a loadable URL so the editor can render the real
+  // model instead of a "3D" placeholder. Keyed by asset id to attach to its scene.
+  const assetById = new Map(
+    (assets ?? []).map((asset) => [String(asset.id), decorateModelAsset(asset)]),
   );
 
   return (scenes ?? [])
     .filter((scene) => String(scene.status || '').toLowerCase() !== 'archived')
-    .map((scene) => ({
-      ...scene,
-      name: nameByAsset.get(String(scene.model_asset_id)) || scene.name || 'Modelo 3D',
-    }));
+    .map((scene) => {
+      const asset = assetById.get(String(scene.model_asset_id)) || null;
+      return {
+        ...scene,
+        name: asset?.metadata?.original_name || asset?.metadata?.filename || scene.name || 'Modelo 3D',
+        assets: asset,
+      };
+    });
 };
 
 export const updateHotspot = async ({ legendId, hotspotId, userId, roles, payload }) => {

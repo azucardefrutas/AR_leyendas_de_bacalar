@@ -943,7 +943,15 @@ function SourceDocumentPreview({
                               onClick={() => setModalScene({ scene: sceneOption, marker: getMarkerForScene(sceneOption), pageNumber: selectedPdfPage })}
                               title="Arrastra este modelo dentro de un marcador"
                             >
-                              <span className="asset-thumb model-thumb"><span>3D</span></span>
+                              <span className="asset-thumb model-thumb">
+                                {assetUrl ? (
+                                  <Suspense fallback={<span className="marker-model-loader">Cargando…</span>}>
+                                    <MarkerModelPreview modelUrl={assetUrl} autoRotate={false} />
+                                  </Suspense>
+                                ) : (
+                                  <span>3D</span>
+                                )}
+                              </span>
                               <strong>{getSceneLabel(sceneOption)}</strong>
                               <small>{assetUrl ? 'GLB/GLTF' : sceneStatusLabel(sceneOption.status)}</small>
                             </button>

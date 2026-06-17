@@ -4556,8 +4556,14 @@ pre {
 }
 
 .model-thumb {
+  position: relative;
   color: #064e3b;
   background: radial-gradient(circle at 35% 25%, #ccfbf1, #e0f2fe 48%, #ffffff 100%);
+}
+
+/* The embedded 3D preview fills the square thumb (it is absolutely positioned). */
+.model-thumb .marker-model-preview {
+  background: transparent;
 }
 
 .asset-tile strong {
