@@ -2,12 +2,58 @@ import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useStat
 import HTMLFlipBook from 'react-pageflip';
 import { getHotspotsForReaderPage } from '../../utils/readerPages.js';
 
-const MAX_SINGLE_PAGE_WIDTH = 540;
-const MAX_DESKTOP_PAGE_WIDTH = 520;
 const MIN_PAGE_WIDTH = 260;
+const READER_STORAGE_KEY = 'leyendas.reader.preferences';
+const DEFAULT_READER_SETTINGS = {
+  theme: 'paper',
+  bookSize: 'large',
+  controlsMode: 'auto',
+};
+const BOOK_SIZE_CONFIG = {
+  fit: {
+    spreadWidthRatio: 0.88,
+    singleWidthRatio: 0.92,
+    heightReserve: 118,
+    mobileHeightReserve: 138,
+    maxSpreadWidth: 1420,
+    maxSingleWidth: 620,
+  },
+  large: {
+    spreadWidthRatio: 0.94,
+    singleWidthRatio: 0.96,
+    heightReserve: 88,
+    mobileHeightReserve: 112,
+    maxSpreadWidth: 1640,
+    maxSingleWidth: 760,
+  },
+  full: {
+    spreadWidthRatio: 0.98,
+    singleWidthRatio: 0.98,
+    heightReserve: 54,
+    mobileHeightReserve: 82,
+    maxSpreadWidth: 1900,
+    maxSingleWidth: 900,
+  },
+};
 const InlineModel3DViewer = lazy(() => import('../3d/Model3DViewer.jsx'));
 
 const clampPercent = (value, min, max) => Math.min(max, Math.max(min, value));
+
+function loadReaderSettings() {
+  if (typeof window === 'undefined') return DEFAULT_READER_SETTINGS;
+  try {
+    const raw = window.localStorage.getItem(READER_STORAGE_KEY);
+    if (!raw) return DEFAULT_READER_SETTINGS;
+    const parsed = JSON.parse(raw);
+    return {
+      theme: ['paper', 'sepia', 'night', 'laguna'].includes(parsed.theme) ? parsed.theme : DEFAULT_READER_SETTINGS.theme,
+      bookSize: ['fit', 'large', 'full'].includes(parsed.bookSize) ? parsed.bookSize : DEFAULT_READER_SETTINGS.bookSize,
+      controlsMode: ['always', 'auto'].includes(parsed.controlsMode) ? parsed.controlsMode : DEFAULT_READER_SETTINGS.controlsMode,
+    };
+  } catch {
+    return DEFAULT_READER_SETTINGS;
+  }
+}
 
 function ReaderIcon({ name }) {
   const commonProps = {
@@ -45,6 +91,22 @@ function ReaderIcon({ name }) {
         <path d="M16 3h3a2 2 0 0 1 2 2v3" />
         <path d="M8 21H5a2 2 0 0 1-2-2v-3" />
         <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
+      </svg>
+    );
+  }
+
+  if (name === 'settings') {
+    return (
+      <svg {...commonProps}>
+        <path d="M4 21v-7" />
+        <path d="M4 10V3" />
+        <path d="M12 21v-9" />
+        <path d="M12 8V3" />
+        <path d="M20 21v-5" />
+        <path d="M20 12V3" />
+        <path d="M2 14h4" />
+        <path d="M10 8h4" />
+        <path d="M18 16h4" />
       </svg>
     );
   }
@@ -224,12 +286,16 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageInput, setPageInput] = useState('1');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [readerSettings, setReaderSettings] = useState(loadReaderSettings);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [controlsVisible, setControlsVisible] = useState(true);
   const [viewport, setViewport] = useState(() => ({
     width: typeof window !== 'undefined' ? window.innerWidth : 1280,
     height: typeof window !== 'undefined' ? window.innerHeight : 820,
   }));
   const bookRef = useRef(null);
   const containerRef = useRef(null);
+  const hideControlsTimerRef = useRef(0);
 
   const numPages = pages.length;
   const firstPage = pages[0];
@@ -241,6 +307,46 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
     () => pages.map((page) => getHotspotsForReaderPage(page, hotspots)),
     [pages, hotspots],
   );
+
+  const updateReaderSetting = useCallback((key, value) => {
+    setReaderSettings((current) => ({ ...current, [key]: value }));
+  }, []);
+
+  const showReaderControls = useCallback(() => {
+    setControlsVisible(true);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(READER_STORAGE_KEY, JSON.stringify(readerSettings));
+    } catch {
+      // Reader preferences are optional.
+    }
+  }, [readerSettings]);
+
+  useEffect(() => {
+    const stage = containerRef.current?.closest('.reader-stage');
+    if (!stage) return undefined;
+    stage.setAttribute('data-reader-theme', readerSettings.theme);
+    stage.setAttribute('data-reader-size', readerSettings.bookSize);
+    return () => {
+      stage.removeAttribute('data-reader-theme');
+      stage.removeAttribute('data-reader-size');
+    };
+  }, [readerSettings.theme, readerSettings.bookSize]);
+
+  useEffect(() => {
+    if (readerSettings.controlsMode !== 'auto' || settingsOpen) {
+      setControlsVisible(true);
+      window.clearTimeout(hideControlsTimerRef.current);
+      return undefined;
+    }
+
+    window.clearTimeout(hideControlsTimerRef.current);
+    hideControlsTimerRef.current = window.setTimeout(() => setControlsVisible(false), 2600);
+    return () => window.clearTimeout(hideControlsTimerRef.current);
+  }, [controlsVisible, readerSettings.controlsMode, settingsOpen]);
 
   useEffect(() => {
     function onFullscreenChange() {
@@ -310,12 +416,18 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
   }
 
   const isSinglePage = viewport.width < 900;
-  const verticalReserve = isSinglePage ? 168 : 176;
+  const sizeConfig = BOOK_SIZE_CONFIG[readerSettings.bookSize] ?? BOOK_SIZE_CONFIG.large;
+  const verticalReserve = isFullscreen
+    ? (isSinglePage ? 78 : 42)
+    : (isSinglePage ? sizeConfig.mobileHeightReserve : sizeConfig.heightReserve);
   const maxPageHeight = Math.max(360, viewport.height - verticalReserve);
-  const maxSpreadWidth = Math.min(viewport.width - 120, 1180);
+  const maxSpreadWidth = Math.min(
+    Math.max(320, viewport.width * sizeConfig.spreadWidthRatio),
+    sizeConfig.maxSpreadWidth,
+  );
   const maxPageWidthByWidth = isSinglePage
-    ? Math.min(MAX_SINGLE_PAGE_WIDTH, viewport.width - 28)
-    : Math.min(MAX_DESKTOP_PAGE_WIDTH, Math.floor((maxSpreadWidth - 24) / 2));
+    ? Math.min(sizeConfig.maxSingleWidth, viewport.width * sizeConfig.singleWidthRatio)
+    : Math.floor((maxSpreadWidth - 16) / 2);
   const maxPageWidthByHeight = Math.floor(maxPageHeight / aspect);
   const pageWidth = Math.max(
     MIN_PAGE_WIDTH,
@@ -326,8 +438,11 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
 
   return (
     <div
-      className={`pdf-flipbook ${isFullscreen ? 'fullscreen' : ''} ${isSinglePage ? 'is-single' : 'is-spread'} ${isCoverView ? 'is-cover' : 'is-open'}`}
+      className={`pdf-flipbook reader-theme-${readerSettings.theme} reader-size-${readerSettings.bookSize} controls-${readerSettings.controlsMode} ${controlsVisible || settingsOpen ? 'controls-visible' : 'controls-hidden'} ${isFullscreen ? 'fullscreen' : ''} ${isSinglePage ? 'is-single' : 'is-spread'} ${isCoverView ? 'is-cover' : 'is-open'}`}
       ref={containerRef}
+      onPointerMove={showReaderControls}
+      onPointerDown={showReaderControls}
+      onTouchStart={showReaderControls}
     >
       <div className="pdf-flipbook-stage" aria-label="Visor de libro">
         <button
@@ -351,9 +466,9 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
             height={pageHeight}
             size="fixed"
             minWidth={MIN_PAGE_WIDTH}
-            maxWidth={MAX_DESKTOP_PAGE_WIDTH}
+            maxWidth={Math.max(pageWidth, sizeConfig.maxSingleWidth)}
             minHeight={360}
-            maxHeight={Math.round(MAX_DESKTOP_PAGE_WIDTH * aspect)}
+            maxHeight={Math.max(pageHeight, Math.round(sizeConfig.maxSingleWidth * aspect))}
             showCover
             usePortrait={isSinglePage}
             mobileScrollSupport
@@ -388,6 +503,91 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
           <ReaderIcon name="next" />
         </button>
       </div>
+
+      <button
+        type="button"
+        className="reader-settings-button"
+        onClick={() => setSettingsOpen((open) => !open)}
+        aria-label="Configurar lectura"
+        aria-expanded={settingsOpen}
+        aria-controls="reader-settings-panel"
+        title="Configurar lectura"
+      >
+        <ReaderIcon name="settings" />
+      </button>
+
+      {settingsOpen && (
+        <aside id="reader-settings-panel" className="reader-settings-panel" aria-label="Configuracion del lector">
+          <div className="reader-settings-panel-header">
+            <strong>Lectura</strong>
+            <button type="button" onClick={() => setSettingsOpen(false)} aria-label="Cerrar configuracion">x</button>
+          </div>
+
+          <div className="reader-settings-group">
+            <span>Tema</span>
+            <div className="reader-settings-options">
+              {[
+                ['paper', 'Papel'],
+                ['sepia', 'Sepia'],
+                ['night', 'Noche'],
+                ['laguna', 'Laguna'],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={readerSettings.theme === value ? 'is-active' : ''}
+                  onClick={() => updateReaderSetting('theme', value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="reader-settings-group">
+            <span>Tamano del libro</span>
+            <div className="reader-settings-options">
+              {[
+                ['fit', 'Ajustado'],
+                ['large', 'Grande'],
+                ['full', 'Pantalla'],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={readerSettings.bookSize === value ? 'is-active' : ''}
+                  onClick={() => updateReaderSetting('bookSize', value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="reader-settings-group">
+            <span>Controles</span>
+            <div className="reader-settings-options">
+              {[
+                ['always', 'Siempre'],
+                ['auto', 'Automaticos'],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={readerSettings.controlsMode === value ? 'is-active' : ''}
+                  onClick={() => updateReaderSetting('controlsMode', value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <button type="button" className="reader-settings-fullscreen" onClick={toggleFullscreen}>
+            {isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+          </button>
+        </aside>
+      )}
 
       <div className="pdf-flipbook-controls" aria-label="Controles del libro">
         <button
