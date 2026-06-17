@@ -1,6 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Button from '../ui/Button.jsx';
 import ArSceneModal from '../3d/ArSceneModal.jsx';
+
+// Lazy-loaded so the heavy three.js / react-three bundle only loads when a placed
+// marker actually has a 3D model to render inside the page.
+const MarkerModelPreview = lazy(() => import('../3d/MarkerModelPreview.jsx'));
 import {
   createLegendHotspot,
   deleteLegendHotspot,
@@ -775,6 +779,7 @@ function SourceDocumentPreview({
                             ? markerOptions.find((marker) => String(marker.id) === String(hotspot.marker_asset_id))
                             : null;
                           const scene = hotspot.ar_scene_id ? getSceneById(hotspot.ar_scene_id) : null;
+                          const sceneModelUrl = scene ? getResourceUrl(getSceneAsset(scene)) : '';
                           const selected = String(selectedHotspotId) === String(hotspot.id);
                           return (
                             <div
@@ -796,11 +801,26 @@ function SourceDocumentPreview({
                               onDrop={(event) => handleModelDropOnHotspot(event, hotspot)}
                             >
                               {hotspot.ar_scene_id ? (
-                                <div className="hotspot-model-preview">
-                                  <span className="hotspot-model-cube">3D</span>
-                                  <strong>{scene ? getSceneLabel(scene) : 'Modelo asociado'}</strong>
-                                  <small>Arrastra para mover</small>
-                                </div>
+                                sceneModelUrl ? (
+                                  <>
+                                    <Suspense
+                                      fallback={(
+                                        <div className="marker-model-preview">
+                                          <span className="marker-model-loader">Cargando…</span>
+                                        </div>
+                                      )}
+                                    >
+                                      <MarkerModelPreview modelUrl={sceneModelUrl} selected={selected} />
+                                    </Suspense>
+                                    <span className="hotspot-model-tag">{getSceneLabel(scene)}</span>
+                                  </>
+                                ) : (
+                                  <div className="hotspot-model-preview">
+                                    <span className="hotspot-model-cube">3D</span>
+                                    <strong>{scene ? getSceneLabel(scene) : 'Modelo asociado'}</strong>
+                                    <small>Modelo no disponible</small>
+                                  </div>
+                                )
                               ) : (
                                 <div className="hotspot-empty-preview">
                                   {markerOption?.imageUrl ? <img src={markerOption.imageUrl} alt="" aria-hidden="true" /> : <span>{index + 1}</span>}
