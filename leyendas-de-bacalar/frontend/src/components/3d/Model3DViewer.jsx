@@ -104,9 +104,6 @@ function Model3DViewer({
             <ModelCanvas url={url} onError={() => setFailed(true)} />
           )}
         </div>
-        {url && !failed && (
-          <p className="model3d-inline-hint">Arrastra el modelo para rotar · rueda o pellizco para zoom</p>
-        )}
       </div>
     );
   }

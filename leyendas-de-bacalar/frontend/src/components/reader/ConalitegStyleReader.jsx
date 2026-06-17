@@ -135,7 +135,7 @@ function HotspotMarker({ hotspot, index, onClick }) {
   );
 }
 
-function InlineModelPanel({ hotspot, position, onMove, onClose }) {
+function InlineModelLayer({ hotspot }) {
   const panelRef = useRef(null);
 
   useEffect(() => {
@@ -148,6 +148,8 @@ function InlineModelPanel({ hotspot, position, onMove, onClose }) {
     el.addEventListener('mouseup', stop);
     el.addEventListener('touchend', stop);
     el.addEventListener('click', stop);
+    el.addEventListener('dblclick', stop);
+    el.addEventListener('wheel', stop);
     return () => {
       el.removeEventListener('pointerdown', stop);
       el.removeEventListener('mousedown', stop);
@@ -155,57 +157,21 @@ function InlineModelPanel({ hotspot, position, onMove, onClose }) {
       el.removeEventListener('mouseup', stop);
       el.removeEventListener('touchend', stop);
       el.removeEventListener('click', stop);
+      el.removeEventListener('dblclick', stop);
+      el.removeEventListener('wheel', stop);
     };
   }, []);
-
-  function startDrag(event) {
-    if (!panelRef.current || event.button > 0) return;
-    event.preventDefault();
-    event.stopPropagation();
-    const page = panelRef.current.closest('.pdf-flip-page-overlay');
-    if (!page) return;
-
-    const move = (moveEvent) => {
-      const rect = page.getBoundingClientRect();
-      if (!rect.width || !rect.height) return;
-      onMove({
-        x: clampPercent(((moveEvent.clientX - rect.left) / rect.width) * 100, 22, 78),
-        y: clampPercent(((moveEvent.clientY - rect.top) / rect.height) * 100, 22, 78),
-      });
-    };
-    const stop = () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', stop);
-      window.removeEventListener('pointercancel', stop);
-    };
-
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', stop);
-    window.addEventListener('pointercancel', stop);
-    move(event);
-  }
 
   return (
     <section
       ref={panelRef}
       className="reader-inline-model"
-      style={{ left: `${position.x}%`, top: `${position.y}%` }}
+      style={{
+        left: `${clampPercent(Number(hotspot.x) * 100, 18, 82)}%`,
+        top: `${clampPercent(Number(hotspot.y) * 100, 18, 82)}%`,
+      }}
       aria-label={`Modelo 3D ${hotspot.label || ''}`.trim()}
     >
-      <div className="reader-inline-model-bar" onPointerDown={startDrag}>
-        <span>Modelo 3D</span>
-        <button
-          type="button"
-          onPointerDown={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            onClose();
-          }}
-          aria-label="Cerrar modelo 3D"
-        >
-          ×
-        </button>
-      </div>
       <Suspense fallback={<div className="reader-inline-model-loading">Cargando modelo...</div>}>
         <InlineModel3DViewer scene={hotspot.scene} title={hotspot.scene?.name || hotspot.label} embedded />
       </Suspense>
@@ -216,15 +182,10 @@ function InlineModelPanel({ hotspot, position, onMove, onClose }) {
 const FlipPage = React.forwardRef(({
   page,
   hotspots,
-  activeModel,
-  activeModelPosition,
   onHotspotClick,
-  onInlineModelMove,
-  onInlineModelClose,
 }, ref) => {
-  const activeHotspot = activeModel
-    ? hotspots.find((hotspot) => String(hotspot.id) === String(activeModel.hotspotId))
-    : null;
+  const modelHotspots = hotspots.filter((hotspot) => hotspot?.scene?.assets?.url);
+  const markerHotspots = hotspots.filter((hotspot) => !hotspot?.scene?.assets?.url);
 
   return (
     <div className={`pdf-flip-page ${page.type === 'manual' ? 'pdf-flip-page-manual' : ''}`} ref={ref}>
@@ -239,17 +200,12 @@ const FlipPage = React.forwardRef(({
         <div className="pdf-flip-page-loading">Pagina {page.pageNumber}</div>
       )}
       <div className="pdf-flip-page-overlay">
-        {hotspots.map((hotspot, index) => (
+        {markerHotspots.map((hotspot, index) => (
           <HotspotMarker key={hotspot.id} hotspot={hotspot} index={index} onClick={onHotspotClick} />
         ))}
-        {activeHotspot?.scene?.assets?.url && (
-          <InlineModelPanel
-            hotspot={activeHotspot}
-            position={activeModelPosition}
-            onMove={onInlineModelMove}
-            onClose={onInlineModelClose}
-          />
-        )}
+        {modelHotspots.map((hotspot) => (
+          <InlineModelLayer key={`inline-model-${hotspot.id}`} hotspot={hotspot} />
+        ))}
       </div>
       <span className="pdf-flip-page-number">{page.pageNumber}</span>
     </div>
@@ -267,8 +223,6 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageInput, setPageInput] = useState('1');
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [activeModel, setActiveModel] = useState(null);
-  const [activeModelPosition, setActiveModelPosition] = useState({ x: 50, y: 48 });
   const [viewport, setViewport] = useState(() => ({
     width: typeof window !== 'undefined' ? window.innerWidth : 1280,
     height: typeof window !== 'undefined' ? window.innerHeight : 820,
@@ -321,19 +275,11 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
   const goNext = useCallback(() => bookRef.current?.pageFlip()?.flipNext(), []);
 
   const openHotspotModel = useCallback((hotspot) => {
-    if (hotspot?.scene?.assets?.url) {
-      const x = clampPercent(Number(hotspot.x) * 100, 24, 76);
-      const y = clampPercent((Number(hotspot.y) * 100) - 16, 26, 70);
-      setActiveModel({ hotspotId: hotspot.id });
-      setActiveModelPosition({ x, y });
-      return;
-    }
     onHotspotClick?.(hotspot);
   }, [onHotspotClick]);
 
   function handleFlip(event) {
     setCurrentPage(Number(event.data) + 1);
-    setActiveModel(null);
   }
 
   function goToPage(value) {
@@ -425,11 +371,7 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
                 key={`${page.type}-${page.pageNumber}-${index}`}
                 page={page}
                 hotspots={hotspotsByPageIndex[index] ?? []}
-                activeModel={activeModel}
-                activeModelPosition={activeModelPosition}
                 onHotspotClick={openHotspotModel}
-                onInlineModelMove={setActiveModelPosition}
-                onInlineModelClose={() => setActiveModel(null)}
               />
             ))}
           </HTMLFlipBook>
