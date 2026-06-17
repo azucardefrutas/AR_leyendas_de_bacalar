@@ -40,15 +40,15 @@ function GltfModel({ url }) {
 
 function ModelCanvas({ url, onError, embedded = false }) {
   return (
-    <Canvas camera={{ position: [0, 0, embedded ? 3.4 : 4], fov: embedded ? 38 : 45 }} dpr={[1, 2]}>
-      <ambientLight intensity={0.7} />
-      <directionalLight position={[5, 5, 5]} intensity={1} />
-      <directionalLight position={[-5, -3, -5]} intensity={0.4} />
+    <Canvas gl={{ alpha: true }} camera={{ position: [0, 0, embedded ? 4.2 : 4], fov: embedded ? 35 : 45 }} dpr={[1, 2]}>
+      <ambientLight intensity={embedded ? 1.1 : 0.7} />
+      <directionalLight position={[5, 5, 5]} intensity={embedded ? 1.45 : 1} />
+      <directionalLight position={[-5, -3, -5]} intensity={embedded ? 0.55 : 0.4} />
       <ModelErrorBoundary onError={onError}>
         <Suspense
           fallback={<Html center><span className="model3d-loading">Cargando modelo 3D...</span></Html>}
         >
-          <Bounds fit clip observe margin={embedded ? 0.82 : 1.2}>
+          <Bounds fit clip observe margin={embedded ? 0.95 : 1.2}>
             <Center>
               <GltfModel url={url} />
             </Center>
@@ -58,10 +58,10 @@ function ModelCanvas({ url, onError, embedded = false }) {
       <OrbitControls
         makeDefault
         enablePan={!embedded}
-        enableZoom
+        enableZoom={!embedded}
         enableRotate
         autoRotate={embedded}
-        autoRotateSpeed={0.9}
+        autoRotateSpeed={0.8}
       />
     </Canvas>
   );

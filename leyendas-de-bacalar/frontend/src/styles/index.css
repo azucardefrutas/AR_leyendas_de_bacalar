@@ -7858,15 +7858,17 @@ body.reading-immersive .reader-stage { padding-top: clamp(10px, 2vh, 22px); }
 .reader-inline-model {
   position: absolute;
   z-index: 7;
-  width: clamp(230px, 68%, 430px);
-  height: clamp(210px, 39%, 340px);
+  left: 50%;
+  top: 57%;
+  width: clamp(260px, 76%, 500px);
+  height: clamp(300px, 61%, 560px);
   transform: translate(-50%, -50%);
   pointer-events: auto;
   overflow: hidden;
   border: 0;
-  border-radius: 8px;
+  border-radius: 10px;
   background:
-    linear-gradient(180deg, rgba(255, 253, 247, 0.99), rgba(250, 244, 229, 0.99)),
+    linear-gradient(180deg, rgba(255, 253, 247, 1), rgba(250, 244, 229, 1)),
     #fffdf7;
   box-shadow: none;
   filter: none;
@@ -7950,6 +7952,12 @@ body.reading-immersive .reader-stage { padding-top: clamp(10px, 2vh, 22px); }
 
 .model3d-inline-stage canvas {
   background: transparent !important;
+}
+
+.pdf-flipbook.is-single .reader-inline-model {
+  top: 58%;
+  width: 80%;
+  height: 58%;
 }
 
 .model3d-inline-hint {

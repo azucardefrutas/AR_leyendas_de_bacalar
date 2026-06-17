@@ -170,10 +170,6 @@ function InlineModelLayer({ hotspot }) {
     <section
       ref={panelRef}
       className="reader-inline-model"
-      style={{
-        left: `${clampPercent(Number(hotspot.x) * 100, 34, 66)}%`,
-        top: `${clampPercent(Number(hotspot.y) * 100, 24, 76)}%`,
-      }}
       aria-label={`Modelo 3D ${hotspot.label || ''}`.trim()}
     >
       <Suspense fallback={<div className="reader-inline-model-loading">Cargando modelo...</div>}>
@@ -189,6 +185,7 @@ const FlipPage = React.forwardRef(({
   onHotspotClick,
 }, ref) => {
   const modelHotspots = hotspots.filter((hotspot) => hotspot?.scene?.assets?.url);
+  const primaryModelHotspot = modelHotspots[0] ?? null;
   const markerHotspots = hotspots.filter((hotspot) => !hotspot?.scene?.assets?.url);
 
   return (
@@ -207,9 +204,9 @@ const FlipPage = React.forwardRef(({
         {markerHotspots.map((hotspot, index) => (
           <HotspotMarker key={hotspot.id} hotspot={hotspot} index={index} onClick={onHotspotClick} />
         ))}
-        {modelHotspots.map((hotspot) => (
-          <InlineModelLayer key={`inline-model-${hotspot.id}`} hotspot={hotspot} />
-        ))}
+        {primaryModelHotspot && (
+          <InlineModelLayer key={`inline-model-${primaryModelHotspot.id}`} hotspot={primaryModelHotspot} />
+        )}
       </div>
       <span className="pdf-flip-page-number">{page.pageNumber}</span>
     </div>
