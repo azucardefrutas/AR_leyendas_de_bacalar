@@ -65,7 +65,14 @@ function ModelCanvas({ url, onError }) {
  * creator editor and the reader. No new dependencies (three / @react-three already
  * present). The heavy three.js code is loaded lazily by the caller.
  */
-function Model3DViewer({ scene = null, modelUrl = '', title = '', onClose, hideHeading = false }) {
+function Model3DViewer({
+  scene = null,
+  modelUrl = '',
+  title = '',
+  onClose,
+  hideHeading = false,
+  embedded = false,
+}) {
   const [expanded, setExpanded] = useState(false);
   const [failed, setFailed] = useState(false);
   const url = modelUrl || getModelUrl(scene);
@@ -74,9 +81,35 @@ function Model3DViewer({ scene = null, modelUrl = '', title = '', onClose, hideH
   // Hide the fixed navbar (and any fixed chrome) while the viewer is open so it
   // never collides with the modal. The CSS targets `body.model3d-open`.
   useEffect(() => {
+    if (embedded) return undefined;
     document.body.classList.add('model3d-open');
     return () => document.body.classList.remove('model3d-open');
-  }, []);
+  }, [embedded]);
+
+  if (embedded) {
+    return (
+      <div
+        className="model3d-inline"
+        role="group"
+        aria-label={`Modelo 3D interactivo: ${name}`}
+      >
+        <div className="model3d-inline-stage">
+          {!url ? (
+            <div className="model3d-message">Esta escena todavia no tiene un modelo 3D asociado.</div>
+          ) : failed ? (
+            <div className="model3d-message error">
+              No se pudo cargar el modelo 3D. Verifica el archivo (GLB/GLTF) o la URL.
+            </div>
+          ) : (
+            <ModelCanvas url={url} onError={() => setFailed(true)} />
+          )}
+        </div>
+        {url && !failed && (
+          <p className="model3d-inline-hint">Arrastra el modelo para rotar · rueda o pellizco para zoom</p>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div

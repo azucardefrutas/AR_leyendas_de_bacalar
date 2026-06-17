@@ -100,14 +100,17 @@ function ReadingPage() {
   const renderedPages = bundle?.renderedPages ?? [];
   const legendPages = bundle?.legendPages ?? [];
   const markerAssets = bundle?.markerAssets ?? [];
+  const arScenes = bundle?.arScenes ?? [];
+  const modelAssets = bundle?.modelAssets ?? [];
   const hotspots = (bundle?.hotspots ?? []).map((hotspot) => ({
     ...hotspot,
     markerAsset: hotspot.markerAssetId
       ? markerAssets.find((asset) => String(asset.id) === String(hotspot.markerAssetId)) || null
       : null,
+    scene: hotspot.arSceneId
+      ? buildScene(arScenes.find((scene) => String(scene.id) === String(hotspot.arSceneId)), modelAssets)
+      : null,
   }));
-  const arScenes = bundle?.arScenes ?? [];
-  const modelAssets = bundle?.modelAssets ?? [];
   const readerPages = buildReaderPagesFromBundle(bundle);
 
   const isCreatorOrAdmin =

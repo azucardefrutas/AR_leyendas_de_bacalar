@@ -1,10 +1,13 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import HTMLFlipBook from 'react-pageflip';
 import { getHotspotsForReaderPage } from '../../utils/readerPages.js';
 
 const MAX_SINGLE_PAGE_WIDTH = 540;
 const MAX_DESKTOP_PAGE_WIDTH = 520;
 const MIN_PAGE_WIDTH = 260;
+const InlineModel3DViewer = lazy(() => import('../3d/Model3DViewer.jsx'));
+
+const clampPercent = (value, min, max) => Math.min(max, Math.max(min, value));
 
 function ReaderIcon({ name }) {
   const commonProps = {
@@ -132,26 +135,126 @@ function HotspotMarker({ hotspot, index, onClick }) {
   );
 }
 
-const FlipPage = React.forwardRef(({ page, hotspots, onHotspotClick }, ref) => (
-  <div className={`pdf-flip-page ${page.type === 'manual' ? 'pdf-flip-page-manual' : ''}`} ref={ref}>
-    {page.type === 'rendered_pdf' && page.imageUrl ? (
-      <img src={page.imageUrl} alt={`Pagina ${page.pageNumber}`} draggable={false} loading="lazy" />
-    ) : page.type === 'manual' ? (
-      <div className="reader-paper">
-        {page.title && <h3 className="reader-paper-title">{page.title}</h3>}
-        <div className="reader-paper-text">{page.textContent}</div>
+function InlineModelPanel({ hotspot, position, onMove, onClose }) {
+  const panelRef = useRef(null);
+
+  useEffect(() => {
+    const el = panelRef.current;
+    if (!el) return undefined;
+    const stop = (event) => { event.stopPropagation(); };
+    el.addEventListener('pointerdown', stop);
+    el.addEventListener('mousedown', stop);
+    el.addEventListener('touchstart', stop);
+    el.addEventListener('mouseup', stop);
+    el.addEventListener('touchend', stop);
+    el.addEventListener('click', stop);
+    return () => {
+      el.removeEventListener('pointerdown', stop);
+      el.removeEventListener('mousedown', stop);
+      el.removeEventListener('touchstart', stop);
+      el.removeEventListener('mouseup', stop);
+      el.removeEventListener('touchend', stop);
+      el.removeEventListener('click', stop);
+    };
+  }, []);
+
+  function startDrag(event) {
+    if (!panelRef.current || event.button > 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const page = panelRef.current.closest('.pdf-flip-page-overlay');
+    if (!page) return;
+
+    const move = (moveEvent) => {
+      const rect = page.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
+      onMove({
+        x: clampPercent(((moveEvent.clientX - rect.left) / rect.width) * 100, 22, 78),
+        y: clampPercent(((moveEvent.clientY - rect.top) / rect.height) * 100, 22, 78),
+      });
+    };
+    const stop = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', stop);
+      window.removeEventListener('pointercancel', stop);
+    };
+
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', stop);
+    window.addEventListener('pointercancel', stop);
+    move(event);
+  }
+
+  return (
+    <section
+      ref={panelRef}
+      className="reader-inline-model"
+      style={{ left: `${position.x}%`, top: `${position.y}%` }}
+      aria-label={`Modelo 3D ${hotspot.label || ''}`.trim()}
+    >
+      <div className="reader-inline-model-bar" onPointerDown={startDrag}>
+        <span>Modelo 3D</span>
+        <button
+          type="button"
+          onPointerDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onClose();
+          }}
+          aria-label="Cerrar modelo 3D"
+        >
+          ×
+        </button>
       </div>
-    ) : (
-      <div className="pdf-flip-page-loading">Pagina {page.pageNumber}</div>
-    )}
-    <div className="pdf-flip-page-overlay">
-      {hotspots.map((hotspot, index) => (
-        <HotspotMarker key={hotspot.id} hotspot={hotspot} index={index} onClick={onHotspotClick} />
-      ))}
+      <Suspense fallback={<div className="reader-inline-model-loading">Cargando modelo...</div>}>
+        <InlineModel3DViewer scene={hotspot.scene} title={hotspot.scene?.name || hotspot.label} embedded />
+      </Suspense>
+    </section>
+  );
+}
+
+const FlipPage = React.forwardRef(({
+  page,
+  hotspots,
+  activeModel,
+  activeModelPosition,
+  onHotspotClick,
+  onInlineModelMove,
+  onInlineModelClose,
+}, ref) => {
+  const activeHotspot = activeModel
+    ? hotspots.find((hotspot) => String(hotspot.id) === String(activeModel.hotspotId))
+    : null;
+
+  return (
+    <div className={`pdf-flip-page ${page.type === 'manual' ? 'pdf-flip-page-manual' : ''}`} ref={ref}>
+      {page.type === 'rendered_pdf' && page.imageUrl ? (
+        <img src={page.imageUrl} alt={`Pagina ${page.pageNumber}`} draggable={false} loading="lazy" />
+      ) : page.type === 'manual' ? (
+        <div className="reader-paper">
+          {page.title && <h3 className="reader-paper-title">{page.title}</h3>}
+          <div className="reader-paper-text">{page.textContent}</div>
+        </div>
+      ) : (
+        <div className="pdf-flip-page-loading">Pagina {page.pageNumber}</div>
+      )}
+      <div className="pdf-flip-page-overlay">
+        {hotspots.map((hotspot, index) => (
+          <HotspotMarker key={hotspot.id} hotspot={hotspot} index={index} onClick={onHotspotClick} />
+        ))}
+        {activeHotspot?.scene?.assets?.url && (
+          <InlineModelPanel
+            hotspot={activeHotspot}
+            position={activeModelPosition}
+            onMove={onInlineModelMove}
+            onClose={onInlineModelClose}
+          />
+        )}
+      </div>
+      <span className="pdf-flip-page-number">{page.pageNumber}</span>
     </div>
-    <span className="pdf-flip-page-number">{page.pageNumber}</span>
-  </div>
-));
+  );
+});
 
 FlipPage.displayName = 'FlipPage';
 
@@ -164,6 +267,8 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageInput, setPageInput] = useState('1');
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [activeModel, setActiveModel] = useState(null);
+  const [activeModelPosition, setActiveModelPosition] = useState({ x: 50, y: 48 });
   const [viewport, setViewport] = useState(() => ({
     width: typeof window !== 'undefined' ? window.innerWidth : 1280,
     height: typeof window !== 'undefined' ? window.innerHeight : 820,
@@ -215,8 +320,20 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
   const goPrevious = useCallback(() => bookRef.current?.pageFlip()?.flipPrev(), []);
   const goNext = useCallback(() => bookRef.current?.pageFlip()?.flipNext(), []);
 
+  const openHotspotModel = useCallback((hotspot) => {
+    if (hotspot?.scene?.assets?.url) {
+      const x = clampPercent(Number(hotspot.x) * 100, 24, 76);
+      const y = clampPercent((Number(hotspot.y) * 100) - 16, 26, 70);
+      setActiveModel({ hotspotId: hotspot.id });
+      setActiveModelPosition({ x, y });
+      return;
+    }
+    onHotspotClick?.(hotspot);
+  }, [onHotspotClick]);
+
   function handleFlip(event) {
     setCurrentPage(Number(event.data) + 1);
+    setActiveModel(null);
   }
 
   function goToPage(value) {
@@ -308,7 +425,11 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
                 key={`${page.type}-${page.pageNumber}-${index}`}
                 page={page}
                 hotspots={hotspotsByPageIndex[index] ?? []}
-                onHotspotClick={onHotspotClick}
+                activeModel={activeModel}
+                activeModelPosition={activeModelPosition}
+                onHotspotClick={openHotspotModel}
+                onInlineModelMove={setActiveModelPosition}
+                onInlineModelClose={() => setActiveModel(null)}
               />
             ))}
           </HTMLFlipBook>

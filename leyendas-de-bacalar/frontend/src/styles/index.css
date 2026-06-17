@@ -7855,6 +7855,108 @@ body.reading-immersive .reader-stage { padding-top: clamp(10px, 2vh, 22px); }
   letter-spacing: 0.03em;
 }
 
+.reader-inline-model {
+  position: absolute;
+  z-index: 7;
+  width: min(58%, 320px);
+  height: min(38%, 250px);
+  min-width: 190px;
+  min-height: 168px;
+  transform: translate(-50%, -50%);
+  pointer-events: auto;
+  overflow: hidden;
+  border-radius: 14px;
+  border: 1px solid rgba(15, 118, 110, 0.28);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(236, 253, 245, 0.9)),
+    #ffffff;
+  box-shadow:
+    0 20px 42px rgba(15, 23, 42, 0.22),
+    0 0 0 1px rgba(255, 255, 255, 0.72) inset;
+  backdrop-filter: blur(8px);
+}
+
+.reader-inline-model-bar {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 7px 0 11px;
+  color: #064e3b;
+  background: rgba(240, 253, 250, 0.96);
+  border-bottom: 1px solid rgba(15, 118, 110, 0.16);
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.reader-inline-model-bar:active {
+  cursor: grabbing;
+}
+
+.reader-inline-model-bar span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.reader-inline-model-bar button {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  color: #064e3b;
+  background: rgba(15, 118, 110, 0.1);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.reader-inline-model-bar button:hover,
+.reader-inline-model-bar button:focus-visible {
+  color: #ffffff;
+  background: #0f766e;
+}
+
+.reader-inline-model-loading {
+  height: calc(100% - 34px);
+  display: grid;
+  place-items: center;
+  color: #0f766e;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.model3d-inline {
+  height: calc(100% - 34px);
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  background: radial-gradient(circle at 50% 42%, #f8fafc 0%, #e0f2fe 58%, #ccfbf1 100%);
+}
+
+.model3d-inline-stage {
+  min-height: 0;
+  position: relative;
+}
+
+.model3d-inline-hint {
+  margin: 0;
+  padding: 5px 8px 7px;
+  color: #0f766e;
+  background: rgba(255, 255, 255, 0.76);
+  font-size: 0.64rem;
+  line-height: 1.25;
+  text-align: center;
+}
+
 .pdf-flipbook-controls {
   display: flex;
   flex-wrap: wrap;
