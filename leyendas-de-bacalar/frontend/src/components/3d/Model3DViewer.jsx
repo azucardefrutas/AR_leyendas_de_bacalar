@@ -38,9 +38,9 @@ function GltfModel({ url }) {
   return <primitive object={scene} />;
 }
 
-function ModelCanvas({ url, onError }) {
+function ModelCanvas({ url, onError, embedded = false }) {
   return (
-    <Canvas camera={{ position: [0, 0, 4], fov: 45 }} dpr={[1, 2]}>
+    <Canvas camera={{ position: [0, 0, embedded ? 3.4 : 4], fov: embedded ? 38 : 45 }} dpr={[1, 2]}>
       <ambientLight intensity={0.7} />
       <directionalLight position={[5, 5, 5]} intensity={1} />
       <directionalLight position={[-5, -3, -5]} intensity={0.4} />
@@ -48,14 +48,21 @@ function ModelCanvas({ url, onError }) {
         <Suspense
           fallback={<Html center><span className="model3d-loading">Cargando modelo 3D...</span></Html>}
         >
-          <Bounds fit clip observe margin={1.2}>
+          <Bounds fit clip observe margin={embedded ? 0.82 : 1.2}>
             <Center>
               <GltfModel url={url} />
             </Center>
           </Bounds>
         </Suspense>
       </ModelErrorBoundary>
-      <OrbitControls makeDefault enablePan enableZoom enableRotate />
+      <OrbitControls
+        makeDefault
+        enablePan={!embedded}
+        enableZoom
+        enableRotate
+        autoRotate={embedded}
+        autoRotateSpeed={0.9}
+      />
     </Canvas>
   );
 }
@@ -101,7 +108,7 @@ function Model3DViewer({
               No se pudo cargar el modelo 3D. Verifica el archivo (GLB/GLTF) o la URL.
             </div>
           ) : (
-            <ModelCanvas url={url} onError={() => setFailed(true)} />
+            <ModelCanvas url={url} onError={() => setFailed(true)} embedded />
           )}
         </div>
       </div>

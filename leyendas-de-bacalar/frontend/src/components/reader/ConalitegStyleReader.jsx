@@ -141,7 +141,11 @@ function InlineModelLayer({ hotspot }) {
   useEffect(() => {
     const el = panelRef.current;
     if (!el) return undefined;
-    const stop = (event) => { event.stopPropagation(); };
+    const stop = (event) => {
+      event.stopPropagation();
+      if (event.type === 'wheel' && event.cancelable) event.preventDefault();
+    };
+    const wheelOptions = { passive: false };
     el.addEventListener('pointerdown', stop);
     el.addEventListener('mousedown', stop);
     el.addEventListener('touchstart', stop);
@@ -149,7 +153,7 @@ function InlineModelLayer({ hotspot }) {
     el.addEventListener('touchend', stop);
     el.addEventListener('click', stop);
     el.addEventListener('dblclick', stop);
-    el.addEventListener('wheel', stop);
+    el.addEventListener('wheel', stop, wheelOptions);
     return () => {
       el.removeEventListener('pointerdown', stop);
       el.removeEventListener('mousedown', stop);
@@ -158,7 +162,7 @@ function InlineModelLayer({ hotspot }) {
       el.removeEventListener('touchend', stop);
       el.removeEventListener('click', stop);
       el.removeEventListener('dblclick', stop);
-      el.removeEventListener('wheel', stop);
+      el.removeEventListener('wheel', stop, wheelOptions);
     };
   }, []);
 
@@ -167,8 +171,8 @@ function InlineModelLayer({ hotspot }) {
       ref={panelRef}
       className="reader-inline-model"
       style={{
-        left: `${clampPercent(Number(hotspot.x) * 100, 18, 82)}%`,
-        top: `${clampPercent(Number(hotspot.y) * 100, 18, 82)}%`,
+        left: `${clampPercent(Number(hotspot.x) * 100, 34, 66)}%`,
+        top: `${clampPercent(Number(hotspot.y) * 100, 24, 76)}%`,
       }}
       aria-label={`Modelo 3D ${hotspot.label || ''}`.trim()}
     >
