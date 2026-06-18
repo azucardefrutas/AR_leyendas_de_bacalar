@@ -7913,6 +7913,285 @@ body.model3d-open .site-header {
   }
 }
 
+/* ============================================================================
+   Shared icon system (Material Symbols) + glass / back buttons
+   ============================================================================ */
+.app-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  user-select: none;
+}
+
+.glass-button,
+.back-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  min-height: 44px;
+  padding: 0.62rem 1.15rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.10);
+  color: #ffffff;
+  font-size: 0.92rem;
+  font-weight: 750;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.24);
+  transition: transform 160ms ease, background 160ms ease, border-color 160ms ease, box-shadow 160ms ease, color 160ms ease;
+}
+
+.glass-button:hover,
+.back-button:hover {
+  background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-1px);
+}
+
+.glass-button:focus-visible,
+.back-button:focus-visible {
+  outline: 2px solid #30cff2;
+  outline-offset: 3px;
+}
+
+.glass-button:active,
+.back-button:active {
+  transform: translateY(0);
+}
+
+/* Solid (primary) — keeps protagonism for the main CTA */
+.glass-button--solid {
+  border-color: transparent;
+  background: linear-gradient(120deg, #049dd9 0%, #30cff2 100%);
+  color: #04202b;
+  box-shadow: 0 16px 36px rgba(4, 157, 217, 0.4);
+}
+
+.glass-button--solid:hover {
+  background: linear-gradient(120deg, #0aa9e6 0%, #4ad8f6 100%);
+  box-shadow: 0 20px 44px rgba(4, 157, 217, 0.5);
+}
+
+/* Ghost — subtle, for tertiary actions */
+.glass-button--ghost,
+.back-button--ghost {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.28);
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.glass-button--ghost:hover,
+.back-button--ghost:hover {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+/* Icon-only back button (e.g. inside the reader) */
+.back-button--icon {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  gap: 0;
+}
+
+/* ============================================================================
+   Cinematic legend hero (Disney+ / streaming style)
+   ============================================================================ */
+.legend-hero {
+  position: relative;
+  min-height: clamp(560px, 74vh, 840px);
+  overflow: hidden;
+  background: #06121f;
+  isolation: isolate;
+}
+
+.legend-hero__backdrop {
+  position: absolute;
+  inset: 0;
+  background-color: #06121f;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transform: scale(1.04);
+  z-index: 0;
+}
+
+.legend-hero__overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(90deg, rgba(3, 10, 20, 0.96) 0%, rgba(3, 10, 20, 0.74) 36%, rgba(3, 10, 20, 0.30) 70%, rgba(3, 10, 20, 0.82) 100%),
+    linear-gradient(0deg, rgba(3, 10, 20, 0.96) 0%, rgba(3, 10, 20, 0.12) 46%, rgba(3, 10, 20, 0.62) 100%),
+    radial-gradient(120% 90% at 50% 50%, transparent 58%, rgba(0, 0, 0, 0.45) 100%);
+}
+
+.legend-hero__content {
+  position: relative;
+  z-index: 2;
+  width: min(1180px, calc(100% - 48px));
+  margin: 0 auto;
+  min-height: clamp(560px, 74vh, 840px);
+  padding: clamp(20px, 5vh, 48px) 0 clamp(36px, 7vh, 72px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.legend-hero__back {
+  position: absolute;
+  top: clamp(18px, 4vh, 40px);
+  left: 0;
+}
+
+.legend-hero__layout {
+  display: grid;
+  grid-template-columns: minmax(200px, 300px) minmax(0, 1fr);
+  align-items: center;
+  gap: clamp(28px, 5vw, 64px);
+  margin-top: clamp(40px, 8vh, 72px);
+}
+
+.legend-hero__cover {
+  aspect-ratio: 2 / 3;
+  border-radius: 22px;
+  overflow: hidden;
+  background: #0c1622;
+  box-shadow:
+    0 28px 80px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+.legend-hero__cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.legend-hero__cover-fallback {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(160deg, #0a2a31, #0b1622);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 2.6rem;
+  font-weight: 800;
+  font-family: Georgia, serif;
+}
+
+.legend-hero__info {
+  min-width: 0;
+  color: #ffffff;
+}
+
+.legend-hero__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #04202b;
+  background: linear-gradient(120deg, #30cff2, #6ee7ff);
+}
+
+.legend-hero__badge.is-premium {
+  color: #2a1604;
+  background: linear-gradient(120deg, #f4b740, #ffd479);
+}
+
+.legend-hero__title {
+  margin: 0.55rem 0 0.3rem;
+  font-size: clamp(2.1rem, 5.4vw, 3.6rem);
+  line-height: 1.04;
+  color: #ffffff;
+  text-shadow: 0 2px 24px rgba(0, 0, 0, 0.45);
+}
+
+.legend-hero__author {
+  margin: 0 0 10px;
+  color: rgba(255, 255, 255, 0.85);
+  font-weight: 650;
+}
+
+.legend-hero__location {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 16px;
+  color: rgba(234, 251, 255, 0.78);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.legend-hero__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.legend-hero__synopsis {
+  max-width: 60ch;
+  margin: 0 0 26px;
+  color: rgba(234, 251, 255, 0.88);
+  font-size: clamp(0.96rem, 1.3vw, 1.08rem);
+  line-height: 1.65;
+  text-shadow: 0 1px 16px rgba(0, 0, 0, 0.4);
+}
+
+.legend-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.legend-hero__soft {
+  display: inline-block;
+  margin-top: 18px;
+}
+
+.legend-hero .detail-preview-strip {
+  margin-top: 24px;
+}
+
+@media (max-width: 760px) {
+  .legend-hero__content {
+    width: min(620px, calc(100% - 32px));
+  }
+
+  .legend-hero__layout {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    text-align: center;
+    margin-top: clamp(58px, 12vh, 86px);
+  }
+
+  .legend-hero__cover {
+    width: min(210px, 58%);
+  }
+
+  .legend-hero__location,
+  .legend-hero__chips,
+  .legend-hero__actions {
+    justify-content: center;
+  }
+
+  .legend-hero__synopsis {
+    margin-inline: auto;
+  }
+}
+
 /* Creator: CONALITEG render status of a source document */
 .source-document-render {
   display: flex;

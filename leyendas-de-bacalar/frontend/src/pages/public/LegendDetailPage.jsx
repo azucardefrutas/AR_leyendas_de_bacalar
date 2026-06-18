@@ -1,7 +1,8 @@
 import React from 'react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import Button from '../../components/ui/Button.jsx';
+import LegendHero from '../../components/legend/LegendHero.jsx';
+import GlassButton from '../../components/ui/GlassButton.jsx';
 import PhysicalBookActivationModal from '../../components/reader/PhysicalBookActivationModal.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
@@ -90,7 +91,8 @@ function LegendDetailPage() {
   const synopsis = legend.synopsis || legend.shortSynopsis || 'Una leyenda de Bacalar lista para descubrir.';
   const genres = Array.isArray(legend.genres) ? legend.genres : [];
   const badge = isFree ? 'Gratis' : (accessLabels[accessType] || 'Premium');
-  const chips = [legend.origin_place || 'Bacalar', ...genres.map((genre) => genre.name).filter(Boolean)];
+  const location = legend.origin_place || 'Bacalar, Quintana Roo';
+  const chips = genres.map((genre) => genre.name).filter(Boolean);
   const actionLabel = actionLabels[accessType] || 'Explorar historia';
 
   async function refreshAccess() {
@@ -112,72 +114,69 @@ function LegendDetailPage() {
     setActionMessage('Para desbloquear esta leyenda se habilitaran opciones de acceso desde tu cuenta.');
   }
 
+  const heroActions = (
+    <>
+      {canRead ? (
+        <GlassButton
+          to={`/legend/${legend.slug}/read`}
+          variant="solid"
+          icon="auto_stories"
+          iconFilled
+          className="legend-hero__cta"
+        >
+          Explorar historia
+        </GlassButton>
+      ) : (
+        <GlassButton
+          onClick={handleProtectedAction}
+          variant="solid"
+          icon={accessType === 'code_required' || accessType === 'mixed' ? 'redeem' : 'lock_open'}
+          className="legend-hero__cta"
+        >
+          {actionLabel}
+        </GlassButton>
+      )}
+      <GlassButton to="/catalog" variant="glass" icon="keyboard_return">
+        Regresar
+      </GlassButton>
+    </>
+  );
+
   return (
     <section className="detail-page">
-      <div
-        className="detail-hero"
-        style={bannerUrl ? { backgroundImage: `url("${bannerUrl}")` } : undefined}
+      <LegendHero
+        title={legend.title}
+        author={authorName}
+        location={location}
+        description={synopsis}
+        coverImage={coverUrl}
+        bannerImage={bannerUrl}
+        badgeLabel={badge}
+        isFree={isFree}
+        chips={chips}
+        backTo="/catalog"
+        backLabel="Regresar"
+        actions={heroActions}
       >
-        <div className="detail-hero-overlay" aria-hidden="true" />
+        {!canRead && (
+          <p className="legend-locked-note">
+            Esta leyenda esta bloqueada. Desbloqueala para leer la historia completa.
+          </p>
+        )}
+        {actionMessage && <p className="legend-locked-note">{actionMessage}</p>}
+        {!canRead && !isAuthenticated && (
+          <Link className="reader-soft-link legend-hero__soft" to={loginForLegend}>
+            Para desbloquear esta leyenda necesitas iniciar sesion.
+          </Link>
+        )}
 
-        <div className="detail-hero-content">
-          <Link className="detail-back" to="/catalog">&larr; Volver al catalogo</Link>
-
-          <div className="detail-grid">
-            <div className="detail-poster">
-              {coverUrl ? (
-                <img src={coverUrl} alt={`Portada de ${legend.title}`} />
-              ) : (
-                <div className="detail-poster-fallback"><span>{legend.title?.slice(0, 2).toUpperCase()}</span></div>
-              )}
-            </div>
-
-            <div className="detail-info">
-              <span className={`poster-badge ${isFree ? 'free' : 'premium'}`}>{badge}</span>
-              <h1>{legend.title}</h1>
-              <p className="detail-author">{authorName}</p>
-
-              {chips.length > 0 && (
-                <div className="detail-chips">
-                  {chips.map((chip) => <span className="legend-chip" key={chip}>{chip}</span>)}
-                </div>
-              )}
-
-              <p className="detail-synopsis">{synopsis}</p>
-
-              <div className="detail-actions">
-                {canRead ? (
-                  <Link to={`/legend/${legend.slug}/read`}>
-                    <Button className="reader-glow-button">Explorar historia</Button>
-                  </Link>
-                ) : (
-                  <Button className="reader-glow-button" onClick={handleProtectedAction}>{actionLabel}</Button>
-                )}
-                <Link to="/catalog"><Button variant="ghost">Volver al catalogo</Button></Link>
-              </div>
-
-              {!canRead && (
-                <p className="legend-locked-note">
-                  Esta leyenda esta bloqueada. Desbloqueala para leer la historia completa.
-                </p>
-              )}
-              {actionMessage && <p className="legend-locked-note">{actionMessage}</p>}
-              {!canRead && !isAuthenticated && (
-                <Link className="reader-soft-link" to={loginForLegend}>
-                  Para desbloquear esta leyenda necesitas iniciar sesion.
-                </Link>
-              )}
-
-              {previewText && !canRead && (
-                <div className="detail-preview-strip">
-                  <strong>Vista previa</strong>
-                  <p>{previewText.slice(0, 220)}{previewText.length > 220 ? '...' : ''}</p>
-                </div>
-              )}
-            </div>
+        {previewText && !canRead && (
+          <div className="detail-preview-strip">
+            <strong>Vista previa</strong>
+            <p>{previewText.slice(0, 220)}{previewText.length > 220 ? '...' : ''}</p>
           </div>
-        </div>
-      </div>
+        )}
+      </LegendHero>
 
       {activationOpen && (
         <PhysicalBookActivationModal
