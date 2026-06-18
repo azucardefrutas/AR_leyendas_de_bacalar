@@ -29,8 +29,8 @@ import ArSceneModal from '../3d/ArSceneModal.jsx';
 const tabs = [
   { key: 'general', label: 'Datos de historia', icon: 'contract_edit' },
   { key: 'resources', label: 'Portada / banner', icon: 'photo_library' },
-  { key: 'content', label: 'Documento / libro', icon: 'article' },
   { key: 'ar', label: 'Modelos y marcadores', icon: 'view_in_ar' },
+  { key: 'content', label: 'Documento / libro', icon: 'article' },
   { key: 'declarations', label: 'Declaraciones', icon: 'gavel' },
   { key: 'review', label: 'Revision', icon: 'task_alt' },
 ];
@@ -363,7 +363,6 @@ function LegendEditor({ legendId }) {
   });
   const [documentRenderSummary, setDocumentRenderSummary] = useState({ status: null, count: 0, pageCount: null, pages: [] });
   const [hotspotSummary, setHotspotSummary] = useState({ total: 0, associated: 0, items: [] });
-  const [isSourceDocumentOpen, setIsSourceDocumentOpen] = useState(true);
   const [isInteractiveReadingOpen, setIsInteractiveReadingOpen] = useState(true);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
@@ -475,7 +474,6 @@ function LegendEditor({ legendId }) {
       pages: [],
     });
     setHotspotSummary({ total: 0, associated: 0, items: [] });
-    setIsSourceDocumentOpen(Boolean(primarySourceDocument));
     setIsInteractiveReadingOpen(!primarySourceDocument);
   }, [primarySourceDocument?.id]);
 
@@ -901,8 +899,6 @@ function LegendEditor({ legendId }) {
               onViewDocument={() => handleViewSourceDocument(primarySourceDocument)}
               onConvertToInteractive={() => handleProcessSourceDocument(primarySourceDocument)}
               onAddManualPage={addPage}
-              isOpen={isSourceDocumentOpen}
-              onToggle={() => setIsSourceDocumentOpen((current) => !current)}
               onRenderStateChange={setDocumentRenderSummary}
               onHotspotSummaryChange={setHotspotSummary}
               onGoToResources={() => setActiveTab('ar')}

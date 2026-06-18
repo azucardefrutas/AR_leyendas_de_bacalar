@@ -3803,6 +3803,66 @@ pre {
   gap: 14px;
 }
 
+/* Compact, secondary disclosure that replaces the large "Documento original" card.
+   Collapsed by default so the technical info stays out of the main editing flow. */
+.document-details-disclosure {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fbfdff;
+}
+
+.document-details-disclosure > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  list-style: none;
+  cursor: pointer;
+  border-radius: 12px;
+}
+
+.document-details-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+
+.document-details-disclosure > summary::before {
+  content: '\203A';
+  color: #0369a1;
+  font-size: 1.2rem;
+  line-height: 1;
+  transition: transform 160ms ease;
+}
+
+.document-details-disclosure[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.document-details-summary-label {
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.document-details-disclosure > summary:hover,
+.document-details-disclosure > summary:focus-visible {
+  background: #f1f5f9;
+  outline: none;
+}
+
+.document-details-disclosure .creator-accordion-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.document-details-note {
+  margin: 0;
+  padding: 0 12px 10px;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
 .source-document-primary-actions {
   display: flex;
   gap: 10px;
@@ -8149,6 +8209,81 @@ body.reading-immersive .page-container {
 
 .reader-stage-top .reader-back-link:hover { color: var(--reader-text); }
 
+/* Icon-only back button: glass circle that adapts to the active reader theme. */
+.reader-stage-top .reader-back-button {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 999px;
+  border: 1px solid var(--reader-control-border);
+  color: var(--reader-text);
+  background: var(--reader-control-bg);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(12px);
+  text-decoration: none;
+  transition: transform 150ms ease, color 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.reader-stage-top .reader-back-button .material-symbols-rounded {
+  font-size: 23px;
+  line-height: 1;
+}
+
+.reader-stage-top .reader-back-button:hover,
+.reader-stage-top .reader-back-button:focus-visible {
+  transform: translateY(-1px);
+  color: var(--reader-accent);
+  border-color: color-mix(in srgb, var(--reader-accent) 40%, var(--reader-control-border));
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.2);
+  outline: none;
+}
+
+/* Canva-style color theme picker */
+.theme-color-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 9px;
+}
+
+.theme-color-dot {
+  width: 100%;
+  aspect-ratio: 1;
+  min-width: 26px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.28);
+  cursor: pointer;
+  transition: transform 140ms ease;
+}
+
+.theme-color-dot:hover,
+.theme-color-dot:focus-visible {
+  transform: translateY(-2px) scale(1.06);
+  outline: none;
+}
+
+.theme-color-dot.is-selected {
+  outline: 3px solid var(--reader-ring);
+  outline-offset: 2px;
+}
+
+.theme-color-check {
+  font-size: 17px;
+  line-height: 1;
+  font-weight: 700;
+}
+
+@media (max-width: 380px) {
+  .theme-color-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
 .reader-stage-top h1 {
   flex: 1;
   margin: 0;
@@ -8224,7 +8359,9 @@ body.reading-immersive .reader-stage { padding-top: clamp(4px, 1vh, 10px); }
   flex-direction: column;
   padding: clamp(22px, 6%, 54px) clamp(20px, 7%, 56px);
   overflow: auto;
-  color: var(--reader-text, #2a2418);
+  /* The manual book page is always a light/cream sheet, so keep dark ink regardless
+     of the reader theme (the theme text color can be white). */
+  color: #2a2418;
   font-family: Georgia, 'Times New Roman', serif;
 }
 
@@ -8232,7 +8369,7 @@ body.reading-immersive .reader-stage { padding-top: clamp(4px, 1vh, 10px); }
   margin: 0 0 18px;
   text-align: center;
   font-size: clamp(1.1rem, 3vw, 1.7rem);
-  color: var(--reader-text, #1f2937);
+  color: #1f2937;
   line-height: 1.2;
 }
 
@@ -8624,10 +8761,10 @@ body.reading-immersive .reader-stage { padding-top: clamp(4px, 1vh, 10px); }
   height: 28px;
   display: grid;
   place-items: center;
-  border: 0;
+  border: 1px solid var(--reader-control-border);
   border-radius: 999px;
   color: var(--reader-text);
-  background: color-mix(in srgb, var(--reader-control-bg) 68%, white);
+  background: transparent;
   cursor: pointer;
 }
 
@@ -8658,18 +8795,26 @@ body.reading-immersive .reader-stage { padding-top: clamp(4px, 1vh, 10px); }
   border: 1px solid var(--reader-control-border);
   border-radius: 999px;
   color: var(--reader-text);
-  background: color-mix(in srgb, var(--reader-control-bg) 72%, white);
+  background: transparent;
   font-size: 0.78rem;
   font-weight: 800;
   cursor: pointer;
+  transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
+}
+
+.reader-settings-options button:hover,
+.reader-settings-fullscreen:hover {
+  border-color: color-mix(in srgb, var(--reader-accent) 45%, var(--reader-control-border));
+  color: var(--reader-accent);
 }
 
 .reader-settings-options button {
   padding: 7px 11px;
 }
 
-.reader-settings-options button.is-active {
-  color: #ffffff;
+.reader-settings-options button.is-active,
+.reader-settings-options button.is-active:hover {
+  color: var(--reader-accent-ink);
   border-color: var(--reader-accent);
   background: var(--reader-accent);
 }
@@ -8695,12 +8840,13 @@ body.reading-immersive .reader-stage { padding-top: clamp(4px, 1vh, 10px); }
   min-height: 46px;
   padding: 5px 8px;
   border-radius: 999px;
+  color: var(--reader-text);
   background: var(--reader-control-bg);
   border: 1px solid var(--reader-control-border);
   box-shadow:
-    0 16px 30px rgba(37, 34, 27, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(10px);
+    0 18px 45px rgba(15, 23, 42, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(14px);
   transition: opacity 180ms ease, transform 180ms ease;
 }
 
@@ -8734,11 +8880,11 @@ body.reading-immersive .reader-stage { padding-top: clamp(4px, 1vh, 10px); }
   height: 38px;
   display: inline-grid;
   place-items: center;
-  border: 1px solid rgba(205, 199, 185, 0.9);
+  border: 1px solid var(--reader-control-border);
   border-radius: 999px;
   color: var(--reader-text);
-  background: color-mix(in srgb, var(--reader-control-bg) 74%, white);
-  box-shadow: 0 6px 14px rgba(37, 34, 27, 0.08);
+  background: color-mix(in srgb, var(--reader-text) 8%, transparent);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.1);
   cursor: pointer;
   transition: transform 160ms ease, color 160ms ease, border-color 160ms ease, opacity 160ms ease, box-shadow 160ms ease;
 }

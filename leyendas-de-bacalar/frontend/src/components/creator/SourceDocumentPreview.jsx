@@ -197,8 +197,6 @@ function SourceDocumentPreview({
   onViewDocument,
   onConvertToInteractive,
   onAddManualPage,
-  isOpen,
-  onToggle,
   onRenderStateChange,
   onHotspotSummaryChange,
   onGoToResources,
@@ -234,7 +232,6 @@ function SourceDocumentPreview({
   const isPdf = isPdfDocument({ sourceDocument, viewUrl });
   const isDocx = isDocxDocument({ sourceDocument, viewUrl });
   const canConvert = !hasInteractivePages && ['pending', 'extracted'].includes(extractionStatus);
-  const contentId = `source-document-panel-${sourceDocument?.id || 'current'}`;
   const filename = storagePath.split('/').pop() || 'Documento original';
 
   const legendId = sourceDocument?.legend_id || null;
@@ -634,28 +631,20 @@ function SourceDocumentPreview({
 
   return (
     <section className="creator-section-block source-document-preview">
-      <button
-        type="button"
-        className="creator-accordion-header source-document-header"
-        onClick={onToggle}
-        aria-expanded={isOpen}
-        aria-controls={contentId}
-      >
-        <span className="creator-accordion-icon">DOC</span>
-        <div className="creator-accordion-copy">
-          <h2>Documento original</h2>
-          <p>El archivo cargado se conserva como fuente principal de esta obra.</p>
-        </div>
-        <span className="creator-accordion-badges">
-          <span className="creator-accordion-badge">{documentTypeLabel}</span>
-          <span className="creator-accordion-badge">{statusLabel}</span>
-          {pageCountLabel && <span className="creator-accordion-badge">{pageCountLabel}</span>}
-          <span className="creator-accordion-badge">{formattedFileSize}</span>
-        </span>
-        <span className={`creator-accordion-chevron ${isOpen ? 'open' : ''}`} aria-hidden="true">&rsaquo;</span>
-      </button>
+      <details className="document-details-disclosure">
+        <summary>
+          <span className="document-details-summary-label">Detalles del documento</span>
+          <span className="creator-accordion-badges">
+            <span className="creator-accordion-badge">{documentTypeLabel}</span>
+            <span className="creator-accordion-badge">{statusLabel}</span>
+            {pageCountLabel && <span className="creator-accordion-badge">{pageCountLabel}</span>}
+            <span className="creator-accordion-badge">{formattedFileSize}</span>
+          </span>
+        </summary>
+        <p className="document-details-note">El archivo cargado se conserva como fuente principal de esta obra.</p>
+      </details>
 
-      <div id={contentId} className={`creator-accordion-panel source-document-panel ${isOpen ? 'open' : 'closed'}`}>
+      <div className="creator-accordion-panel source-document-panel open">
         {viewError && <p className="error-message">{viewError}</p>}
         {processingMessage && <p className="creator-muted">{processingMessage}</p>}
 
@@ -698,7 +687,7 @@ function SourceDocumentPreview({
           </div>
         )}
 
-        {isOpen && isPdf && (signedUrl || hasRenderedPageRecords) && (
+        {isPdf && (signedUrl || hasRenderedPageRecords) && (
           <div className="source-document-viewer">
             <div className="document-book-editor-topbar">
               <div className="document-page-nav" aria-label="Navegacion de paginas renderizadas">
@@ -993,7 +982,7 @@ function SourceDocumentPreview({
           </div>
         )}
 
-        {isOpen && signedUrl && isDocx && (
+        {signedUrl && isDocx && (
           <p className="creator-muted">
             Vista previa DOCX pendiente. Puedes abrir o descargar el documento con la URL firmada.
           </p>

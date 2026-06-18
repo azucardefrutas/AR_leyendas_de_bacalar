@@ -197,7 +197,14 @@ function ReadingPage() {
   return (
     <section className="reader-stage">
       <div className="reader-stage-top">
-        <Link className="reader-back-link" to={`/legend/${legend?.slug ?? slug}`}>&larr; Volver</Link>
+        <Link
+          className="reader-back-button"
+          to={`/legend/${legend?.slug ?? slug}`}
+          aria-label="Volver"
+          title="Volver"
+        >
+          <span className="material-symbols-rounded" aria-hidden="true">arrow_back</span>
+        </Link>
         <h1>{title}</h1>
         <span className="reader-stage-spacer" aria-hidden="true" />
       </div>

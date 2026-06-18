@@ -37,6 +37,76 @@ const BOOK_SIZE_CONFIG = {
 };
 const InlineModel3DViewer = lazy(() => import('../3d/Model3DViewer.jsx'));
 
+// Canva-style color palette for the reader theme picker (12-18 colors max).
+const READER_THEMES = [
+  { id: 'paper', name: 'Papel clásico', color: '#f7f2e6' },
+  { id: 'sepia', name: 'Sepia', color: '#d8b982' },
+  { id: 'sand', name: 'Arena', color: '#ead7b1' },
+  { id: 'night', name: 'Noche', color: '#0d0d0d' },
+  { id: 'deep-blue', name: 'Azul profundo', color: '#152659' },
+  { id: 'laguna', name: 'Laguna', color: '#049dd9' },
+  { id: 'turquoise', name: 'Turquesa', color: '#30cff2' },
+  { id: 'dark-cyan', name: 'Cian oscuro', color: '#087ea4' },
+  { id: 'mangrove', name: 'Verde manglar', color: '#0f766e' },
+  { id: 'jade', name: 'Verde jade', color: '#10b981' },
+  { id: 'deep-purple', name: 'Morado profundo', color: '#4c1d95' },
+  { id: 'violet', name: 'Violeta', color: '#7c3aed' },
+  { id: 'coral', name: 'Rojo coral', color: '#ef4444' },
+  { id: 'orange', name: 'Naranja', color: '#f97316' },
+  { id: 'gold', name: 'Dorado', color: '#c4933f' },
+  { id: 'gray', name: 'Gris elegante', color: '#374151' },
+];
+const READER_THEME_IDS = READER_THEMES.map((theme) => theme.id);
+
+function hexToRgb(hex) {
+  const clean = String(hex).replace('#', '');
+  const full = clean.length === 3 ? clean.split('').map((c) => c + c).join('') : clean;
+  const int = parseInt(full, 16);
+  return { r: (int >> 16) & 255, g: (int >> 8) & 255, b: int & 255 };
+}
+
+function readerLuminance(hex) {
+  const { r, g, b } = hexToRgb(hex);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+
+// Per the design spec: dark colors -> white text, light colors -> dark text.
+// Guarantees we never render white text on a light background (or vice versa).
+function getContrastText(hexColor) {
+  return readerLuminance(hexColor) < 0.45 ? '#ffffff' : '#111827';
+}
+
+function mixHex(hex, target, amount) {
+  const a = hexToRgb(hex);
+  const b = hexToRgb(target);
+  const channel = (x, y) => Math.round(x + (y - x) * amount);
+  const toHex = (n) => n.toString(16).padStart(2, '0');
+  return `#${toHex(channel(a.r, b.r))}${toHex(channel(a.g, b.g))}${toHex(channel(a.b, b.b))}`;
+}
+
+function rgba(hex, alpha) {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+// Build the full CSS-variable set for a theme color, with automatic contrast so the
+// panel, glass controls and back button stay legible on any background (light or dark).
+function buildReaderThemeVars(color) {
+  const isDark = readerLuminance(color) < 0.45;
+  return {
+    '--reader-bg': `linear-gradient(180deg, ${mixHex(color, '#ffffff', isDark ? 0.05 : 0.16)} 0%, ${color} 55%, ${mixHex(color, '#000000', 0.18)} 100%)`,
+    '--reader-text': isDark ? '#ffffff' : '#111827',
+    '--reader-muted': isDark ? 'rgba(255, 255, 255, 0.72)' : 'rgba(17, 24, 39, 0.62)',
+    '--reader-accent': color,
+    '--reader-accent-ink': getContrastText(color),
+    '--reader-surface': isDark ? rgba(mixHex(color, '#0b1020', 0.5), 0.88) : rgba('#ffffff', 0.9),
+    '--reader-control-bg': isDark ? rgba(mixHex(color, '#0b1020', 0.45), 0.82) : rgba('#ffffff', 0.84),
+    '--reader-control-border': isDark ? 'rgba(255, 255, 255, 0.20)' : 'rgba(15, 23, 42, 0.14)',
+    '--reader-border': isDark ? 'rgba(255, 255, 255, 0.20)' : 'rgba(15, 23, 42, 0.14)',
+    '--reader-ring': isDark ? '#ffffff' : '#0f172a',
+  };
+}
+
 const clampPercent = (value, min, max) => Math.min(max, Math.max(min, value));
 
 function loadReaderSettings() {
@@ -46,7 +116,7 @@ function loadReaderSettings() {
     if (!raw) return DEFAULT_READER_SETTINGS;
     const parsed = JSON.parse(raw);
     return {
-      theme: ['paper', 'sepia', 'night', 'laguna'].includes(parsed.theme) ? parsed.theme : DEFAULT_READER_SETTINGS.theme,
+      theme: READER_THEME_IDS.includes(parsed.theme) ? parsed.theme : DEFAULT_READER_SETTINGS.theme,
       bookSize: ['fit', 'large', 'full'].includes(parsed.bookSize) ? parsed.bookSize : DEFAULT_READER_SETTINGS.bookSize,
       controlsMode: ['always', 'auto'].includes(parsed.controlsMode) ? parsed.controlsMode : DEFAULT_READER_SETTINGS.controlsMode,
     };
@@ -328,13 +398,33 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
   useEffect(() => {
     const stage = containerRef.current?.closest('.reader-stage');
     if (!stage) return undefined;
+    const activeTheme = READER_THEMES.find((theme) => theme.id === readerSettings.theme) || READER_THEMES[0];
+    const vars = buildReaderThemeVars(activeTheme.color);
     stage.setAttribute('data-reader-theme', readerSettings.theme);
     stage.setAttribute('data-reader-size', readerSettings.bookSize);
+    // Inline CSS variables (highest priority) drive every reader surface so any of the
+    // palette colors gets correct, auto-contrasted text/controls without per-theme CSS.
+    Object.entries(vars).forEach(([name, value]) => stage.style.setProperty(name, value));
     return () => {
       stage.removeAttribute('data-reader-theme');
       stage.removeAttribute('data-reader-size');
+      Object.keys(vars).forEach((name) => stage.style.removeProperty(name));
     };
   }, [readerSettings.theme, readerSettings.bookSize]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const activeTheme = READER_THEMES.find((theme) => theme.id === readerSettings.theme) || READER_THEMES[0];
+    try {
+      window.localStorage.setItem('readerThemeColor', activeTheme.color);
+      window.localStorage.setItem('readerThemeName', activeTheme.name);
+      window.localStorage.setItem('readerTextColor', getContrastText(activeTheme.color));
+      window.localStorage.setItem('readerBookSize', readerSettings.bookSize);
+      window.localStorage.setItem('readerControlsMode', readerSettings.controlsMode);
+    } catch {
+      // Individual keys are a convenience mirror of the JSON preferences; optional.
+    }
+  }, [readerSettings]);
 
   useEffect(() => {
     if (readerSettings.controlsMode !== 'auto' || settingsOpen) {
@@ -524,23 +614,33 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
           </div>
 
           <div className="reader-settings-group">
-            <span>Tema</span>
-            <div className="reader-settings-options">
-              {[
-                ['paper', 'Papel'],
-                ['sepia', 'Sepia'],
-                ['night', 'Noche'],
-                ['laguna', 'Laguna'],
-              ].map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={readerSettings.theme === value ? 'is-active' : ''}
-                  onClick={() => updateReaderSetting('theme', value)}
-                >
-                  {label}
-                </button>
-              ))}
+            <span>Tema y color</span>
+            <div className="theme-color-grid" role="group" aria-label="Color del lector">
+              {READER_THEMES.map((theme) => {
+                const selected = readerSettings.theme === theme.id;
+                return (
+                  <button
+                    key={theme.id}
+                    type="button"
+                    className={`theme-color-dot ${selected ? 'is-selected' : ''}`}
+                    style={{ background: theme.color }}
+                    title={theme.name}
+                    aria-label={`Usar tema ${theme.name}`}
+                    aria-pressed={selected}
+                    onClick={() => updateReaderSetting('theme', theme.id)}
+                  >
+                    {selected && (
+                      <span
+                        className="material-symbols-rounded theme-color-check"
+                        style={{ color: getContrastText(theme.color) }}
+                        aria-hidden="true"
+                      >
+                        check
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
