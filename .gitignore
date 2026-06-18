@@ -11,6 +11,12 @@ claude.md
 **/.env.local
 **/.env.*.local
 
+skills-lock.json
+.mcp.json
+AGENTS.md
+CLAUDE.md
+
+
 
 npm-debug.log*
 yarn-debug.log*
