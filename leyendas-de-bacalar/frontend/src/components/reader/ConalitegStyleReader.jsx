@@ -1,6 +1,10 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import HTMLFlipBook from 'react-pageflip';
 import { getHotspotsForReaderPage } from '../../utils/readerPages.js';
+import AppIcon from '../ui/AppIcon.jsx';
+import ReaderSettingsPanel from './ReaderSettingsPanel.jsx';
+import ReaderBottomControls from './ReaderBottomControls.jsx';
+import { READER_THEMES, READER_THEME_IDS, getContrastText, buildReaderThemeVars } from './readerTheme.js';
 
 const MIN_PAGE_WIDTH = 260;
 const READER_STORAGE_KEY = 'leyendas.reader.preferences';
@@ -37,76 +41,6 @@ const BOOK_SIZE_CONFIG = {
 };
 const InlineModel3DViewer = lazy(() => import('../3d/Model3DViewer.jsx'));
 
-// Canva-style color palette for the reader theme picker (12-18 colors max).
-const READER_THEMES = [
-  { id: 'paper', name: 'Papel clásico', color: '#f7f2e6' },
-  { id: 'sepia', name: 'Sepia', color: '#d8b982' },
-  { id: 'sand', name: 'Arena', color: '#ead7b1' },
-  { id: 'night', name: 'Noche', color: '#0d0d0d' },
-  { id: 'deep-blue', name: 'Azul profundo', color: '#152659' },
-  { id: 'laguna', name: 'Laguna', color: '#049dd9' },
-  { id: 'turquoise', name: 'Turquesa', color: '#30cff2' },
-  { id: 'dark-cyan', name: 'Cian oscuro', color: '#087ea4' },
-  { id: 'mangrove', name: 'Verde manglar', color: '#0f766e' },
-  { id: 'jade', name: 'Verde jade', color: '#10b981' },
-  { id: 'deep-purple', name: 'Morado profundo', color: '#4c1d95' },
-  { id: 'violet', name: 'Violeta', color: '#7c3aed' },
-  { id: 'coral', name: 'Rojo coral', color: '#ef4444' },
-  { id: 'orange', name: 'Naranja', color: '#f97316' },
-  { id: 'gold', name: 'Dorado', color: '#c4933f' },
-  { id: 'gray', name: 'Gris elegante', color: '#374151' },
-];
-const READER_THEME_IDS = READER_THEMES.map((theme) => theme.id);
-
-function hexToRgb(hex) {
-  const clean = String(hex).replace('#', '');
-  const full = clean.length === 3 ? clean.split('').map((c) => c + c).join('') : clean;
-  const int = parseInt(full, 16);
-  return { r: (int >> 16) & 255, g: (int >> 8) & 255, b: int & 255 };
-}
-
-function readerLuminance(hex) {
-  const { r, g, b } = hexToRgb(hex);
-  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-}
-
-// Per the design spec: dark colors -> white text, light colors -> dark text.
-// Guarantees we never render white text on a light background (or vice versa).
-function getContrastText(hexColor) {
-  return readerLuminance(hexColor) < 0.45 ? '#ffffff' : '#111827';
-}
-
-function mixHex(hex, target, amount) {
-  const a = hexToRgb(hex);
-  const b = hexToRgb(target);
-  const channel = (x, y) => Math.round(x + (y - x) * amount);
-  const toHex = (n) => n.toString(16).padStart(2, '0');
-  return `#${toHex(channel(a.r, b.r))}${toHex(channel(a.g, b.g))}${toHex(channel(a.b, b.b))}`;
-}
-
-function rgba(hex, alpha) {
-  const { r, g, b } = hexToRgb(hex);
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-// Build the full CSS-variable set for a theme color, with automatic contrast so the
-// panel, glass controls and back button stay legible on any background (light or dark).
-function buildReaderThemeVars(color) {
-  const isDark = readerLuminance(color) < 0.45;
-  return {
-    '--reader-bg': `linear-gradient(180deg, ${mixHex(color, '#ffffff', isDark ? 0.05 : 0.16)} 0%, ${color} 55%, ${mixHex(color, '#000000', 0.18)} 100%)`,
-    '--reader-text': isDark ? '#ffffff' : '#111827',
-    '--reader-muted': isDark ? 'rgba(255, 255, 255, 0.72)' : 'rgba(17, 24, 39, 0.62)',
-    '--reader-accent': color,
-    '--reader-accent-ink': getContrastText(color),
-    '--reader-surface': isDark ? rgba(mixHex(color, '#0b1020', 0.5), 0.88) : rgba('#ffffff', 0.9),
-    '--reader-control-bg': isDark ? rgba(mixHex(color, '#0b1020', 0.45), 0.82) : rgba('#ffffff', 0.84),
-    '--reader-control-border': isDark ? 'rgba(255, 255, 255, 0.20)' : 'rgba(15, 23, 42, 0.14)',
-    '--reader-border': isDark ? 'rgba(255, 255, 255, 0.20)' : 'rgba(15, 23, 42, 0.14)',
-    '--reader-ring': isDark ? '#ffffff' : '#0f172a',
-  };
-}
-
 const clampPercent = (value, min, max) => Math.min(max, Math.max(min, value));
 
 function loadReaderSettings() {
@@ -123,72 +57,6 @@ function loadReaderSettings() {
   } catch {
     return DEFAULT_READER_SETTINGS;
   }
-}
-
-function ReaderIcon({ name }) {
-  const commonProps = {
-    width: 20,
-    height: 20,
-    viewBox: '0 0 24 24',
-    fill: 'none',
-    stroke: 'currentColor',
-    strokeWidth: 2.25,
-    strokeLinecap: 'round',
-    strokeLinejoin: 'round',
-    'aria-hidden': 'true',
-  };
-
-  if (name === 'previous') {
-    return (
-      <svg {...commonProps}>
-        <path d="m15 18-6-6 6-6" />
-      </svg>
-    );
-  }
-
-  if (name === 'next') {
-    return (
-      <svg {...commonProps}>
-        <path d="m9 18 6-6-6-6" />
-      </svg>
-    );
-  }
-
-  if (name === 'fullscreen') {
-    return (
-      <svg {...commonProps}>
-        <path d="M8 3H5a2 2 0 0 0-2 2v3" />
-        <path d="M16 3h3a2 2 0 0 1 2 2v3" />
-        <path d="M8 21H5a2 2 0 0 1-2-2v-3" />
-        <path d="M16 21h3a2 2 0 0 0 2-2v-3" />
-      </svg>
-    );
-  }
-
-  if (name === 'settings') {
-    return (
-      <svg {...commonProps}>
-        <path d="M4 21v-7" />
-        <path d="M4 10V3" />
-        <path d="M12 21v-9" />
-        <path d="M12 8V3" />
-        <path d="M20 21v-5" />
-        <path d="M20 12V3" />
-        <path d="M2 14h4" />
-        <path d="M10 8h4" />
-        <path d="M18 16h4" />
-      </svg>
-    );
-  }
-
-  return (
-    <svg {...commonProps}>
-      <path d="M8 3v3a2 2 0 0 1-2 2H3" />
-      <path d="M16 3v3a2 2 0 0 0 2 2h3" />
-      <path d="M8 21v-3a2 2 0 0 0-2-2H3" />
-      <path d="M16 21v-3a2 2 0 0 1 2-2h3" />
-    </svg>
-  );
 }
 
 function hotspotHasModel(hotspot) {
@@ -542,7 +410,7 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
           disabled={currentPage <= 1}
           aria-label="Pagina anterior"
         >
-          <ReaderIcon name="previous" />
+          <AppIcon name="chevron_left" size={30} />
         </button>
 
         <div
@@ -590,7 +458,7 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
           disabled={currentPage >= numPages}
           aria-label="Pagina siguiente"
         >
-          <ReaderIcon name="next" />
+          <AppIcon name="chevron_right" size={30} />
         </button>
       </div>
 
@@ -603,136 +471,30 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
         aria-controls="reader-settings-panel"
         title="Configurar lectura"
       >
-        <ReaderIcon name="settings" />
+        <AppIcon name="tune" size={22} />
       </button>
 
       {settingsOpen && (
-        <aside id="reader-settings-panel" className="reader-settings-panel" aria-label="Configuracion del lector">
-          <div className="reader-settings-panel-header">
-            <strong>Lectura</strong>
-            <button type="button" onClick={() => setSettingsOpen(false)} aria-label="Cerrar configuracion">x</button>
-          </div>
-
-          <div className="reader-settings-group">
-            <span>Tema y color</span>
-            <div className="theme-color-grid" role="group" aria-label="Color del lector">
-              {READER_THEMES.map((theme) => {
-                const selected = readerSettings.theme === theme.id;
-                return (
-                  <button
-                    key={theme.id}
-                    type="button"
-                    className={`theme-color-dot ${selected ? 'is-selected' : ''}`}
-                    style={{ background: theme.color }}
-                    title={theme.name}
-                    aria-label={`Usar tema ${theme.name}`}
-                    aria-pressed={selected}
-                    onClick={() => updateReaderSetting('theme', theme.id)}
-                  >
-                    {selected && (
-                      <span
-                        className="material-symbols-rounded theme-color-check"
-                        style={{ color: getContrastText(theme.color) }}
-                        aria-hidden="true"
-                      >
-                        check
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="reader-settings-group">
-            <span>Tamano del libro</span>
-            <div className="reader-settings-options">
-              {[
-                ['fit', 'Ajustado'],
-                ['large', 'Grande'],
-                ['full', 'Pantalla'],
-              ].map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={readerSettings.bookSize === value ? 'is-active' : ''}
-                  onClick={() => updateReaderSetting('bookSize', value)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="reader-settings-group">
-            <span>Controles</span>
-            <div className="reader-settings-options">
-              {[
-                ['always', 'Siempre'],
-                ['auto', 'Automaticos'],
-              ].map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  className={readerSettings.controlsMode === value ? 'is-active' : ''}
-                  onClick={() => updateReaderSetting('controlsMode', value)}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <button type="button" className="reader-settings-fullscreen" onClick={toggleFullscreen}>
-            {isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
-          </button>
-        </aside>
+        <ReaderSettingsPanel
+          settings={readerSettings}
+          onChange={updateReaderSetting}
+          onClose={() => setSettingsOpen(false)}
+          isFullscreen={isFullscreen}
+          onToggleFullscreen={toggleFullscreen}
+        />
       )}
 
-      <div className="pdf-flipbook-controls" aria-label="Controles del libro">
-        <button
-          type="button"
-          className="pdf-flipbook-control-button"
-          onClick={goPrevious}
-          disabled={currentPage <= 1}
-          aria-label="Pagina anterior"
-          title="Pagina anterior"
-        >
-          <ReaderIcon name="previous" />
-        </button>
-        <span className="pdf-flipbook-page-indicator">Pagina {Math.min(currentPage, numPages)} de {numPages}</span>
-        <label className="pdf-flipbook-goto">
-          <span>Ir a pagina</span>
-          <input
-            type="number"
-            min="1"
-            max={numPages}
-            value={pageInput}
-            onChange={(event) => setPageInput(event.target.value)}
-            onKeyDown={(event) => { if (event.key === 'Enter') goToPage(pageInput); }}
-            onBlur={() => goToPage(pageInput)}
-          />
-        </label>
-        <button
-          type="button"
-          className="pdf-flipbook-control-button"
-          onClick={goNext}
-          disabled={currentPage >= numPages}
-          aria-label="Pagina siguiente"
-          title="Pagina siguiente"
-        >
-          <ReaderIcon name="next" />
-        </button>
-        <button
-          type="button"
-          className="pdf-flipbook-control-button"
-          onClick={toggleFullscreen}
-          aria-label={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
-          title={isFullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
-        >
-          <ReaderIcon name={isFullscreen ? 'exitFullscreen' : 'fullscreen'} />
-        </button>
-      </div>
+      <ReaderBottomControls
+        currentPage={currentPage}
+        numPages={numPages}
+        pageInput={pageInput}
+        onPageInput={setPageInput}
+        onGoToPage={goToPage}
+        onPrev={goPrevious}
+        onNext={goNext}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={toggleFullscreen}
+      />
     </div>
   );
 }

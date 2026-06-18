@@ -8005,20 +8005,29 @@ body.model3d-open .site-header {
    ============================================================================ */
 .legend-hero {
   position: relative;
-  min-height: clamp(560px, 74vh, 840px);
+  /* Break out of the padded .page-container so the banner is full-bleed and the
+     image sits behind the translucent fixed navbar — a cinematic streaming banner
+     that blends into the page, not a dark boxed card. The negative inline margins
+     match the container's horizontal padding; the negative top cancels its top pad. */
+  margin-left: calc(-1 * clamp(18px, 4vw, 54px));
+  margin-right: calc(-1 * clamp(18px, 4vw, 54px));
+  margin-top: -108px;
+  min-height: clamp(580px, 84vh, 900px);
   overflow: hidden;
-  background: #06121f;
+  background: #061826;
   isolation: isolate;
 }
 
 .legend-hero__backdrop {
   position: absolute;
   inset: 0;
-  background-color: #06121f;
+  background-color: #061826;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  transform: scale(1.04);
+  /* Keep the image vivid: a touch more saturation, no darkening layer here. */
+  filter: saturate(1.08) contrast(1.02);
+  transform: scale(1.06);
   z-index: 0;
 }
 
@@ -8026,10 +8035,12 @@ body.model3d-open .site-header {
   position: absolute;
   inset: 0;
   z-index: 1;
+  /* Subtle, targeted gradients only: darken the left (where the text sits) and the
+     bottom (depth + blend into the page's teal background). The right/top of the
+     image stays bright and uncovered. No full-frame black overlay, no vignette. */
   background:
-    linear-gradient(90deg, rgba(3, 10, 20, 0.96) 0%, rgba(3, 10, 20, 0.74) 36%, rgba(3, 10, 20, 0.30) 70%, rgba(3, 10, 20, 0.82) 100%),
-    linear-gradient(0deg, rgba(3, 10, 20, 0.96) 0%, rgba(3, 10, 20, 0.12) 46%, rgba(3, 10, 20, 0.62) 100%),
-    radial-gradient(120% 90% at 50% 50%, transparent 58%, rgba(0, 0, 0, 0.45) 100%);
+    linear-gradient(90deg, rgba(6, 24, 38, 0.9) 0%, rgba(6, 24, 38, 0.58) 30%, rgba(6, 24, 38, 0.12) 58%, rgba(6, 24, 38, 0) 78%),
+    linear-gradient(0deg, rgba(6, 24, 38, 0.96) 0%, rgba(6, 24, 38, 0.42) 22%, rgba(6, 24, 38, 0) 52%);
 }
 
 .legend-hero__content {
@@ -8037,8 +8048,9 @@ body.model3d-open .site-header {
   z-index: 2;
   width: min(1180px, calc(100% - 48px));
   margin: 0 auto;
-  min-height: clamp(560px, 74vh, 840px);
-  padding: clamp(20px, 5vh, 48px) 0 clamp(36px, 7vh, 72px);
+  min-height: clamp(580px, 84vh, 900px);
+  /* Top padding clears the fixed navbar so the back button / title never hide under it. */
+  padding: clamp(92px, 14vh, 150px) 0 clamp(40px, 8vh, 84px);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -8046,7 +8058,7 @@ body.model3d-open .site-header {
 
 .legend-hero__back {
   position: absolute;
-  top: clamp(18px, 4vh, 40px);
+  top: clamp(82px, 11vh, 116px);
   left: 0;
 }
 
@@ -8165,6 +8177,14 @@ body.model3d-open .site-header {
   margin-top: 24px;
 }
 
+/* The .page-container top padding drops to 34px at this breakpoint, so the hero's
+   pull-up must match to keep the image flush under the navbar without a gap. */
+@media (max-width: 1080px) {
+  .legend-hero {
+    margin-top: -34px;
+  }
+}
+
 @media (max-width: 760px) {
   .legend-hero__content {
     width: min(620px, calc(100% - 32px));
@@ -8174,7 +8194,7 @@ body.model3d-open .site-header {
     grid-template-columns: 1fr;
     justify-items: center;
     text-align: center;
-    margin-top: clamp(58px, 12vh, 86px);
+    margin-top: clamp(20px, 5vh, 44px);
   }
 
   .legend-hero__cover {

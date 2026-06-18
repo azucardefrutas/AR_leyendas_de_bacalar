@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import Button from '../../components/ui/Button.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
+import AppIcon from '../../components/ui/AppIcon.jsx';
 import PhysicalBookActivationModal from '../../components/reader/PhysicalBookActivationModal.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useRoles } from '../../hooks/useRoles.js';
@@ -203,7 +204,7 @@ function ReadingPage() {
           aria-label="Volver"
           title="Volver"
         >
-          <span className="material-symbols-rounded" aria-hidden="true">arrow_back</span>
+          <AppIcon name="arrow_back" size={22} />
         </Link>
         <h1>{title}</h1>
         <span className="reader-stage-spacer" aria-hidden="true" />
