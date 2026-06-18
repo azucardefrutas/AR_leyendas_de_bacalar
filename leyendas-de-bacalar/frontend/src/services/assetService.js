@@ -51,8 +51,10 @@ const FILE_RULES_BY_TYPE = {
       'application/pdf',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/octet-stream',
       '',
     ],
+    maxBytes: 50 * MB,
     bucket: STORAGE_BUCKETS.documents,
     folder: 'documents',
     dbAssetType: null,
@@ -63,8 +65,10 @@ const FILE_RULES_BY_TYPE = {
       'application/pdf',
       'application/msword',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'application/octet-stream',
       '',
     ],
+    maxBytes: 50 * MB,
     bucket: STORAGE_BUCKETS.documents,
     folder: 'documents',
     dbAssetType: null,
@@ -131,14 +135,23 @@ function validateFile(file, assetType) {
     return friendlyAssetError('El tipo MIME del archivo no es compatible.');
   }
   if (rules.maxBytes && file.size > rules.maxBytes) {
-    return friendlyAssetError('El archivo supera el tamano maximo permitido.');
+    const limitMb = Math.round(rules.maxBytes / MB);
+    return friendlyAssetError(`El archivo supera el tamano maximo permitido (${limitMb} MB).`);
   }
   return null;
 }
 
 function getFileContentType(file, assetType) {
   const extension = getExtension(file?.name);
-  return file?.type || MIME_TYPE_BY_EXTENSION[extension] || MIME_TYPE_BY_EXTENSION[assetType] || 'application/octet-stream';
+  const byExtension = MIME_TYPE_BY_EXTENSION[extension];
+  const reported = file?.type || '';
+  // Browsers/OSes sometimes report '' or 'application/octet-stream' for valid PDFs/DOCX.
+  // When we recognize the extension, trust the canonical MIME so the backend validator
+  // (strict allowlist) does not reject the upload with "Invalid file metadata".
+  if (byExtension && (!reported || reported === 'application/octet-stream')) {
+    return byExtension;
+  }
+  return reported || byExtension || MIME_TYPE_BY_EXTENSION[assetType] || 'application/octet-stream';
 }
 
 function getStorageBucket(assetType) {

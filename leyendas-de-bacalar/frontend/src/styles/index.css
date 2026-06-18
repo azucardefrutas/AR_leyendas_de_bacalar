@@ -8131,6 +8131,169 @@ body.model3d-open .site-header {
   user-select: none;
 }
 
+/* ============================================================================
+   Frontend PDF preview (pdfjs) + double-page (spread) book view
+   ============================================================================ */
+.document-preview {
+  position: relative;
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0c1622;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.document-preview__canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+}
+
+.document-preview__overlay {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  gap: 10px;
+  justify-items: center;
+  padding: 16px;
+  text-align: center;
+  color: #e5edf5;
+  background: rgba(6, 18, 27, 0.62);
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.document-preview__overlay--error { background: rgba(6, 18, 27, 0.86); color: #ffd7d7; }
+
+.document-preview__spinner {
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  border: 3px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #30cff2;
+  animation: document-preview-spin 0.8s linear infinite;
+}
+
+@keyframes document-preview-spin { to { transform: rotate(360deg); } }
+
+.document-preview__retry {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.book-spread-wrap { display: grid; gap: 12px; }
+
+.book-spread-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.book-spread-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.book-spread-nav button {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  border: 1px solid #dbe4ef;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 1.2rem;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.book-spread-nav button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.book-spread-status { font-size: 0.82rem; font-weight: 800; color: #334155; }
+
+.book-spread-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #334155;
+  cursor: pointer;
+}
+
+.book-spread-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(48, 207, 242, 0.4);
+  background: rgba(48, 207, 242, 0.1);
+  color: #0f172a;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
+.book-spread-hint button {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 0;
+  background: linear-gradient(120deg, #049dd9, #30cff2);
+  color: #04202b;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.book-spread-hint button.ghost { background: transparent; border: 1px solid #cbd5e1; color: #334155; }
+
+/* Open-book spread: two visual halves side by side. */
+.book-spread-preview {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  align-items: stretch;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.16);
+}
+
+.book-spread-preview .document-preview { border-radius: 0; }
+
+.book-spread-single .document-preview {
+  margin: 0 auto;
+  width: min(100%, 760px);
+}
+
+@media (max-width: 768px) {
+  .book-spread-preview {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* When the document frame hosts the live pdfjs preview (not an iframe), drop the
+   fixed iframe height/clip so a tall page or spread sizes naturally. */
+.creator-document-frame--live {
+  overflow: visible;
+  min-height: 0;
+  padding: 14px;
+  background: transparent;
+  border: 0;
+}
+
 .glass-button,
 .back-button {
   display: inline-flex;

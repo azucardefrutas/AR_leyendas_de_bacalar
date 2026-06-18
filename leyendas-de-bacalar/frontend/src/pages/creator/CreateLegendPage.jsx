@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
+import BookSpreadPreview from '../../components/editor/BookSpreadPreview.jsx';
 import {
   createArMarker,
   getLegendSourceDocuments,
@@ -396,9 +397,11 @@ function DocumentPreviewPanel({ sourceDocument }) {
 
   return (
     <div className="creator-document-preview-layout">
-      {isPdf && previewUrl ? (
-        <div className="creator-document-frame">
-          <iframe title="Vista previa del documento fuente" src={previewUrl} />
+      {isPdf && (sourceDocument.file || previewUrl) ? (
+        <div className="creator-document-frame creator-document-frame--live">
+          {/* Frontend pdfjs preview: works from the local File or the Storage URL,
+              without waiting for backend extraction. Includes optional double-page mode. */}
+          <BookSpreadPreview file={sourceDocument.file || null} fileUrl={previewUrl} />
         </div>
       ) : (
         <Card className="creator-document-placeholder">
