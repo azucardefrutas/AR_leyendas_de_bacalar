@@ -8298,31 +8298,46 @@ body.model3d-open .site-header {
    Editorial rich editor (Editor.js) — "Crear desde cero" content step
    ============================================================================ */
 .editorial-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Top bar: controls (left) + stats (right), outside the writing area. */
+.editorial-editor__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.editorial-editor__body {
   display: grid;
-  grid-template-columns: 210px minmax(0, 1fr);
-  gap: 16px;
+  grid-template-columns: 148px minmax(0, 1fr);
+  gap: 14px;
   align-items: start;
 }
 
 .editorial-editor__rail {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 10px;
+  gap: 5px;
+  padding: 8px;
   border: 1px solid #dbe4ef;
-  border-radius: 14px;
+  border-radius: 12px;
   background: #f8fafc;
-  max-height: 560px;
+  max-height: 520px;
   overflow-y: auto;
 }
 
 .editorial-editor__rail > button {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 11px;
+  gap: 8px;
+  padding: 7px 9px;
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: 9px;
   background: #ffffff;
   color: #334155;
   font-weight: 700;
@@ -8339,26 +8354,27 @@ body.model3d-open .site-header {
 .editorial-editor__rail-num {
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   flex-shrink: 0;
-  border-radius: 7px;
+  border-radius: 6px;
   background: #e0f2fe;
   color: #0369a1;
-  font-size: 0.74rem;
+  font-size: 0.72rem;
   font-weight: 900;
 }
 
-.editorial-editor__rail-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.82rem; }
+.editorial-editor__rail-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.78rem; }
 
 .editorial-editor__add {
-  margin-top: 4px;
-  padding: 9px 11px;
+  margin-top: 2px;
+  padding: 7px 9px;
   border: 1px dashed #94a3b8;
-  border-radius: 10px;
+  border-radius: 9px;
   background: transparent;
   color: #0369a1;
   font-weight: 800;
+  font-size: 0.82rem;
   cursor: pointer;
 }
 
@@ -8373,21 +8389,12 @@ body.model3d-open .site-header {
   padding: 14px;
 }
 
-.editorial-editor__topbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
 .editorial-editor__title {
-  flex: 1;
-  min-width: 200px;
+  width: 100%;
   border: 0;
   border-bottom: 2px solid #e2e8f0;
-  padding: 8px 4px;
-  font-size: 1.25rem;
+  padding: 6px 4px;
+  font-size: 1.2rem;
   font-weight: 800;
   color: #0f172a;
   background: transparent;
@@ -8395,21 +8402,27 @@ body.model3d-open .site-header {
 
 .editorial-editor__title:focus { outline: none; border-bottom-color: #30cff2; }
 
-.editorial-editor__tabs { display: inline-flex; align-items: center; gap: 6px; }
+.editorial-editor__tabs { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 
 .editorial-editor__tabs button {
-  padding: 7px 13px;
+  padding: 6px 12px;
   border: 1px solid #dbe4ef;
   border-radius: 999px;
   background: #ffffff;
   color: #334155;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 800;
   cursor: pointer;
+  transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
 }
 
-.editorial-editor__tabs button.active { border-color: #30cff2; background: #049dd9; color: #ffffff; }
-.editorial-editor__expand { color: #0369a1; }
+.editorial-editor__tabs button:hover { border-color: #94a3b8; }
+/* Subtle color-coded controls. */
+.editorial-editor__tabs button.is-edit.active { border-color: #30cff2; background: #049dd9; color: #ffffff; }
+.editorial-editor__tabs button.is-preview.active { border-color: #5eead4; background: #0f766e; color: #ffffff; }
+.editorial-editor__tabs button.is-expand { color: #4338ca; border-color: #c7d2fe; }
+.editorial-editor__tabs button.is-expand:hover,
+.editorial-editor__tabs button.is-expand.active { background: #eef2ff; color: #3730a3; border-color: #a5b4fc; }
 
 .editorial-editor__surface { min-height: 320px; }
 
@@ -8436,13 +8449,23 @@ body.model3d-open .site-header {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: flex-end;
+  gap: 10px;
   padding-top: 10px;
   border-top: 1px solid #eef2f7;
 }
 
-.editorial-editor__stats { display: inline-flex; flex-wrap: wrap; gap: 14px; color: #64748b; font-size: 0.8rem; font-weight: 700; }
+/* Stats live in the top bar as small pills. */
+.editorial-editor__stats { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.editorial-editor__stats span {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
 .editorial-editor__actions { display: inline-flex; gap: 10px; }
 
 .editorial-editor__remove {
@@ -8523,9 +8546,10 @@ body.model3d-open .site-header {
 }
 
 @media (max-width: 760px) {
-  .editorial-editor { grid-template-columns: 1fr; }
+  .editorial-editor__body { grid-template-columns: 1fr; }
   .editorial-editor__rail { flex-direction: row; overflow-x: auto; max-height: none; }
   .editorial-editor__rail > button { min-width: max-content; }
+  .editorial-editor__bar { justify-content: flex-start; }
 }
 
 .glass-button,

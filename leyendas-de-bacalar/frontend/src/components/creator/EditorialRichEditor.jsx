@@ -183,58 +183,62 @@ export default function EditorialRichEditor({
 
   return (
     <div className={`editorial-editor ${expanded ? 'is-expanded' : ''}`}>
-      <aside className="editorial-editor__rail" aria-label="Páginas de la historia">
-        {pages.map((page) => (
-          <button
-            type="button"
-            key={page.client_id}
-            className={page.client_id === selectedPage?.client_id ? 'active' : ''}
-            onClick={() => requestSelect(page.client_id)}
-          >
-            <span className="editorial-editor__rail-num">{page.page_number}</span>
-            <span className="editorial-editor__rail-title">{page.title?.trim() || `Página ${page.page_number}`}</span>
+      {/* Top bar: writing controls + stats live OUTSIDE the writing area so the
+          Editor.js surface stays clean and wide. */}
+      <div className="editorial-editor__bar">
+        <div className="editorial-editor__tabs" role="tablist">
+          <button type="button" role="tab" aria-selected={activeTab === 'edit'} className={`is-edit ${activeTab === 'edit' ? 'active' : ''}`} onClick={() => setActiveTab('edit')} title="Editar">Editar</button>
+          <button type="button" role="tab" aria-selected={activeTab === 'preview'} className={`is-preview ${activeTab === 'preview' ? 'active' : ''}`} onClick={showPreview} title="Vista previa">Vista previa</button>
+          <button type="button" className={`editorial-editor__expand is-expand ${expanded ? 'active' : ''}`} onClick={() => setExpanded((value) => !value)} title={expanded ? 'Reducir' : 'Expandir'}>
+            {expanded ? 'Reducir' : 'Expandir'}
           </button>
-        ))}
-        <button type="button" className="editorial-editor__add" onClick={handleAdd}>+ Agregar página</button>
-      </aside>
+        </div>
+        <div className="editorial-editor__stats" aria-label="Estadísticas">
+          <span>{stats.words} palabras</span>
+          <span>{stats.chars} caracteres</span>
+          <span>{pagesWithText} con texto</span>
+        </div>
+      </div>
 
-      <div className="editorial-editor__main">
-        <div className="editorial-editor__topbar">
+      <div className="editorial-editor__body">
+        <aside className="editorial-editor__rail" aria-label="Páginas de la historia">
+          {pages.map((page) => (
+            <button
+              type="button"
+              key={page.client_id}
+              className={page.client_id === selectedPage?.client_id ? 'active' : ''}
+              onClick={() => requestSelect(page.client_id)}
+              title={page.title?.trim() || `Página ${page.page_number}`}
+            >
+              <span className="editorial-editor__rail-num">{page.page_number}</span>
+              <span className="editorial-editor__rail-title">{page.title?.trim() || `Pág. ${page.page_number}`}</span>
+            </button>
+          ))}
+          <button type="button" className="editorial-editor__add" onClick={handleAdd} title="Agregar página">+ Página</button>
+        </aside>
+
+        <div className="editorial-editor__main">
           <input
             className="editorial-editor__title"
             value={selectedPage?.title || ''}
             onChange={(event) => onTitleChange?.(selectedPage?.client_id, event.target.value)}
             placeholder={`Título de la página ${selectedPage?.page_number || ''}`.trim()}
           />
-          <div className="editorial-editor__tabs" role="tablist">
-            <button type="button" role="tab" aria-selected={activeTab === 'edit'} className={activeTab === 'edit' ? 'active' : ''} onClick={() => setActiveTab('edit')}>Edición</button>
-            <button type="button" role="tab" aria-selected={activeTab === 'preview'} className={activeTab === 'preview' ? 'active' : ''} onClick={showPreview}>Vista previa</button>
-            <button type="button" className="editorial-editor__expand" onClick={() => setExpanded((value) => !value)}>
-              {expanded ? 'Reducir' : 'Expandir escritura'}
-            </button>
-          </div>
-        </div>
 
-        {/* The Editor.js holder stays mounted; we only hide it on the preview tab. */}
-        <div className="editorial-editor__surface" hidden={activeTab !== 'edit'}>
-          <div ref={holderRef} className="editorial-editor__holder" />
-        </div>
-
-        {activeTab === 'preview' && (
-          <div className="editorial-editor__preview editorial-content" aria-label="Vista previa">
-            {previewHtml
-              ? <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
-              : <p className="editorial-editor__preview-empty">Esta página todavía no tiene contenido.</p>}
+          {/* The Editor.js holder stays mounted; we only hide it on the preview tab. */}
+          <div className="editorial-editor__surface" hidden={activeTab !== 'edit'}>
+            <div ref={holderRef} className="editorial-editor__holder" />
           </div>
-        )}
 
-        <div className="editorial-editor__footer">
-          <div className="editorial-editor__stats">
-            <span>{stats.words} palabras</span>
-            <span>{stats.chars} caracteres</span>
-            <span>{pagesWithText} páginas con texto</span>
-          </div>
-          <div className="editorial-editor__actions">
+          {activeTab === 'preview' && (
+            <div className="editorial-editor__preview editorial-content" aria-label="Vista previa">
+              {previewHtml
+                ? <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
+                : <p className="editorial-editor__preview-empty">Esta página todavía no tiene contenido.</p>}
+            </div>
+          )}
+
+          <div className="editorial-editor__footer">
             <button type="button" className="editorial-editor__remove" onClick={handleRemove} disabled={pages.length <= 1}>Quitar página</button>
             <button type="button" className="editorial-editor__save" onClick={handleSave} disabled={!canSave || saving}>
               {saving ? 'Guardando…' : 'Guardar páginas'}
