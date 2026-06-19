@@ -8294,6 +8294,225 @@ body.model3d-open .site-header {
   border: 0;
 }
 
+/* ============================================================================
+   Editorial rich editor (Editor.js) — "Crear desde cero" content step
+   ============================================================================ */
+.editorial-editor {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.editorial-editor__rail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid #dbe4ef;
+  border-radius: 14px;
+  background: #f8fafc;
+  max-height: 560px;
+  overflow-y: auto;
+}
+
+.editorial-editor__rail > button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 11px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #334155;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.editorial-editor__rail > button.active {
+  border-color: #30cff2;
+  background: #ecfeff;
+  color: #04202b;
+}
+
+.editorial-editor__rail-num {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  border-radius: 7px;
+  background: #e0f2fe;
+  color: #0369a1;
+  font-size: 0.74rem;
+  font-weight: 900;
+}
+
+.editorial-editor__rail-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.82rem; }
+
+.editorial-editor__add {
+  margin-top: 4px;
+  padding: 9px 11px;
+  border: 1px dashed #94a3b8;
+  border-radius: 10px;
+  background: transparent;
+  color: #0369a1;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.editorial-editor__main {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  border: 1px solid #dbe4ef;
+  border-radius: 16px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.editorial-editor__topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.editorial-editor__title {
+  flex: 1;
+  min-width: 200px;
+  border: 0;
+  border-bottom: 2px solid #e2e8f0;
+  padding: 8px 4px;
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0f172a;
+  background: transparent;
+}
+
+.editorial-editor__title:focus { outline: none; border-bottom-color: #30cff2; }
+
+.editorial-editor__tabs { display: inline-flex; align-items: center; gap: 6px; }
+
+.editorial-editor__tabs button {
+  padding: 7px 13px;
+  border: 1px solid #dbe4ef;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.editorial-editor__tabs button.active { border-color: #30cff2; background: #049dd9; color: #ffffff; }
+.editorial-editor__expand { color: #0369a1; }
+
+.editorial-editor__surface { min-height: 320px; }
+
+.editorial-editor__holder {
+  min-height: 320px;
+  padding: 6px clamp(8px, 4%, 48px);
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.editorial-editor__holder .codex-editor__redactor { padding-bottom: 120px !important; }
+
+.editorial-editor__preview {
+  min-height: 320px;
+  padding: 14px clamp(8px, 4%, 40px);
+  border: 1px solid #eef2f7;
+  border-radius: 12px;
+  background: #fcfdff;
+}
+
+.editorial-editor__preview-empty { color: #94a3b8; }
+
+.editorial-editor__footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #eef2f7;
+}
+
+.editorial-editor__stats { display: inline-flex; flex-wrap: wrap; gap: 14px; color: #64748b; font-size: 0.8rem; font-weight: 700; }
+.editorial-editor__actions { display: inline-flex; gap: 10px; }
+
+.editorial-editor__remove {
+  padding: 9px 14px;
+  border: 1px solid #fecaca;
+  border-radius: 999px;
+  background: #fff1f2;
+  color: #991b1b;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.editorial-editor__remove:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.editorial-editor__save {
+  padding: 9px 18px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(120deg, #049dd9, #30cff2);
+  color: #04202b;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.editorial-editor__save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Expand: turn the editor into a focused full-screen overlay. */
+.editorial-editor.is-expanded {
+  position: fixed;
+  inset: clamp(12px, 3vw, 40px);
+  z-index: 120;
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 30px 90px rgba(15, 23, 42, 0.35);
+  padding: 16px;
+  overflow: auto;
+}
+
+.editorial-editor__expand-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 119;
+  border: 0;
+  background: rgba(2, 8, 14, 0.5);
+  cursor: pointer;
+}
+
+/* Rendered editorial HTML (preview + reader). */
+.editorial-content { color: #1f2937; line-height: 1.7; }
+.editorial-content h2 { font-size: 1.5rem; margin: 0.8em 0 0.3em; color: #0f172a; }
+.editorial-content h3 { font-size: 1.2rem; margin: 0.8em 0 0.3em; color: #0f172a; }
+.editorial-content p { margin: 0 0 0.8em; }
+.editorial-content blockquote { margin: 0 0 0.8em; padding: 8px 16px; border-left: 3px solid #30cff2; background: #f0fbff; color: #334155; }
+.editorial-content blockquote cite { display: block; margin-top: 6px; font-size: 0.85rem; color: #64748b; }
+.editorial-content ul, .editorial-content ol { margin: 0 0 0.8em 1.4em; }
+.editorial-content .ejs-checklist { list-style: none; margin-left: 0; }
+.editorial-content .ejs-checklist li::before { content: '☐'; margin-right: 8px; }
+.editorial-content .ejs-checklist li.is-checked::before { content: '☑'; color: #0f766e; }
+.editorial-content hr.ejs-delimiter { border: 0; text-align: center; margin: 1.2em 0; }
+.editorial-content hr.ejs-delimiter::before { content: '✳ ✳ ✳'; color: #94a3b8; letter-spacing: 0.4em; }
+.editorial-content .ejs-table { width: 100%; border-collapse: collapse; margin: 0 0 0.8em; }
+.editorial-content .ejs-table td, .editorial-content .ejs-table th { border: 1px solid #e2e8f0; padding: 8px 10px; }
+.editorial-content .ejs-image img { max-width: 100%; border-radius: 10px; }
+
+@media (max-width: 760px) {
+  .editorial-editor { grid-template-columns: 1fr; }
+  .editorial-editor__rail { flex-direction: row; overflow-x: auto; max-height: none; }
+  .editorial-editor__rail > button { min-width: max-content; }
+}
+
 .glass-button,
 .back-button {
   display: inline-flex;

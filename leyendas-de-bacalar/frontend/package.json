@@ -10,6 +10,13 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@editorjs/checklist": "^1.6.0",
+    "@editorjs/delimiter": "^1.4.2",
+    "@editorjs/editorjs": "^2.31.6",
+    "@editorjs/header": "^2.8.9",
+    "@editorjs/list": "^2.0.9",
+    "@editorjs/quote": "^2.7.6",
+    "@editorjs/table": "^2.4.5",
     "@mediapipe/tasks-vision": "^0.10.14",
     "@react-three/drei": "^9.105.6",
     "@react-three/fiber": "^8.16.2",

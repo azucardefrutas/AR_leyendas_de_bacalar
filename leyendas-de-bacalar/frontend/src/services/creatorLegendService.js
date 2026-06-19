@@ -338,6 +338,9 @@ function normalizePages(pages = []) {
       page_number: Number(page.page_number || index + 1),
       title: page.title?.trim() || null,
       text_content: page.text_content?.trim() || '',
+      editor_data: page.editor_data ?? null,
+      rendered_html: page.rendered_html ?? null,
+      content_format: page.content_format || (page.editor_data ? 'editorjs' : 'plain'),
     }))
     .sort((a, b) => a.page_number - b.page_number);
 }
@@ -1569,6 +1572,9 @@ export async function saveLegendPages({ versionId, pages = [] }) {
         page_number: page.page_number,
         title: page.title,
         text_content: page.text_content,
+        editor_data: page.editor_data,
+        rendered_html: page.rendered_html,
+        content_format: page.content_format,
       };
 
       const query = page.id

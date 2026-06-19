@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
 import BookSpreadPreview from '../../components/editor/BookSpreadPreview.jsx';
+import EditorialRichEditor from '../../components/creator/EditorialRichEditor.jsx';
 import {
   createArMarker,
   getLegendSourceDocuments,
@@ -163,6 +164,9 @@ function createPage(pageNumber = 1) {
     page_number: pageNumber,
     title: '',
     text_content: '',
+    editor_data: { blocks: [] },
+    rendered_html: '',
+    content_format: 'editorjs',
   };
 }
 
@@ -638,6 +642,12 @@ function CreateLegendPage() {
     )));
   }
 
+  function patchPageById(clientId, patch) {
+    setPages((current) => current.map((page) => (
+      page.client_id === clientId ? { ...page, ...patch } : page
+    )));
+  }
+
   function addGenreChip(rawValue = genreInput) {
     const genreNames = String(rawValue)
       .split(',')
@@ -744,18 +754,21 @@ function CreateLegendPage() {
     }
   }
 
-  async function savePages() {
+  async function savePages(pagesOverride) {
     if (!hasDraft) {
       const draftError = new Error('Primero crea el borrador editorial.');
       setError(draftError);
       return { ok: false, error: draftError };
     }
 
+    // The editorial editor passes the freshly-merged pages so the latest typing is saved.
+    const pagesToSave = Array.isArray(pagesOverride) ? pagesOverride : pages;
+
     setSaving(true);
     setError(null);
     setMessage(null);
 
-    const { data, error: pagesError } = await saveLegendPages({ versionId: draft.version.id, pages });
+    const { data, error: pagesError } = await saveLegendPages({ versionId: draft.version.id, pages: pagesToSave });
     setSaving(false);
 
     if (pagesError) {
@@ -1208,60 +1221,21 @@ function CreateLegendPage() {
               <span>3</span>
               <div>
                 <h2>Contenido de la leyenda</h2>
-                <p>Guarda paginas reales conectadas a la version de trabajo.</p>
+                <p>Escribe la historia por páginas con el editor editorial. Cada página guarda su propio contenido.</p>
               </div>
             </div>
-            <div className="creator-pages-layout">
-              <aside className="creator-page-rail">
-                {pages.map((page) => (
-                  <button
-                    type="button"
-                    key={page.client_id}
-                    className={page.client_id === selectedPage?.client_id ? 'active' : ''}
-                    onClick={() => setSelectedPageKey(page.client_id)}
-                  >
-                    <MaterialIcon name="article" />
-                    <span>Pag. {page.page_number}</span>
-                  </button>
-                ))}
-                <button type="button" className="creator-add-page" onClick={addPage}>
-                  <MaterialIcon name="add" />
-                  <span>Agregar pagina</span>
-                </button>
-              </aside>
-
-              <div className="creator-page-editor">
-                <div className="creator-page-toolbar">
-                  <label className="field" htmlFor="wizard-page-number">
-                    <span>Numero</span>
-                    <input id="wizard-page-number" className="standalone-input" type="number" min="1" value={selectedPage?.page_number || 1} onChange={(event) => updatePage('page_number', event.target.value)} />
-                  </label>
-                  <label className="field" htmlFor="wizard-page-title">
-                    <span>Titulo opcional</span>
-                    <input id="wizard-page-title" className="standalone-input" value={selectedPage?.title || ''} onChange={(event) => updatePage('title', event.target.value)} placeholder="Ej. El encuentro en la laguna" />
-                  </label>
-                  <Button type="button" variant="ghost" onClick={() => removePage(selectedPage)} disabled={pages.length <= 1}>Quitar</Button>
-                </div>
-                <label className="field" htmlFor="wizard-page-content">
-                  <span>Texto de la pagina</span>
-                  <textarea
-                    id="wizard-page-content"
-                    className="textarea creator-story-textarea"
-                    value={selectedPage?.text_content || ''}
-                    onChange={(event) => updatePage('text_content', event.target.value)}
-                    placeholder="Escribe o pega aqui el contenido de esta pagina..."
-                  />
-                </label>
-                <div className="creator-page-stats">
-                  <span>{(selectedPage?.text_content || '').trim().split(/\s+/).filter(Boolean).length} palabras</span>
-                  <span>{(selectedPage?.text_content || '').length} caracteres</span>
-                  <span>{validPageCount} paginas con texto</span>
-                </div>
-                <div className="creator-review-actions">
-                  <Button type="button" onClick={savePages} disabled={!hasDraft || saving}>{saving ? 'Guardando...' : 'Guardar paginas'}</Button>
-                </div>
-              </div>
-            </div>
+            <EditorialRichEditor
+              pages={pages}
+              selectedPageId={selectedPage?.client_id}
+              onSelectPage={setSelectedPageKey}
+              onPageDataChange={patchPageById}
+              onTitleChange={(id, title) => patchPageById(id, { title })}
+              onAddPage={addPage}
+              onRemovePage={removePage}
+              onSave={savePages}
+              saving={saving}
+              canSave={hasDraft}
+            />
           </div>
         )}
 
