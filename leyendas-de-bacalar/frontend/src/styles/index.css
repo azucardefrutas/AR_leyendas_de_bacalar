@@ -8507,6 +8507,21 @@ body.model3d-open .site-header {
 .editorial-content .ejs-table td, .editorial-content .ejs-table th { border: 1px solid #e2e8f0; padding: 8px 10px; }
 .editorial-content .ejs-image img { max-width: 100%; border-radius: 10px; }
 
+/* Drafts list: which editor a legend will open (manual vs document). */
+.creator-creation-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
 @media (max-width: 760px) {
   .editorial-editor { grid-template-columns: 1fr; }
   .editorial-editor__rail { flex-direction: row; overflow-x: auto; max-height: none; }

@@ -191,6 +191,7 @@ export function getCreatorLegendCardData(legend = {}, options = {}) {
   return {
     statusKey: status.key,
     statusLabel: status.label,
+    creationModeLabel: legend.creation_mode === 'source_document' ? 'Documento fuente' : 'Creada desde cero',
     accessLabel: getLegendAccessLabel(legend),
     coverUrl: getLegendCoverUrl(legend),
     genres: getLegendGenreNames(legend),

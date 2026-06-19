@@ -4,6 +4,8 @@ import Button from '../ui/Button.jsx';
 import Card from '../ui/Card.jsx';
 import LoadingState from '../ui/LoadingState.jsx';
 import SourceDocumentPreview from './SourceDocumentPreview.jsx';
+import EditorialRichEditor from './EditorialRichEditor.jsx';
+import { plainTextToEditorData } from '../../utils/editorJsToHtml.js';
 import {
   canEditVersion,
   deleteLegendPage,
@@ -96,6 +98,9 @@ function createPage(pageNumber = 1) {
     page_number: pageNumber,
     title: '',
     text_content: '',
+    editor_data: { blocks: [] },
+    rendered_html: '',
+    content_format: 'editorjs',
   };
 }
 
@@ -345,6 +350,7 @@ function LegendEditor({ legendId }) {
   const [genresLoading, setGenresLoading] = useState(false);
   const [pages, setPages] = useState([createPage(1)]);
   const [selectedPageKey, setSelectedPageKey] = useState(null);
+  const [legendCreationMode, setLegendCreationMode] = useState(null);
   const [resources, setResources] = useState(defaultResources);
   const [existingResources, setExistingResources] = useState({ media: [], documents: [], arScenes: [], arMarkers: [] });
   const [activeScene, setActiveScene] = useState(null);
@@ -410,8 +416,15 @@ function LegendEditor({ legendId }) {
         is_featured: Boolean(data.legend.is_featured),
       });
       const loadedPages = data.pages.length
-        ? data.pages.map((page) => ({ ...page, client_id: page.id }))
+        ? data.pages.map((page) => ({
+          ...page,
+          client_id: page.id,
+          // Old drafts stored plain text only; convert it so nothing is lost in the editor.
+          editor_data: page.editor_data?.blocks ? page.editor_data : plainTextToEditorData(page.text_content || ''),
+          content_format: page.content_format || 'editorjs',
+        }))
         : [];
+      setLegendCreationMode(data.legend.creation_mode || null);
       setGenres((data.genres ?? []).map((genre) => genre.name).filter(Boolean));
       setPages(loadedPages);
       setSelectedPageKey(loadedPages[0]?.client_id ?? null);
@@ -440,6 +453,9 @@ function LegendEditor({ legendId }) {
   const isReviewLocked = !canEdit;
   const declarationsAccepted = Object.values(declarations).every(Boolean);
   const primarySourceDocument = getPrimarySourceDocument(existingResources.documents);
+  // Editor mode: a real source document => PDF/CONALITEG flow; otherwise the manual
+  // "crear desde cero" flow with Editor.js. creation_mode is a persisted tiebreaker.
+  const isManualMode = !primarySourceDocument && legendCreationMode !== 'source_document';
   const baseReviewError = validateReadyForReview({ legend: form, pages, hasSourceDocument: Boolean(primarySourceDocument) });
   const renderChecklist = getDocumentRenderSummary(primarySourceDocument, documentRenderSummary);
   const modelCount = countScenes(existingResources);
@@ -479,6 +495,12 @@ function LegendEditor({ legendId }) {
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
+  }
+
+  function patchPageById(clientId, patch) {
+    setPages((current) => current.map((page) => (
+      page.client_id === clientId ? { ...page, ...patch } : page
+    )));
   }
 
   function updatePage(field, value) {
@@ -538,13 +560,15 @@ function LegendEditor({ legendId }) {
     return true;
   }
 
-  async function handleSavePages(event) {
-    event?.preventDefault();
+  async function handleSavePages(eventOrPages) {
+    if (eventOrPages?.preventDefault) eventOrPages.preventDefault();
+    // The editorial editor passes the freshly-merged pages so the latest typing is saved.
+    const pagesToSave = Array.isArray(eventOrPages) ? eventOrPages : pages;
     setSaving(true);
     setError(null);
     setMessage(null);
 
-    const { data, error: pagesError } = await saveLegendPages({ versionId: version?.id, pages });
+    const { data, error: pagesError } = await saveLegendPages({ versionId: version?.id, pages: pagesToSave });
     setSaving(false);
 
     if (pagesError) {
@@ -780,8 +804,8 @@ function LegendEditor({ legendId }) {
             className={activeTab === tab.key ? 'active' : ''}
             onClick={() => setActiveTab(tab.key)}
           >
-            <MaterialIcon name={tab.icon} />
-            {tab.label}
+            <MaterialIcon name={tab.key === 'content' && isManualMode ? 'auto_stories' : tab.icon} />
+            {tab.key === 'content' && isManualMode ? 'Contenido' : tab.label}
           </button>
         ))}
       </nav>
@@ -874,6 +898,39 @@ function LegendEditor({ legendId }) {
 
       {activeTab === 'content' && (
         <Card className="creator-editor-card creator-pages-card">
+          {isManualMode ? (
+            <>
+              <div className="creator-editor-card-title">
+                <span>2</span>
+                <div>
+                  <h2>Contenido de la leyenda</h2>
+                  <p>Escribe la historia por páginas con el editor editorial. Cada página guarda su propio contenido.</p>
+                </div>
+              </div>
+              {visiblePages.length === 0 ? (
+                <div className="creator-empty-editor">
+                  <MaterialIcon name="note_add" />
+                  <h3>Aun no has agregado paginas.</h3>
+                  <p>Empieza creando la primera pagina de tu leyenda.</p>
+                  <Button type="button" onClick={addPage} disabled={isReviewLocked}>Anadir pagina</Button>
+                </div>
+              ) : (
+                <EditorialRichEditor
+                  pages={visiblePages}
+                  selectedPageId={selectedPage?.client_id}
+                  onSelectPage={setSelectedPageKey}
+                  onPageDataChange={patchPageById}
+                  onTitleChange={(id, title) => patchPageById(id, { title })}
+                  onAddPage={addPage}
+                  onRemovePage={removePage}
+                  onSave={handleSavePages}
+                  saving={saving}
+                  canSave={!isReviewLocked}
+                />
+              )}
+            </>
+          ) : (
+            <>
           <div className="creator-editor-card-title">
             <span>2</span>
             <div>
@@ -1007,6 +1064,8 @@ function LegendEditor({ legendId }) {
                 )}
               </div>
             </section>
+          )}
+            </>
           )}
         </Card>
       )}

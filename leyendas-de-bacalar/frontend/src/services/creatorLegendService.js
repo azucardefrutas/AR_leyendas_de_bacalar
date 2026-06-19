@@ -318,6 +318,8 @@ function cleanLegendPayload(payload = {}) {
     age_rating: payload.age_rating || 'general',
     access_type: payload.access_type || 'free',
     is_featured: Boolean(payload.is_featured),
+    // Only set on create; never overwrite an existing legend's mode on a general-data update.
+    ...(['manual', 'source_document'].includes(payload.creation_mode) ? { creation_mode: payload.creation_mode } : {}),
   };
 }
 

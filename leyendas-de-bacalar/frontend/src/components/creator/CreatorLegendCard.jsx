@@ -58,6 +58,7 @@ function CreatorLegendCard({
   coverUrl = '',
   statusKey = 'draft',
   statusLabel = 'Borrador',
+  creationModeLabel = '',
   accessLabel = '',
   genres = [],
   updatedLabel = '',
@@ -100,6 +101,7 @@ function CreatorLegendCard({
         <div className="creator-card-topline">
           <StatusBadge statusKey={statusKey} label={statusLabel} />
           <AccessBadge label={accessLabel} />
+          {creationModeLabel && <span className="creator-creation-mode-badge">{creationModeLabel}</span>}
         </div>
 
         <h2 title={legend.title}>{legend.title || 'Leyenda sin titulo'}</h2>

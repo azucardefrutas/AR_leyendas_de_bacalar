@@ -79,6 +79,18 @@ export function editorJsToHtml(editorData) {
   return blocks.map(blockToHtml).join('\n');
 }
 
+// Convert legacy plain-text page content into a minimal Editor.js document so old
+// drafts open in the editorial editor without losing their text.
+export function plainTextToEditorData(text = '') {
+  const paragraphs = String(text || '')
+    .split(/\n{2,}|\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return {
+    blocks: paragraphs.map((paragraph) => ({ type: 'paragraph', data: { text: paragraph } })),
+  };
+}
+
 export function editorJsToPlainText(editorData) {
   const blocks = Array.isArray(editorData?.blocks) ? editorData.blocks : [];
   const lines = [];

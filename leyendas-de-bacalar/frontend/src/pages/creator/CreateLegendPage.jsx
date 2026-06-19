@@ -728,7 +728,10 @@ function CreateLegendPage() {
     const payload = getLegendPayload();
     const result = hasDraft
       ? await updateLegendGeneralData(draft.legend.id, payload)
-      : await createLegendDraft(payload);
+      : await createLegendDraft({
+        ...payload,
+        creation_mode: sourceMode === 'upload' ? 'source_document' : 'manual',
+      });
 
     setSaving(false);
 
