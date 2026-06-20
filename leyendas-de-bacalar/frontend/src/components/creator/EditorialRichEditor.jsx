@@ -1,4 +1,5 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import DOMPurify from 'dompurify';
 import EditorJS from '@editorjs/editorjs';
 import Header from '@editorjs/header';
 import List from '@editorjs/list';
@@ -6,12 +7,11 @@ import Quote from '@editorjs/quote';
 import Delimiter from '@editorjs/delimiter';
 import Checklist from '@editorjs/checklist';
 import Table from '@editorjs/table';
-import ImageTool from '@editorjs/image';
 import { uploadLegendAsset } from '../../services/assetService.js';
 import { editorJsToHtml, editorJsToPlainText } from '../../utils/editorJsToHtml.js';
 import EditorJsPreview from './EditorJsPreview.jsx';
 import EditorJsToolbar, { EditorIcon } from './EditorJsToolbar.jsx';
-import { makeAssetCardTool } from './editorBlockTools.js';
+import { ImageEditorBlockTool, MarkerBlockTool, Model3DBlockTool } from './editorBlockTools.js';
 import InsertLinkModal from './editor-modals/InsertLinkModal.jsx';
 import InsertImageModal from './editor-modals/InsertImageModal.jsx';
 import InsertTableModal from './editor-modals/InsertTableModal.jsx';
@@ -19,8 +19,6 @@ import InsertModel3DModal from './editor-modals/InsertModel3DModal.jsx';
 import InsertMarkerModal from './editor-modals/InsertMarkerModal.jsx';
 import { isSafeHttpUrl } from './editor-modals/editorModalUtils.js';
 
-const Model3DTool = makeAssetCardTool({ kind: 'model3d', toolTitle: 'Modelo 3D' });
-const MarkerTool = makeAssetCardTool({ kind: 'marker', toolTitle: 'Marcador' });
 const Model3DViewer = lazy(() => import('../3d/Model3DViewer.jsx'));
 
 function getAssetUrl(asset = {}) {
@@ -50,7 +48,7 @@ function normalizeAssetList(assets = [], fallbackName) {
 
 // Tools config is built per editor so the image uploader and the model/marker pickers
 // receive the legend's assets + upload handler.
-function buildTools({ availableModels = [], availableMarkers = [], onUploadImage = null }) {
+function buildTools({ onDataChange = null, onOpenModel = null }) {
   return {
     header: { class: Header, inlineToolbar: true, config: { placeholder: 'Encabezado', levels: [1, 2, 3, 4], defaultLevel: 2 } },
     list: { class: List, inlineToolbar: true },
@@ -59,22 +57,13 @@ function buildTools({ availableModels = [], availableMarkers = [], onUploadImage
     checklist: { class: Checklist, inlineToolbar: true },
     table: { class: Table, inlineToolbar: true },
     image: {
-      class: ImageTool,
-      config: {
-        uploader: {
-          // URL images need no backend. File upload uses the provided handler (if any).
-          uploadByUrl: (url) => Promise.resolve(
-            isSafeHttpUrl(url) ? { success: 1, file: { url } } : { success: 0 },
-          ),
-          uploadByFile: (file) => (onUploadImage
-            ? Promise.resolve(onUploadImage(file)).then((url) => ({ success: url ? 1 : 0, file: { url } }))
-            : Promise.reject(new Error('Subida de archivos no disponible; usa una URL.'))),
-        },
-      },
+      class: ImageEditorBlockTool,
+      toolbox: false,
+      config: { onDataChange },
     },
-    model3d: { class: Model3DTool, config: { assets: availableModels } },
-    marker: { class: MarkerTool, config: { assets: availableMarkers } },
-    leyendaMarker: { class: MarkerTool, config: { assets: availableMarkers } },
+    model3d: { class: Model3DBlockTool, toolbox: false, config: { onDataChange, onOpenModel } },
+    marker: { class: MarkerBlockTool, toolbox: false, config: { onDataChange } },
+    leyendaMarker: { class: MarkerBlockTool, toolbox: false, config: { onDataChange } },
   };
 }
 
@@ -125,6 +114,7 @@ export default function EditorialRichEditor({
   const pagesRef = useRef(pages);
   const debounceRef = useRef(0);
   const dirtyRef = useRef(false);
+  const openModelRef = useRef(null);
   const [activeTab, setActiveTab] = useState('edit');
   const [expanded, setExpanded] = useState(false);
   const [previewData, setPreviewData] = useState(null);
@@ -148,7 +138,7 @@ export default function EditorialRichEditor({
 
   const uploadEditorAsset = useCallback(async (file, assetType, fallbackName) => {
     if (!legendId) throw new Error('Guarda la leyenda antes de subir recursos.');
-    const result = await uploadLegendAsset({ file, legendId, assetType });
+    const result = await uploadLegendAsset({ file, legendId, assetType, forceBackend: true });
     if (result.error) throw result.error;
     const asset = result.data?.asset || result.data;
     if (!asset?.id) throw new Error('No se obtuvo un asset válido después de la subida.');
@@ -159,7 +149,7 @@ export default function EditorialRichEditor({
     if (onUploadImage) return onUploadImage(file);
     const uploaded = await uploadEditorAsset(file, 'editor_image', file.name);
     if (!uploaded.previewUrl) throw new Error('La imagen se guardó, pero no tiene una URL utilizable.');
-    return uploaded.previewUrl;
+    return uploaded;
   }, [onUploadImage, uploadEditorAsset]);
 
   const uploadEditorModel = useCallback(async (file) => {
@@ -176,8 +166,13 @@ export default function EditorialRichEditor({
 
   pagesRef.current = pages;
   // Keep the latest tool options available to the one-time editor init.
-  const toolsOptionsRef = useRef({ availableModels: modelOptions, availableMarkers: markerOptions, onUploadImage: uploadEditorImage });
-  toolsOptionsRef.current = { availableModels: modelOptions, availableMarkers: markerOptions, onUploadImage: uploadEditorImage };
+  const toolsOptionsRef = useRef({
+    onDataChange: () => {
+      dirtyRef.current = true;
+      setDirty(true);
+    },
+    onOpenModel: (data) => openModelRef.current?.(data),
+  });
   const selectedPage = pages.find((page) => page.client_id === selectedPageId) ?? pages[0];
 
   // Save the editor's current content back into its page (returns the saved payload).
@@ -187,7 +182,11 @@ export default function EditorialRichEditor({
     if (!editor || !editor.save || !pageId) return null;
     try {
       const data = await editor.save();
-      const html = editorJsToHtml(data);
+      const html = DOMPurify.sanitize(editorJsToHtml(data), {
+        ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'strong', 'b', 'em', 'i', 'u', 's', 'a', 'ul', 'ol', 'li', 'blockquote', 'cite', 'hr', 'table', 'tbody', 'tr', 'th', 'td', 'figure', 'figcaption', 'img', 'article', 'span', 'br'],
+        ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'src', 'alt'],
+        ALLOW_DATA_ATTR: false,
+      });
       const text = editorJsToPlainText(data);
       const editorStats = {
         words: countStats(text).words,
@@ -367,15 +366,17 @@ export default function EditorialRichEditor({
     setOpenModal(null);
   };
 
-  const handleInsertImage = ({ url, alt, caption }) => {
+  const handleInsertImage = ({ assetId, url, alt, caption }) => {
     if (isSafeHttpUrl(url)) {
       insertBlock('image', {
+        assetId: assetId || '',
         file: { url },
         alt: alt || '',
         caption: caption || '',
         withBorder: false,
         withBackground: false,
         stretched: false,
+        layout: { width: 520, height: 'auto', align: 'center' },
       });
     }
     setOpenModal(null);
@@ -386,16 +387,24 @@ export default function EditorialRichEditor({
     setOpenModal(null);
   };
 
-  const handleInsertModel3D = (data) => { insertBlock('model3d', data); setOpenModal(null); };
-  const handleInsertMarker = (data) => { insertBlock('leyendaMarker', data); setOpenModal(null); };
+  const handleInsertModel3D = (data) => {
+    insertBlock('model3d', { ...data, layout: data.layout || { width: 520, height: 360, align: 'center' } });
+    setOpenModal(null);
+  };
+  const handleInsertMarker = (data) => {
+    insertBlock('leyendaMarker', { ...data, layout: data.layout || { width: 180, height: 'auto', align: 'center' } });
+    setOpenModal(null);
+  };
   const handleOpenModel = (data) => {
     const asset = modelOptions.find((option) => String(option.id) === String(data.assetId));
-    if (!asset?.previewUrl) {
+    const modelUrl = data.modelUrl || asset?.previewUrl || '';
+    if (!modelUrl) {
       setEditorError('El modelo está registrado, pero no tiene una URL utilizable para abrir el visor.');
       return;
     }
-    setPreviewModel({ ...data, modelUrl: asset.previewUrl, title: data.title || asset.name });
+    setPreviewModel({ ...data, modelUrl, title: data.title || asset?.name || 'Modelo 3D' });
   };
+  openModelRef.current = handleOpenModel;
 
   const pagesWithText = useMemo(
     () => pages.filter((page) => (page.text_content || '').trim()).length,

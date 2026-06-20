@@ -1,6 +1,7 @@
 import React from 'react';
 import DOMPurify from 'dompurify';
 import { EditorIcon } from './EditorJsToolbar.jsx';
+import { normalizeBlockLayout } from './editorBlockTools.js';
 
 // Editor.js stores inline formatting (bold/italic/links) as HTML inside text fields.
 // We render blocks as React elements and sanitize only the inline HTML with a strict
@@ -11,6 +12,17 @@ const INLINE_CONFIG = {
 };
 
 const stripTags = (value = '') => String(value ?? '').replace(/<[^>]*>/g, '');
+
+function getLayoutStyle(layout, defaults) {
+  const normalized = normalizeBlockLayout(layout, defaults);
+  return {
+    width: `${normalized.width}px`,
+    maxWidth: '100%',
+    minHeight: normalized.height === 'auto' ? undefined : `${normalized.height}px`,
+    marginLeft: normalized.align === 'left' ? 0 : 'auto',
+    marginRight: normalized.align === 'right' ? 0 : 'auto',
+  };
+}
 
 function Inline({ html, as: Tag = 'span', className }) {
   const clean = DOMPurify.sanitize(String(html ?? ''), INLINE_CONFIG);
@@ -80,7 +92,7 @@ function Block({ block, onOpenModel }) {
       const url = data?.file?.url || data?.url || '';
       if (!url) return null;
       return (
-        <figure className="ejs-image">
+        <figure className="ejs-image" style={getLayoutStyle(data.layout, { defaultWidth: 520, defaultHeight: 'auto' })}>
           <img src={url} alt={stripTags(data.alt || data.caption)} loading="lazy" />
           {data.caption ? <figcaption><Inline html={data.caption} /></figcaption> : null}
         </figure>
@@ -88,13 +100,13 @@ function Block({ block, onOpenModel }) {
     }
     case 'model3d':
       return (
-        <div className="ejs-model3d">
+        <div className="ejs-model3d" style={getLayoutStyle(data.layout, { defaultWidth: 520, defaultHeight: 360 })}>
           <span className="ejs-model3d__icon"><EditorIcon name="box" size={24} /></span>
           <div className="ejs-model3d__info">
             <strong>{data.title || 'Modelo 3D'}</strong>
             {data.caption ? <p><Inline html={data.caption} /></p> : null}
           </div>
-          {onOpenModel && data.assetId && (
+          {onOpenModel && (data.assetId || data.modelUrl) && (
             <button type="button" onClick={() => onOpenModel(data)}>Ver modelo</button>
           )}
         </div>
@@ -102,9 +114,9 @@ function Block({ block, onOpenModel }) {
     case 'marker':
     case 'leyendaMarker':
       return (
-        <div className="ejs-model3d ejs-marker">
-          {data.previewUrl
-            ? <img className="ejs-marker__thumbnail" src={data.previewUrl} alt="" loading="lazy" />
+        <div className="ejs-model3d ejs-marker" style={getLayoutStyle(data.layout, { defaultWidth: 180, defaultHeight: 'auto' })}>
+          {(data.imageUrl || data.previewUrl)
+            ? <img className="ejs-marker__thumbnail" src={data.imageUrl || data.previewUrl} alt={stripTags(data.title || 'Marcador')} loading="lazy" />
             : <span className="ejs-model3d__icon"><EditorIcon name="bookmark" size={24} /></span>}
           <div className="ejs-model3d__info">
             <strong>{data.title || 'Marcador'}</strong>

@@ -43,8 +43,8 @@ const FILE_RULES_BY_TYPE = {
     mimeTypes: ['image/png', 'image/jpeg', 'image/webp'],
     maxBytes: 10 * MB,
     bucket: STORAGE_BUCKETS.assets,
-    folder: 'editor-images',
-    dbAssetType: 'image',
+    folder: 'editor',
+    dbAssetType: 'illustration',
   },
   pdf: {
     extensions: ['pdf'],
@@ -172,8 +172,9 @@ function getStorageFolder(assetType) {
   return FILE_RULES_BY_TYPE[assetType]?.folder || assetType || 'asset';
 }
 
-function shouldUseBackendUpload(assetType) {
-  return assetType === 'cover' || assetType === 'banner' || assetType === 'source_document';
+function shouldUseBackendUpload(assetType, forceBackend = false) {
+  if (['cover', 'banner', 'source_document'].includes(assetType)) return true;
+  return forceBackend && ['editor_image', 'model_3d', 'marker_image'].includes(assetType);
 }
 
 function isBackendRegisteredMedia(assetResult) {
@@ -262,7 +263,7 @@ function getBackendUploadMessage(phase, error) {
   if (phase === 'register') {
     return error?.status === 0
       ? 'No se pudo conectar con el backend para registrar el recurso.'
-      : `Error al registrar recurso. ${error?.message || ''}`.trim();
+      : 'No se pudo guardar el recurso. Revisa el archivo o intenta de nuevo.';
   }
 
   return error?.message || 'No pudimos subir el archivo.';
@@ -488,13 +489,13 @@ async function getLegendPageIds(client, legendId) {
   return (pages ?? []).map((page) => page.id).filter(Boolean);
 }
 
-export async function uploadProjectAsset({ file, legendId, kind, userId: providedUserId = null }) {
+export async function uploadProjectAsset({ file, legendId, kind, userId: providedUserId = null, forceBackend = false }) {
   if (isInvalidId(legendId)) return { data: null, error: friendlyAssetError('Guarda la leyenda antes de subir recursos.') };
   const assetType = kind || 'other';
   const validationError = validateFile(file, assetType);
   if (validationError) return { data: null, error: validationError };
 
-  if (shouldUseBackendUpload(assetType)) {
+  if (shouldUseBackendUpload(assetType, forceBackend)) {
     try {
       return await uploadAssetWithBackend({ file, legendId, assetType });
     } catch (error) {
@@ -558,8 +559,8 @@ export async function uploadProjectAsset({ file, legendId, kind, userId: provide
   }
 }
 
-export async function uploadLegendAsset({ file, legendId, assetType }) {
-  return uploadProjectAsset({ file, legendId, kind: assetType });
+export async function uploadLegendAsset({ file, legendId, assetType, forceBackend = false }) {
+  return uploadProjectAsset({ file, legendId, kind: assetType, forceBackend });
 }
 
 export async function uploadAssetFile({ file, legendId, assetType }) {

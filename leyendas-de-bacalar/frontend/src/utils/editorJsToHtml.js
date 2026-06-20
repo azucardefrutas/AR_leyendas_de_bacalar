@@ -65,9 +65,22 @@ function blockToHtml(block) {
     case 'image': {
       const url = data?.file?.url || data?.url || '';
       if (!url) return '';
-      return `<figure class="ejs-image"><img src="${escapeHtml(url)}" alt="${escapeHtml(stripTags(data.caption))}" />${
+      return `<figure class="ejs-image"><img src="${escapeHtml(url)}" alt="${escapeHtml(stripTags(data.alt || data.caption))}" />${
         data.caption ? `<figcaption>${inline(data.caption)}</figcaption>` : ''
       }</figure>`;
+    }
+    case 'model3d':
+      return `<article class="ejs-model3d"><strong>${escapeHtml(data.title || 'Modelo 3D')}</strong>${
+        data.caption ? `<p>${escapeHtml(stripTags(data.caption))}</p>` : ''
+      }</article>`;
+    case 'marker':
+    case 'leyendaMarker': {
+      const imageUrl = data.imageUrl || data.previewUrl || '';
+      return `<article class="ejs-model3d ejs-marker">${
+        imageUrl ? `<img class="ejs-marker__thumbnail" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(stripTags(data.title || 'Marcador'))}" />` : ''
+      }<strong>${escapeHtml(data.title || 'Marcador')}</strong>${
+        data.caption ? `<p>${escapeHtml(stripTags(data.caption))}</p>` : ''
+      }</article>`;
     }
     default:
       return data.text ? `<p>${inline(data.text)}</p>` : '';

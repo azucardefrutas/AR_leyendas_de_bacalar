@@ -22,6 +22,10 @@ const PURPOSES = {
     maxBytes: MAX_IMAGE_BYTES,
     mimeTypes: new Set(['image/png', 'image/jpeg', 'image/webp']),
   },
+  editor_image: {
+    maxBytes: MAX_IMAGE_BYTES,
+    mimeTypes: new Set(['image/png', 'image/jpeg', 'image/webp']),
+  },
   marker_image: {
     maxBytes: MAX_IMAGE_BYTES,
     mimeTypes: new Set(['image/png', 'image/jpeg', 'image/webp']),
@@ -90,6 +94,30 @@ const normalizeMetadata = ({ filename, mimeType, sizeBytes, purpose }) => {
 };
 
 const DOCUMENT_PURPOSES = new Set(['source_document']);
+
+const ASSET_REGISTRATION_POLICIES = {
+  editor_image: {
+    assetType: 'illustration',
+    metadataKind: 'editor_image',
+    metadataContext: 'manual_editor',
+  },
+  model_3d: {
+    assetType: 'model_3d',
+    metadataKind: 'editor_model_3d',
+    metadataContext: 'manual_editor',
+  },
+  marker_image: {
+    assetType: 'marker_image',
+    metadataKind: 'editor_marker',
+    metadataContext: 'manual_editor',
+  },
+};
+
+export const getAssetRegistrationPolicy = (purpose) => ASSET_REGISTRATION_POLICIES[purpose] ?? {
+  assetType: purpose,
+  metadataKind: purpose,
+  metadataContext: null,
+};
 
 export const validateFileMetadata = (metadata) => {
   const normalized = normalizeMetadata(metadata ?? {});

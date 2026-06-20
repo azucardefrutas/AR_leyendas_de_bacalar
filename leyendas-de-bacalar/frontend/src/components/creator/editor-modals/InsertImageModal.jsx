@@ -35,9 +35,17 @@ export default function InsertImageModal({ onInsert, onClose, onUploadImage }) {
 
     setUploading(true);
     try {
-      const finalUrl = file ? await onUploadImage(file) : url.trim();
+      const uploadedAsset = file ? await onUploadImage(file) : null;
+      const finalUrl = file
+        ? (typeof uploadedAsset === 'string' ? uploadedAsset : uploadedAsset?.previewUrl || uploadedAsset?.url)
+        : url.trim();
       if (!finalUrl) throw new Error('No se obtuvo una URL utilizable para la imagen.');
-      onInsert({ url: finalUrl, alt: alt.trim(), caption: caption.trim() });
+      onInsert({
+        assetId: typeof uploadedAsset === 'object' ? uploadedAsset?.id || '' : '',
+        url: finalUrl,
+        alt: alt.trim(),
+        caption: caption.trim(),
+      });
     } catch (uploadError) {
       setError(uploadError?.message || 'No se pudo subir la imagen.');
     } finally {

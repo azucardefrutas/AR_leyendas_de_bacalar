@@ -4,6 +4,7 @@ const BUCKETS_BY_PURPOSE = {
   source_document: 'legend-documents',
   cover: 'legend-assets',
   banner: 'legend-assets',
+  editor_image: 'legend-assets',
   marker_image: 'legend-assets',
   model_3d: 'legend-assets',
 };

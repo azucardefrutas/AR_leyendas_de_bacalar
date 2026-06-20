@@ -50,8 +50,9 @@ export default function InsertMarkerModal({ assets = [], onInsert, onClose, onUp
       assetId: selectedMarker.id,
       title: title.trim() || selectedMarker.name || 'Marcador',
       caption: caption.trim(),
-      previewUrl: selectedMarker.previewUrl || '',
+      imageUrl: selectedMarker.previewUrl || '',
       displayMode: 'inline-card',
+      layout: { width: 180, height: 'auto', align: 'center' },
     });
   };
 

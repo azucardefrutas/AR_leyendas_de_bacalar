@@ -2,6 +2,7 @@ import { Buffer } from 'node:buffer';
 
 import { supabaseAdmin } from '../config/supabaseAdmin.js';
 import { getPdfPageCountFromBuffer } from './documentTextExtractor.service.js';
+import { getAssetRegistrationPolicy } from './fileValidation.service.js';
 
 class AssetRegistryError extends Error {
   constructor(message, statusCode = 500, details = {}) {
@@ -25,7 +26,7 @@ const getAssetType = ({ purpose, filename }) => {
     return 'other';
   }
 
-  return purpose;
+  return getAssetRegistrationPolicy(purpose).assetType;
 };
 
 const getDocumentType = ({ filename, mimeType }) => {
@@ -77,6 +78,7 @@ const insertAsset = async ({
   sizeBytes,
   publicUrl,
 }) => {
+  const registrationPolicy = getAssetRegistrationPolicy(purpose);
   const payload = {
     uploaded_by: userId,
     asset_type: getAssetType({ purpose, filename }),
@@ -89,7 +91,8 @@ const insertAsset = async ({
     metadata: {
       bucket,
       legend_id: legendId,
-      kind: purpose,
+      kind: registrationPolicy.metadataKind,
+      ...(registrationPolicy.metadataContext ? { context: registrationPolicy.metadataContext } : {}),
       original_name: filename,
       public: bucket === 'legend-assets',
     },
@@ -297,17 +300,32 @@ export const registerUploadedAsset = async ({
   sizeBytes,
   publicUrl,
 }) => {
-  const asset = await insertAsset({
-    userId,
-    legendId,
-    purpose,
-    bucket,
-    path,
-    filename,
-    mimeType,
-    sizeBytes,
-    publicUrl,
-  });
+  let asset;
+  try {
+    asset = await insertAsset({
+      userId,
+      legendId,
+      purpose,
+      bucket,
+      path,
+      filename,
+      mimeType,
+      sizeBytes,
+      publicUrl,
+    });
+  } catch (error) {
+    if (['editor_image', 'model_3d', 'marker_image'].includes(purpose)) {
+      const { error: cleanupError } = await supabaseAdmin.storage.from(bucket).remove([path]);
+      if (cleanupError) {
+        logAssetRegistryError('failed editor asset cleanup after registration error', {
+          bucket,
+          path,
+          reason: cleanupError.message,
+        });
+      }
+    }
+    throw error;
+  }
 
   if (purpose === 'cover' || purpose === 'banner') {
     try {
