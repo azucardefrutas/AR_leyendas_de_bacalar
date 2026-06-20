@@ -37,8 +37,8 @@ export function makeAssetCardTool({ kind, toolTitle }) {
       const head = document.createElement('div');
       head.className = 'ejs-tool-card__head';
       const icon = document.createElement('span');
-      icon.className = 'material-symbols-rounded';
-      icon.textContent = kind === 'marker' ? 'crop_free' : 'view_in_ar';
+      icon.className = 'ejs-tool-card__icon';
+      icon.innerHTML = ICONS[kind] || ICONS.model3d;
       const label = document.createElement('strong');
       label.textContent = toolTitle;
       head.append(icon, label);

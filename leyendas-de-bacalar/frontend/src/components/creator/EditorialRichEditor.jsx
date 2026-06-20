@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import EditorJS from '@editorjs/editorjs';
 import Header from '@editorjs/header';
 import List from '@editorjs/list';
@@ -9,6 +9,7 @@ import Table from '@editorjs/table';
 import ImageTool from '@editorjs/image';
 import { editorJsToHtml, editorJsToPlainText } from '../../utils/editorJsToHtml.js';
 import EditorJsPreview from './EditorJsPreview.jsx';
+import EditorJsToolbar, { EditorIcon } from './EditorJsToolbar.jsx';
 import { makeAssetCardTool } from './editorBlockTools.js';
 import InsertLinkModal from './editor-modals/InsertLinkModal.jsx';
 import InsertImageModal from './editor-modals/InsertImageModal.jsx';
@@ -85,17 +86,27 @@ export default function EditorialRichEditor({
   availableMarkers = [],
   onUploadImage = null,
   onGoToResources = null,
+  variant = 'default',
+  legendTitle = '',
+  statusMessage = '',
+  statusError = '',
+  onClose = null,
 }) {
   const holderRef = useRef(null);
   const editorRef = useRef(null);
   const currentPageIdRef = useRef(selectedPageId);
   const pagesRef = useRef(pages);
   const debounceRef = useRef(0);
+  const dirtyRef = useRef(false);
   const [activeTab, setActiveTab] = useState('edit');
   const [expanded, setExpanded] = useState(false);
   const [previewData, setPreviewData] = useState(null);
   const [stats, setStats] = useState({ words: 0, chars: 0 });
   const [openModal, setOpenModal] = useState(null); // 'link' | 'image' | 'table' | 'model3d' | 'marker'
+  const [editorError, setEditorError] = useState('');
+  const [dirty, setDirty] = useState(false);
+  const [closing, setClosing] = useState(false);
+  const isFullscreen = variant === 'fullscreen';
 
   pagesRef.current = pages;
   // Keep the latest tool options available to the one-time editor init.
@@ -126,8 +137,10 @@ export default function EditorialRichEditor({
         editor_version: data.version || null,
       };
       onPageDataChange?.(pageId, patch);
+      setEditorError('');
       return { data, html, text, patch };
-    } catch {
+    } catch (saveError) {
+      setEditorError(saveError?.message || 'No se pudo leer el contenido actual. Intenta de nuevo.');
       return null;
     }
   }, [onPageDataChange]);
@@ -145,6 +158,8 @@ export default function EditorialRichEditor({
       data: startPage?.editor_data?.blocks ? startPage.editor_data : emptyData(),
       tools: buildTools(toolsOptionsRef.current),
       onChange: () => {
+        dirtyRef.current = true;
+        setDirty(true);
         window.clearTimeout(debounceRef.current);
         debounceRef.current = window.setTimeout(async () => {
           const saved = await persistCurrent();
@@ -159,7 +174,9 @@ export default function EditorialRichEditor({
         editorRef.current = editor;
         setStats(countStats(startPage?.text_content || ''));
       })
-      .catch(() => { /* ignore init race */ });
+      .catch((readyError) => {
+        if (!destroyed) setEditorError(readyError?.message || 'No se pudo iniciar el editor. Recarga la página.');
+      });
 
     return () => {
       destroyed = true;
@@ -186,33 +203,43 @@ export default function EditorialRichEditor({
         setStats(countStats(page?.text_content || ''));
         if (activeTab === 'preview') setActiveTab('edit');
       })
-      .catch(() => { /* ignore */ });
+      .catch((renderError) => {
+        setEditorError(renderError?.message || 'No se pudo abrir la página seleccionada. Intenta de nuevo.');
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPageId]);
 
   const requestSelect = async (pageId) => {
     if (pageId === currentPageIdRef.current) return;
-    await persistCurrent();
+    const saved = await persistCurrent();
+    if (!saved && editorRef.current) return;
     onSelectPage?.(pageId);
   };
 
   const handleAdd = async () => {
-    await persistCurrent();
+    const saved = await persistCurrent();
+    if (!saved && editorRef.current) return;
+    dirtyRef.current = true;
+    setDirty(true);
     onAddPage?.();
   };
 
   const handleRemove = async () => {
+    dirtyRef.current = true;
+    setDirty(true);
     onRemovePage?.(selectedPage);
   };
 
   const showPreview = async () => {
     const saved = await persistCurrent();
+    if (!saved && editorRef.current) return;
     setPreviewData(saved ? saved.data : (selectedPage?.editor_data ?? null));
     setActiveTab('preview');
   };
 
   const handleSave = async () => {
     const saved = await persistCurrent();
+    if (!saved && editorRef.current) return false;
     // Pass the freshly-merged pages straight to onSave so the just-typed content is
     // saved even if React has not flushed the persist setState yet.
     const finalPages = saved
@@ -220,7 +247,14 @@ export default function EditorialRichEditor({
         ? { ...page, ...saved.patch }
         : page))
       : pages;
-    onSave?.(finalPages);
+    const result = await onSave?.(finalPages);
+    if (result !== false) {
+      dirtyRef.current = false;
+      setDirty(false);
+      setEditorError('');
+      return true;
+    }
+    return false;
   };
 
   // Command bar: insert an Editor.js block at the current position (or end).
@@ -232,8 +266,16 @@ export default function EditorialRichEditor({
       const index = editor.blocks.getCurrentBlockIndex();
       const at = index >= 0 ? index + 1 : editor.blocks.getBlocksCount();
       editor.blocks.insert(type, data, undefined, at, true);
+      dirtyRef.current = true;
+      setDirty(true);
     } catch {
-      try { editor.blocks.insert(type, data); } catch { /* ignore */ }
+      try {
+        editor.blocks.insert(type, data);
+        dirtyRef.current = true;
+        setDirty(true);
+      } catch (insertError) {
+        setEditorError(insertError?.message || 'No se pudo insertar el bloque. Intenta de nuevo.');
+      }
     }
   };
 
@@ -242,7 +284,11 @@ export default function EditorialRichEditor({
   // from an external toolbar; Editor.js blocks are contenteditable so it applies.
   const applyInline = (command, value = null) => {
     if (activeTab !== 'edit') return;
-    try { document.execCommand(command, false, value); } catch { /* ignore */ }
+    try {
+      document.execCommand(command, false, value);
+      dirtyRef.current = true;
+      setDirty(true);
+    } catch { /* ignore */ }
   };
 
   const escapeHtml = (value = '') => String(value)
@@ -268,113 +314,245 @@ export default function EditorialRichEditor({
   const handleInsertModel3D = (data) => { insertBlock('model3d', data); setOpenModal(null); };
   const handleInsertMarker = (data) => { insertBlock('marker', data); setOpenModal(null); };
 
-  // Keep the editor selection when clicking a toolbar button (prevent focus steal).
-  const keepSelection = (event) => event.preventDefault();
+  const pagesWithText = useMemo(
+    () => pages.filter((page) => (page.text_content || '').trim()).length,
+    [pages],
+  );
 
-  const pagesWithText = pages.filter((page) => (page.text_content || '').trim()).length;
+  useEffect(() => {
+    if (!isFullscreen) return undefined;
+    const warnBeforeClose = (event) => {
+      if (!dirtyRef.current) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', warnBeforeClose);
+    return () => window.removeEventListener('beforeunload', warnBeforeClose);
+  }, [isFullscreen]);
 
-  return (
-    <div className={`editorial-editor ${expanded ? 'is-expanded' : ''}`}>
-      {/* Top bar: writing controls + stats live OUTSIDE the writing area so the
-          Editor.js surface stays clean and wide. */}
-      <div className="editorial-editor__bar">
-        <div className="editorial-editor__tabs" role="tablist">
-          <button type="button" role="tab" aria-selected={activeTab === 'edit'} className={`is-edit ${activeTab === 'edit' ? 'active' : ''}`} onClick={() => setActiveTab('edit')} title="Editar">Editar</button>
-          <button type="button" role="tab" aria-selected={activeTab === 'preview'} className={`is-preview ${activeTab === 'preview' ? 'active' : ''}`} onClick={showPreview} title="Vista previa">Vista previa</button>
-          {!hideExpand && (
-            <button
-              type="button"
-              className={`editorial-editor__expand is-expand ${expanded ? 'active' : ''}`}
-              onClick={() => {
-                // expandHref opens a clean standalone writing page in a new tab; we save
-                // the current content first so it loads up to date. Otherwise toggle overlay.
-                if (expandHref) { handleSave(); window.open(expandHref, '_blank', 'noopener,noreferrer'); return; }
-                setExpanded((value) => !value);
-              }}
-              title={expandHref ? 'Abrir en pantalla completa' : (expanded ? 'Reducir' : 'Expandir')}
-            >
-              {expandHref ? 'Expandir' : (expanded ? 'Reducir' : 'Expandir')}
-            </button>
-          )}
-        </div>
-        <div className="editorial-editor__stats" aria-label="Estadísticas">
-          <span>{stats.words} palabras</span>
-          <span>{stats.chars} caracteres</span>
-          <span>{pagesWithText} con texto</span>
-        </div>
+  const handleClose = async () => {
+    if (closing || saving) return;
+    setClosing(true);
+    const canClose = dirty ? await handleSave() : true;
+    if (canClose) onClose?.();
+    else setClosing(false);
+  };
+
+  const modeTabs = (
+    <div className="editorial-editor__tabs" role="tablist" aria-label="Modo del editor">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === 'edit'}
+        className={`is-edit ${activeTab === 'edit' ? 'active' : ''}`}
+        onClick={() => setActiveTab('edit')}
+      >
+        {isFullscreen && <EditorIcon name="edit" size={16} />}
+        Editar
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === 'preview'}
+        className={`is-preview ${activeTab === 'preview' ? 'active' : ''}`}
+        onClick={showPreview}
+      >
+        {isFullscreen && <EditorIcon name="eye" size={16} />}
+        Vista previa
+      </button>
+      {!isFullscreen && !hideExpand && (
+        <button
+          type="button"
+          className={`editorial-editor__expand is-expand ${expanded ? 'active' : ''}`}
+          onClick={async () => {
+            if (expandHref) {
+              const saved = await handleSave();
+              if (saved) window.open(expandHref, '_blank', 'noopener,noreferrer');
+              return;
+            }
+            setExpanded((value) => !value);
+          }}
+          title={expandHref ? 'Abrir en pantalla completa' : (expanded ? 'Reducir' : 'Expandir')}
+        >
+          {expandHref ? 'Expandir' : (expanded ? 'Reducir' : 'Expandir')}
+        </button>
+      )}
+    </div>
+  );
+
+  const statsPanel = (
+    <div className="editorial-editor__stats" aria-label="Estadísticas de la página">
+      <span><strong>{stats.words}</strong> palabras</span>
+      <span><strong>{stats.chars}</strong> caracteres</span>
+      <span><strong>{pagesWithText}</strong> con texto</span>
+    </div>
+  );
+
+  const footerActions = (
+    <div className="editorial-editor__footer-actions">
+      <button
+        type="button"
+        className="editorial-editor__remove"
+        onClick={handleRemove}
+        disabled={pages.length <= 1 || saving || closing}
+      >
+        <EditorIcon name="trash" size={17} />
+        Quitar página
+      </button>
+      <button
+        type="button"
+        className="editorial-editor__save"
+        onClick={handleSave}
+        disabled={!canSave || saving || closing}
+      >
+        <EditorIcon name="save" size={17} />
+        {saving ? 'Guardando…' : 'Guardar páginas'}
+      </button>
+    </div>
+  );
+
+  const editorCanvas = (
+    <>
+      <label className="editorial-editor__title-label" htmlFor={`page-title-${selectedPage?.client_id || 'current'}`}>
+        Título de página
+      </label>
+      <input
+        id={`page-title-${selectedPage?.client_id || 'current'}`}
+        className="editorial-editor__title"
+        value={selectedPage?.title || ''}
+        onChange={(event) => {
+          dirtyRef.current = true;
+          setDirty(true);
+          onTitleChange?.(selectedPage?.client_id, event.target.value);
+        }}
+        placeholder={`Título de la página ${selectedPage?.page_number || ''}`.trim()}
+      />
+
+      <div className="editorial-editor__surface editorjs-surface" hidden={activeTab !== 'edit'}>
+        <div ref={holderRef} className="editorial-editor__holder" />
       </div>
 
-      {/* Quill-style command bar that drives Editor.js (inline formatting on the
-          selection + block insertion via the Editor.js blocks API). */}
-      {activeTab === 'edit' && (
-        <div className="editorial-editor__toolbar" role="toolbar" aria-label="Herramientas de formato">
-          <div className="editorial-editor__toolbar-group">
-            <button type="button" title="Negrita" onMouseDown={keepSelection} onClick={() => applyInline('bold')}><b>B</b></button>
-            <button type="button" title="Cursiva" onMouseDown={keepSelection} onClick={() => applyInline('italic')}><i>I</i></button>
-            <button type="button" title="Subrayado" onMouseDown={keepSelection} onClick={() => applyInline('underline')}><u>U</u></button>
-            <button type="button" title="Tachado" onMouseDown={keepSelection} onClick={() => applyInline('strikeThrough')}><s>S</s></button>
-            <button type="button" title="Enlace" onClick={() => setOpenModal('link')}>Link</button>
+      {activeTab === 'preview' && (
+        <div className="editorial-editor__preview" aria-label="Vista previa">
+          <EditorJsPreview data={previewData} />
+        </div>
+      )}
+    </>
+  );
+
+  return (
+    <div className={`editorial-editor ${isFullscreen ? 'editorial-editor--fullscreen' : ''} ${expanded ? 'is-expanded' : ''}`}>
+      {isFullscreen ? (
+        <header className="fullscreen-editorial__top">
+          <a className="fullscreen-editorial__skip" href="#fullscreen-editor-canvas">Ir al lienzo de escritura</a>
+          <div className="fullscreen-editorial__title">
+            <strong>{legendTitle || 'Historia'}</strong>
+            <span>Escritura a pantalla completa</span>
           </div>
-          <span className="editorial-editor__toolbar-sep" aria-hidden="true" />
-          <div className="editorial-editor__toolbar-group">
-            <button type="button" title="Título" onClick={() => insertBlock('header', { text: '', level: 2 })}>H2</button>
-            <button type="button" title="Subtítulo" onClick={() => insertBlock('header', { text: '', level: 3 })}>H3</button>
-            <button type="button" title="Lista" onClick={() => insertBlock('list', { style: 'unordered', items: [] })}>Lista</button>
-            <button type="button" title="Checklist" onClick={() => insertBlock('checklist', { items: [] })}>Checklist</button>
-            <button type="button" title="Cita" onClick={() => insertBlock('quote', { text: '', caption: '' })}>Quote</button>
-            <button type="button" title="Separador" onClick={() => insertBlock('delimiter', {})}>—</button>
-            <button type="button" title="Tabla" onClick={() => setOpenModal('table')}>Tabla</button>
-            <button type="button" title="Imagen" onClick={() => setOpenModal('image')}>Imagen</button>
-            <button type="button" title="Modelo 3D" onClick={() => setOpenModal('model3d')}>Modelo 3D</button>
-            <button type="button" title="Marcador" onClick={() => setOpenModal('marker')}>Marcador</button>
+          <div className="fullscreen-editorial__modes">{modeTabs}</div>
+          <div className="fullscreen-editorial__meta">
+            {statsPanel}
+            {(statusMessage || statusError || editorError) && (
+              <span
+                className={`fullscreen-editorial__msg ${(statusError || editorError) ? 'is-error' : ''}`}
+                role={(statusError || editorError) ? 'alert' : 'status'}
+              >
+                {statusError || editorError || statusMessage}
+              </span>
+            )}
           </div>
+          <button
+            type="button"
+            className="fullscreen-editorial__close"
+            onClick={handleClose}
+            disabled={closing || saving}
+          >
+            <EditorIcon name="close" size={17} />
+            {closing ? 'Cerrando…' : 'Cerrar'}
+          </button>
+        </header>
+      ) : (
+        <div className="editorial-editor__bar">
+          {modeTabs}
+          {statsPanel}
         </div>
       )}
 
-      <div className="editorial-editor__body">
-        <aside className="editorial-editor__rail" aria-label="Páginas de la historia">
-          {pages.map((page) => (
-            <button
-              type="button"
-              key={page.client_id}
-              className={page.client_id === selectedPage?.client_id ? 'active' : ''}
-              onClick={() => requestSelect(page.client_id)}
-              title={page.title?.trim() || `Página ${page.page_number}`}
-            >
-              <span className="editorial-editor__rail-num">{page.page_number}</span>
-              <span className="editorial-editor__rail-title">{page.title?.trim() || `Pág. ${page.page_number}`}</span>
+      {activeTab === 'edit' && (
+        <EditorJsToolbar
+          onInline={applyInline}
+          onInsertBlock={insertBlock}
+          onOpenModal={setOpenModal}
+          showModel3d={availableModels.length > 0 || Boolean(onGoToResources)}
+          showMarker={availableMarkers.length > 0 || Boolean(onGoToResources)}
+        />
+      )}
+
+      {!isFullscreen && editorError && <p className="editorial-editor__error" role="alert">{editorError}</p>}
+
+      {isFullscreen && (
+        <div className="editorial-editor__mobile-pages">
+          <label htmlFor="fullscreen-page-select">
+            <EditorIcon name="pages" size={17} />
+            <span>Página</span>
+          </label>
+          <select
+            id="fullscreen-page-select"
+            value={selectedPage?.client_id || ''}
+            onChange={(event) => requestSelect(event.target.value)}
+          >
+            {pages.map((page) => (
+              <option key={page.client_id} value={page.client_id}>
+                {page.title?.trim() || `Pág. ${page.page_number}`}
+              </option>
+            ))}
+          </select>
+          <button type="button" onClick={handleAdd} aria-label="Agregar página">
+            <EditorIcon name="plus" size={18} />
+          </button>
+        </div>
+      )}
+
+      <div className="editorial-editor__workspace">
+        <div className="editorial-editor__body">
+          <aside className="editorial-editor__rail custom-scrollbar" aria-label="Páginas de la historia">
+            {isFullscreen && (
+              <div className="editorial-editor__rail-heading">
+                <strong>Navegador</strong>
+                <span>Páginas de la historia</span>
+              </div>
+            )}
+            {pages.map((page) => (
+              <button
+                type="button"
+                key={page.client_id}
+                className={page.client_id === selectedPage?.client_id ? 'active' : ''}
+                onClick={() => requestSelect(page.client_id)}
+                title={page.title?.trim() || `Página ${page.page_number}`}
+              >
+                <span className="editorial-editor__rail-num">{page.page_number}</span>
+                <span className="editorial-editor__rail-title">{page.title?.trim() || `Pág. ${page.page_number}`}</span>
+              </button>
+            ))}
+            <button type="button" className="editorial-editor__add" onClick={handleAdd} title="Agregar página">
+              <EditorIcon name="plus" size={16} />
+              Página
             </button>
-          ))}
-          <button type="button" className="editorial-editor__add" onClick={handleAdd} title="Agregar página">+ Página</button>
-        </aside>
+          </aside>
 
-        <div className="editorial-editor__main">
-          <input
-            className="editorial-editor__title"
-            value={selectedPage?.title || ''}
-            onChange={(event) => onTitleChange?.(selectedPage?.client_id, event.target.value)}
-            placeholder={`Título de la página ${selectedPage?.page_number || ''}`.trim()}
-          />
-
-          {/* The Editor.js holder stays mounted; we only hide it on the preview tab. */}
-          <div className="editorial-editor__surface" hidden={activeTab !== 'edit'}>
-            <div ref={holderRef} className="editorial-editor__holder" />
-          </div>
-
-          {activeTab === 'preview' && (
-            <div className="editorial-editor__preview" aria-label="Vista previa">
-              <EditorJsPreview data={previewData} />
-            </div>
-          )}
-
-          <div className="editorial-editor__footer">
-            <button type="button" className="editorial-editor__remove" onClick={handleRemove} disabled={pages.length <= 1}>Quitar página</button>
-            <button type="button" className="editorial-editor__save" onClick={handleSave} disabled={!canSave || saving}>
-              {saving ? 'Guardando…' : 'Guardar páginas'}
-            </button>
+          <div className="editorial-editor__main">
+            {isFullscreen ? <section id="fullscreen-editor-canvas" className="editorial-editor__canvas">{editorCanvas}</section> : editorCanvas}
+            {!isFullscreen && <div className="editorial-editor__footer">{footerActions}</div>}
           </div>
         </div>
       </div>
+
+      {isFullscreen && (
+        <footer className="fullscreen-editorial__footer">
+          <span>Modo de escritura a pantalla completa</span>
+          {footerActions}
+        </footer>
+      )}
 
       {expanded && <button type="button" className="editorial-editor__expand-backdrop" aria-label="Reducir escritura" onClick={() => setExpanded(false)} />}
 

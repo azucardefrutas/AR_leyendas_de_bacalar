@@ -1,5 +1,6 @@
 import React from 'react';
 import DOMPurify from 'dompurify';
+import { EditorIcon } from './EditorJsToolbar.jsx';
 
 // Editor.js stores inline formatting (bold/italic/links) as HTML inside text fields.
 // We render blocks as React elements and sanitize only the inline HTML with a strict
@@ -88,7 +89,7 @@ function Block({ block, onOpenModel }) {
     case 'model3d':
       return (
         <div className="ejs-model3d">
-          <span className="material-symbols-rounded" aria-hidden="true">view_in_ar</span>
+          <span className="ejs-model3d__icon"><EditorIcon name="box" size={24} /></span>
           <div className="ejs-model3d__info">
             <strong>{data.title || 'Modelo 3D'}</strong>
             {data.caption ? <p><Inline html={data.caption} /></p> : null}
@@ -102,7 +103,7 @@ function Block({ block, onOpenModel }) {
     case 'leyendaMarker':
       return (
         <div className="ejs-model3d ejs-marker">
-          <span className="material-symbols-rounded" aria-hidden="true">crop_free</span>
+          <span className="ejs-model3d__icon"><EditorIcon name="bookmark" size={24} /></span>
           <div className="ejs-model3d__info">
             <strong>{data.title || 'Marcador'}</strong>
             {data.caption ? <p><Inline html={data.caption} /></p> : null}

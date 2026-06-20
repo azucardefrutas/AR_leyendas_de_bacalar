@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import LoadingState from '../../components/ui/LoadingState.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import EditorialRichEditor from '../../components/creator/EditorialRichEditor.jsx';
@@ -20,20 +20,23 @@ function createPage(pageNumber = 1) {
 
 /**
  * Clean, standalone writing screen for "crear desde cero" stories. Loads the legend's
- * draft pages and reuses EditorialRichEditor — no sidebar, no PDF/document sections.
+ * draft pages and reuses EditorialRichEditor — no creator shell or PDF/document sections.
  * Saves to the same legend_pages via the existing service (never creates a new legend).
  */
 export default function FullscreenEditorialEditorPage() {
   const { legendId } = useParams();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [legend, setLegend] = useState(null);
   const [version, setVersion] = useState(null);
   const [pages, setPages] = useState([createPage(1)]);
+  const [removedPages, setRemovedPages] = useState([]);
   const [selectedPageKey, setSelectedPageKey] = useState(null);
   const [resources, setResources] = useState({ arScenes: [], arMarkers: [] });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const [saveError, setSaveError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,6 +61,7 @@ export default function FullscreenEditorialEditorPage() {
     }));
     const finalPages = loaded.length ? loaded : [createPage(1)];
     setPages(finalPages);
+    setRemovedPages([]);
     setSelectedPageKey(finalPages[0]?.client_id ?? null);
     setLoading(false);
   }, [legendId]);
@@ -82,24 +86,48 @@ export default function FullscreenEditorialEditorPage() {
 
   const removePage = (page) => {
     if (pages.length <= 1) return;
+    const removedIndex = pages.findIndex((item) => item.client_id === page.client_id);
     const next = pages
       .filter((item) => item.client_id !== page.client_id)
       .map((item, index) => ({ ...item, page_number: index + 1 }));
+    if (page.id) setRemovedPages((current) => [...current, { ...page, _delete: true }]);
     setPages(next);
-    setSelectedPageKey(next[0]?.client_id ?? null);
+    setSelectedPageKey(next[Math.min(Math.max(removedIndex, 0), next.length - 1)]?.client_id ?? null);
   };
 
   const savePages = async (override) => {
-    const pagesToSave = Array.isArray(override) ? override : pages;
+    const visiblePagesToSave = Array.isArray(override) ? override : pages;
+    const pagesToSave = [...visiblePagesToSave, ...removedPages];
+    const selectedPageNumber = visiblePagesToSave.find((page) => page.client_id === selectedPageKey)?.page_number;
     setSaving(true);
     setMessage('');
-    const { data, error: saveError } = await saveLegendPages({ versionId: version?.id, pages: pagesToSave });
-    setSaving(false);
-    if (saveError) { setError(saveError); return; }
-    const saved = data.length ? data.map((page) => ({ ...page, client_id: page.id })) : [createPage(1)];
-    setPages(saved);
-    setSelectedPageKey(saved[0]?.client_id ?? null);
-    setMessage('Páginas guardadas.');
+    setSaveError('');
+    try {
+      const { data, error: savePagesError } = await saveLegendPages({ versionId: version?.id, pages: pagesToSave });
+      if (savePagesError) {
+        setSaveError(savePagesError.message || 'No se pudieron guardar las páginas. Intenta de nuevo.');
+        return false;
+      }
+      const saved = Array.isArray(data) && data.length
+        ? data.map((page) => ({ ...page, client_id: page.id }))
+        : [createPage(1)];
+      setPages(saved);
+      setRemovedPages([]);
+      const stillSelected = saved.find((page) => page.page_number === selectedPageNumber) ?? saved[0];
+      setSelectedPageKey(stillSelected?.client_id ?? null);
+      setMessage('Páginas guardadas.');
+      return true;
+    } catch (unexpectedError) {
+      setSaveError(unexpectedError?.message || 'No se pudieron guardar las páginas. Intenta de nuevo.');
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const closeEditor = () => {
+    window.close();
+    if (!window.closed) navigate(`/creator/legends/${legendId}/edit`, { replace: true });
   };
 
   if (loading) return <LoadingState message="Abriendo editor..." />;
@@ -107,46 +135,32 @@ export default function FullscreenEditorialEditorPage() {
 
   return (
     <div className="fullscreen-editorial">
-      <header className="fullscreen-editorial__top">
-        <div className="fullscreen-editorial__title">
-          <strong>{legend?.title || 'Historia'}</strong>
-          <span>Escritura a pantalla completa</span>
-        </div>
-        <div className="fullscreen-editorial__actions">
-          {message && <span className="fullscreen-editorial__msg" role="status">{message}</span>}
-          <button
-            type="button"
-            className="fullscreen-editorial__close"
-            onClick={() => { if (window.opener) window.close(); else window.history.back(); }}
-          >
-            Cerrar
-          </button>
-        </div>
-      </header>
-
-      <div className="fullscreen-editorial__body">
-        <EditorialRichEditor
-          pages={pages}
-          selectedPageId={selectedPage?.client_id}
-          onSelectPage={setSelectedPageKey}
-          onPageDataChange={patchPageById}
-          onTitleChange={(id, title) => patchPageById(id, { title })}
-          onAddPage={addPage}
-          onRemovePage={removePage}
-          onSave={savePages}
-          saving={saving}
-          canSave={Boolean(version?.id)}
-          hideExpand
-          availableModels={(resources.arScenes ?? []).map((scene) => ({
-            id: scene.model_asset_id || scene.id,
-            name: scene.name || 'Modelo 3D',
-          }))}
-          availableMarkers={(resources.arMarkers ?? []).map((marker) => ({
-            id: marker.marker_asset_id || marker.assets?.id || marker.id,
-            name: marker.marker_code || marker.label || 'Marcador',
-          }))}
-        />
-      </div>
+      <EditorialRichEditor
+        pages={pages}
+        selectedPageId={selectedPage?.client_id}
+        onSelectPage={setSelectedPageKey}
+        onPageDataChange={patchPageById}
+        onTitleChange={(id, title) => patchPageById(id, { title })}
+        onAddPage={addPage}
+        onRemovePage={removePage}
+        onSave={savePages}
+        saving={saving}
+        canSave={Boolean(version?.id)}
+        hideExpand
+        variant="fullscreen"
+        legendTitle={legend?.title || 'Historia'}
+        statusMessage={message}
+        statusError={saveError}
+        onClose={closeEditor}
+        availableModels={(resources.arScenes ?? []).map((scene) => ({
+          id: scene.model_asset_id || scene.id,
+          name: scene.name || 'Modelo 3D',
+        }))}
+        availableMarkers={(resources.arMarkers ?? []).map((marker) => ({
+          id: marker.marker_asset_id || marker.assets?.id || marker.id,
+          name: marker.marker_code || marker.label || 'Marcador',
+        }))}
+      />
     </div>
   );
 }
