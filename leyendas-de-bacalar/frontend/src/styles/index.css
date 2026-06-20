@@ -3532,21 +3532,43 @@ pre {
 .creator-editor-header {
   display: flex;
   justify-content: space-between;
-  gap: 18px;
-  align-items: flex-start;
+  gap: 14px;
+  align-items: center;
   border: 1px solid #dbe4ef;
-  border-radius: 24px;
-  padding: 24px;
+  border-radius: 16px;
+  padding: 10px 18px;
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(236, 251, 255, 0.86)),
     #ffffff;
-  box-shadow: 0 18px 42px rgba(21, 38, 89, 0.08);
+  box-shadow: 0 10px 26px rgba(21, 38, 89, 0.07);
 }
 
 .creator-editor-header h1 {
-  margin: 6px 0 4px;
+  margin: 1px 0;
   color: #0f172a;
-  font-size: clamp(1.75rem, 3vw, 2.65rem);
+  font-size: clamp(1.15rem, 2vw, 1.6rem);
+  line-height: 1.15;
+}
+
+.creator-editor-header .creator-kicker { font-size: 0.66rem; }
+.creator-editor-header p:last-child { font-size: 0.78rem; margin: 0; }
+
+/* Header actions are subtle until the header is hovered/focused (always visible on
+   touch / small screens so they stay reachable). */
+.creator-editor-header .creator-editor-actions {
+  opacity: 0.22;
+  transform: translateY(3px);
+  transition: opacity 200ms ease, transform 200ms ease;
+}
+
+.creator-editor-header:hover .creator-editor-actions,
+.creator-editor-header:focus-within .creator-editor-actions {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (max-width: 900px), (hover: none) {
+  .creator-editor-header .creator-editor-actions { opacity: 1; transform: none; }
 }
 
 .creator-editor-header p:last-child,
@@ -8312,6 +8334,45 @@ body.model3d-open .site-header {
   gap: 10px;
 }
 
+/* Quill-style command bar */
+.editorial-editor__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.editorial-editor__toolbar-group { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+
+.editorial-editor__toolbar-sep { width: 1px; align-self: stretch; min-height: 22px; background: #cbd5e1; margin: 0 4px; }
+
+.editorial-editor__toolbar button {
+  min-width: 30px;
+  height: 30px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #dbe4ef;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 130ms ease, border-color 130ms ease, color 130ms ease;
+}
+
+.editorial-editor__toolbar button:hover { background: #eaf6fb; border-color: #30cff2; color: #04202b; }
+.editorial-editor__toolbar button b,
+.editorial-editor__toolbar button i,
+.editorial-editor__toolbar button u,
+.editorial-editor__toolbar button s { font-style: inherit; }
+
 .editorial-editor__body {
   display: grid;
   grid-template-columns: 148px minmax(0, 1fr);
@@ -8529,6 +8590,81 @@ body.model3d-open .site-header {
 .editorial-content .ejs-table { width: 100%; border-collapse: collapse; margin: 0 0 0.8em; }
 .editorial-content .ejs-table td, .editorial-content .ejs-table th { border: 1px solid #e2e8f0; padding: 8px 10px; }
 .editorial-content .ejs-image img { max-width: 100%; border-radius: 10px; }
+.editorial-content .ejs-model3d {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 0.8em;
+  padding: 12px 14px;
+  border: 1px solid #cffafe;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ecfeff, #f0f9ff);
+}
+.editorial-content .ejs-model3d .material-symbols-rounded { font-size: 30px; color: #0e7490; }
+.editorial-content .ejs-model3d__info { flex: 1; min-width: 0; }
+.editorial-content .ejs-model3d__info strong { display: block; color: #0f172a; }
+.editorial-content .ejs-model3d__info p { margin: 2px 0 0; color: #64748b; font-size: 0.85rem; }
+.editorial-content .ejs-model3d button {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: linear-gradient(120deg, #049dd9, #30cff2);
+  color: #04202b;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+/* Standalone "Expandir escritura" full-screen editorial page. */
+.fullscreen-editorial {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: #f1f5f9;
+}
+
+.fullscreen-editorial__top {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px clamp(16px, 4vw, 40px);
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid #e2e8f0;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.fullscreen-editorial__title strong { display: block; color: #0f172a; font-size: 1.05rem; line-height: 1.2; }
+.fullscreen-editorial__title span { color: #64748b; font-size: 0.78rem; }
+.fullscreen-editorial__actions { display: inline-flex; align-items: center; gap: 12px; }
+.fullscreen-editorial__msg { color: #0f766e; font-size: 0.82rem; font-weight: 800; }
+
+.fullscreen-editorial__close {
+  padding: 8px 16px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #334155;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.fullscreen-editorial__close:hover { border-color: #94a3b8; }
+
+.fullscreen-editorial__body {
+  flex: 1;
+  width: min(1100px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: clamp(16px, 3vw, 28px) 0;
+}
+
+/* In the standalone page the editor surface can breathe taller. */
+.fullscreen-editorial .editorial-editor__holder,
+.fullscreen-editorial .editorial-editor__surface,
+.fullscreen-editorial .editorial-editor__preview { min-height: clamp(420px, 62vh, 720px); }
 
 /* Drafts list: which editor a legend will open (manual vs document). */
 .creator-creation-mode-badge {

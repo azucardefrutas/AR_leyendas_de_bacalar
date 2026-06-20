@@ -343,6 +343,8 @@ function normalizePages(pages = []) {
       editor_data: page.editor_data ?? null,
       rendered_html: page.rendered_html ?? null,
       content_format: page.content_format || (page.editor_data ? 'editorjs' : 'plain'),
+      editor_version: page.editor_version ?? null,
+      editor_stats: page.editor_stats ?? null,
     }))
     .sort((a, b) => a.page_number - b.page_number);
 }
@@ -1577,6 +1579,8 @@ export async function saveLegendPages({ versionId, pages = [] }) {
         editor_data: page.editor_data,
         rendered_html: page.rendered_html,
         content_format: page.content_format,
+        editor_version: page.editor_version,
+        editor_stats: page.editor_stats ?? undefined,
       };
 
       const query = page.id

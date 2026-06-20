@@ -7,6 +7,7 @@ import Delimiter from '@editorjs/delimiter';
 import Checklist from '@editorjs/checklist';
 import Table from '@editorjs/table';
 import { editorJsToHtml, editorJsToPlainText } from '../../utils/editorJsToHtml.js';
+import EditorJsPreview from './EditorJsPreview.jsx';
 
 const EDITOR_TOOLS = {
   header: { class: Header, inlineToolbar: true, config: { placeholder: 'Encabezado', levels: [2, 3, 4], defaultLevel: 2 } },
@@ -46,6 +47,8 @@ export default function EditorialRichEditor({
   onSave,
   saving = false,
   canSave = true,
+  expandHref = '',
+  hideExpand = false,
 }) {
   const holderRef = useRef(null);
   const editorRef = useRef(null);
@@ -54,7 +57,7 @@ export default function EditorialRichEditor({
   const debounceRef = useRef(0);
   const [activeTab, setActiveTab] = useState('edit');
   const [expanded, setExpanded] = useState(false);
-  const [previewHtml, setPreviewHtml] = useState('');
+  const [previewData, setPreviewData] = useState(null);
   const [stats, setStats] = useState({ words: 0, chars: 0 });
 
   pagesRef.current = pages;
@@ -69,13 +72,21 @@ export default function EditorialRichEditor({
       const data = await editor.save();
       const html = editorJsToHtml(data);
       const text = editorJsToPlainText(data);
-      onPageDataChange?.(pageId, {
+      const editorStats = {
+        words: countStats(text).words,
+        characters: text.length,
+        blocks: Array.isArray(data.blocks) ? data.blocks.length : 0,
+      };
+      const patch = {
         editor_data: data,
         rendered_html: html,
         text_content: text,
         content_format: 'editorjs',
-      });
-      return { data, html, text };
+        editor_stats: editorStats,
+        editor_version: data.version || null,
+      };
+      onPageDataChange?.(pageId, patch);
+      return { data, html, text, patch };
     } catch {
       return null;
     }
@@ -156,8 +167,7 @@ export default function EditorialRichEditor({
 
   const showPreview = async () => {
     const saved = await persistCurrent();
-    const html = saved ? saved.html : editorJsToHtml(selectedPage?.editor_data);
-    setPreviewHtml(html);
+    setPreviewData(saved ? saved.data : (selectedPage?.editor_data ?? null));
     setActiveTab('preview');
   };
 
@@ -167,17 +177,41 @@ export default function EditorialRichEditor({
     // saved even if React has not flushed the persist setState yet.
     const finalPages = saved
       ? pages.map((page) => (page.client_id === currentPageIdRef.current
-        ? {
-          ...page,
-          editor_data: saved.data,
-          rendered_html: saved.html,
-          text_content: saved.text,
-          content_format: 'editorjs',
-        }
+        ? { ...page, ...saved.patch }
         : page))
       : pages;
     onSave?.(finalPages);
   };
+
+  // Command bar: insert an Editor.js block at the current position (or end).
+  const insertBlock = (type, data = {}) => {
+    const editor = editorRef.current;
+    if (!editor?.blocks) return;
+    if (activeTab !== 'edit') setActiveTab('edit');
+    try {
+      const index = editor.blocks.getCurrentBlockIndex();
+      const at = index >= 0 ? index + 1 : editor.blocks.getBlocksCount();
+      editor.blocks.insert(type, data, undefined, at, true);
+    } catch {
+      try { editor.blocks.insert(type, data); } catch { /* ignore */ }
+    }
+  };
+
+  // Inline formatting on the current selection inside the contenteditable blocks.
+  // execCommand is deprecated but is the simplest reliable way to format a selection
+  // from an external toolbar; Editor.js blocks are contenteditable so it applies.
+  const applyInline = (command, value = null) => {
+    if (activeTab !== 'edit') return;
+    try { document.execCommand(command, false, value); } catch { /* ignore */ }
+  };
+
+  const applyLink = () => {
+    const url = window.prompt('URL del enlace:', 'https://');
+    if (url) applyInline('createLink', url);
+  };
+
+  // Keep the editor selection when clicking a toolbar button (prevent focus steal).
+  const keepSelection = (event) => event.preventDefault();
 
   const pagesWithText = pages.filter((page) => (page.text_content || '').trim()).length;
 
@@ -189,9 +223,21 @@ export default function EditorialRichEditor({
         <div className="editorial-editor__tabs" role="tablist">
           <button type="button" role="tab" aria-selected={activeTab === 'edit'} className={`is-edit ${activeTab === 'edit' ? 'active' : ''}`} onClick={() => setActiveTab('edit')} title="Editar">Editar</button>
           <button type="button" role="tab" aria-selected={activeTab === 'preview'} className={`is-preview ${activeTab === 'preview' ? 'active' : ''}`} onClick={showPreview} title="Vista previa">Vista previa</button>
-          <button type="button" className={`editorial-editor__expand is-expand ${expanded ? 'active' : ''}`} onClick={() => setExpanded((value) => !value)} title={expanded ? 'Reducir' : 'Expandir'}>
-            {expanded ? 'Reducir' : 'Expandir'}
-          </button>
+          {!hideExpand && (
+            <button
+              type="button"
+              className={`editorial-editor__expand is-expand ${expanded ? 'active' : ''}`}
+              onClick={() => {
+                // expandHref opens a clean standalone writing page in a new tab; we save
+                // the current content first so it loads up to date. Otherwise toggle overlay.
+                if (expandHref) { handleSave(); window.open(expandHref, '_blank', 'noopener,noreferrer'); return; }
+                setExpanded((value) => !value);
+              }}
+              title={expandHref ? 'Abrir en pantalla completa' : (expanded ? 'Reducir' : 'Expandir')}
+            >
+              {expandHref ? 'Expandir' : (expanded ? 'Reducir' : 'Expandir')}
+            </button>
+          )}
         </div>
         <div className="editorial-editor__stats" aria-label="Estadísticas">
           <span>{stats.words} palabras</span>
@@ -199,6 +245,30 @@ export default function EditorialRichEditor({
           <span>{pagesWithText} con texto</span>
         </div>
       </div>
+
+      {/* Quill-style command bar that drives Editor.js (inline formatting on the
+          selection + block insertion via the Editor.js blocks API). */}
+      {activeTab === 'edit' && (
+        <div className="editorial-editor__toolbar" role="toolbar" aria-label="Herramientas de formato">
+          <div className="editorial-editor__toolbar-group">
+            <button type="button" title="Negrita" onMouseDown={keepSelection} onClick={() => applyInline('bold')}><b>B</b></button>
+            <button type="button" title="Cursiva" onMouseDown={keepSelection} onClick={() => applyInline('italic')}><i>I</i></button>
+            <button type="button" title="Subrayado" onMouseDown={keepSelection} onClick={() => applyInline('underline')}><u>U</u></button>
+            <button type="button" title="Tachado" onMouseDown={keepSelection} onClick={() => applyInline('strikeThrough')}><s>S</s></button>
+            <button type="button" title="Enlace" onMouseDown={keepSelection} onClick={applyLink}>Link</button>
+          </div>
+          <span className="editorial-editor__toolbar-sep" aria-hidden="true" />
+          <div className="editorial-editor__toolbar-group">
+            <button type="button" title="Título" onClick={() => insertBlock('header', { text: '', level: 2 })}>H2</button>
+            <button type="button" title="Subtítulo" onClick={() => insertBlock('header', { text: '', level: 3 })}>H3</button>
+            <button type="button" title="Lista" onClick={() => insertBlock('list', { style: 'unordered', items: [] })}>Lista</button>
+            <button type="button" title="Checklist" onClick={() => insertBlock('checklist', { items: [] })}>Checklist</button>
+            <button type="button" title="Cita" onClick={() => insertBlock('quote', { text: '', caption: '' })}>Quote</button>
+            <button type="button" title="Separador" onClick={() => insertBlock('delimiter', {})}>—</button>
+            <button type="button" title="Tabla" onClick={() => insertBlock('table', {})}>Tabla</button>
+          </div>
+        </div>
+      )}
 
       <div className="editorial-editor__body">
         <aside className="editorial-editor__rail" aria-label="Páginas de la historia">
@@ -231,10 +301,8 @@ export default function EditorialRichEditor({
           </div>
 
           {activeTab === 'preview' && (
-            <div className="editorial-editor__preview editorial-content" aria-label="Vista previa">
-              {previewHtml
-                ? <div dangerouslySetInnerHTML={{ __html: previewHtml }} />
-                : <p className="editorial-editor__preview-empty">Esta página todavía no tiene contenido.</p>}
+            <div className="editorial-editor__preview" aria-label="Vista previa">
+              <EditorJsPreview data={previewData} />
             </div>
           )}
 

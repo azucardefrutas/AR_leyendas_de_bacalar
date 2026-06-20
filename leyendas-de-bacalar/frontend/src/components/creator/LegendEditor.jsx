@@ -926,6 +926,7 @@ function LegendEditor({ legendId }) {
                   onSave={handleSavePages}
                   saving={saving}
                   canSave={!isReviewLocked}
+                  expandHref={legendId ? `/creator/legends/${legendId}/write` : ''}
                 />
               )}
             </>

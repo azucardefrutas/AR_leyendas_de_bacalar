@@ -53,6 +53,7 @@ const CreatorLegendsPage = lazy(() => import('../pages/creator/CreatorLegendsPag
 const CreatorProfilePage = lazy(() => import('../pages/creator/CreatorProfilePage.jsx'));
 const CreatorReviewsPage = lazy(() => import('../pages/creator/CreatorReviewsPage.jsx'));
 const EditLegendPage = lazy(() => import('../pages/creator/EditLegendPage.jsx'));
+const FullscreenEditorialEditorPage = lazy(() => import('../pages/creator/FullscreenEditorialEditorPage.jsx'));
 const UploadAssetsPage = lazy(() => import('../pages/creator/UploadAssetsPage.jsx'));
 const LibraryPage = lazy(() => import('../pages/reader/LibraryPage.jsx'));
 const ProfilePage = lazy(() => import('../pages/reader/ProfilePage.jsx'));
@@ -123,6 +124,7 @@ export const router = createBrowserRouter([
       {
         element: <CreatorAccessGuard />,
         children: [
+          { path: '/creator/legends/:legendId/write', element: <FullscreenEditorialEditorPage /> },
           {
             path: '/creator',
             element: <CreatorLayout />,
