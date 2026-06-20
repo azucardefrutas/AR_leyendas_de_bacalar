@@ -98,6 +98,17 @@ function Block({ block, onOpenModel }) {
           )}
         </div>
       );
+    case 'marker':
+    case 'leyendaMarker':
+      return (
+        <div className="ejs-model3d ejs-marker">
+          <span className="material-symbols-rounded" aria-hidden="true">crop_free</span>
+          <div className="ejs-model3d__info">
+            <strong>{data.title || 'Marcador'}</strong>
+            {data.caption ? <p><Inline html={data.caption} /></p> : null}
+          </div>
+        </div>
+      );
     default:
       return data.text ? <Inline as="p" html={data.text} /> : null;
   }

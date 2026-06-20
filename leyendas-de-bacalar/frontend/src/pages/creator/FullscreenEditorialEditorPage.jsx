@@ -31,6 +31,7 @@ export default function FullscreenEditorialEditorPage() {
   const [version, setVersion] = useState(null);
   const [pages, setPages] = useState([createPage(1)]);
   const [selectedPageKey, setSelectedPageKey] = useState(null);
+  const [resources, setResources] = useState({ arScenes: [], arMarkers: [] });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -45,6 +46,10 @@ export default function FullscreenEditorialEditorPage() {
     }
     setLegend(data.legend);
     setVersion(data.version);
+    setResources({
+      arScenes: data.arScenes ?? data.resources?.arScenes ?? [],
+      arMarkers: data.arMarkers ?? data.resources?.arMarkers ?? [],
+    });
     const loaded = (data.pages || []).map((page) => ({
       ...page,
       client_id: page.id,
@@ -132,6 +137,14 @@ export default function FullscreenEditorialEditorPage() {
           saving={saving}
           canSave={Boolean(version?.id)}
           hideExpand
+          availableModels={(resources.arScenes ?? []).map((scene) => ({
+            id: scene.model_asset_id || scene.id,
+            name: scene.name || 'Modelo 3D',
+          }))}
+          availableMarkers={(resources.arMarkers ?? []).map((marker) => ({
+            id: marker.marker_asset_id || marker.assets?.id || marker.id,
+            name: marker.marker_code || marker.label || 'Marcador',
+          }))}
         />
       </div>
     </div>

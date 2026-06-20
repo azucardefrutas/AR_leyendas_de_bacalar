@@ -927,6 +927,14 @@ function LegendEditor({ legendId }) {
                   saving={saving}
                   canSave={!isReviewLocked}
                   expandHref={legendId ? `/creator/legends/${legendId}/write` : ''}
+                  availableModels={(existingResources.arScenes ?? []).map((scene) => ({
+                    id: scene.model_asset_id || scene.id,
+                    name: scene.name || 'Modelo 3D',
+                  }))}
+                  availableMarkers={(existingResources.arMarkers ?? []).map((marker) => ({
+                    id: getMarkerAssetId(marker) || marker.id,
+                    name: marker.marker_code || marker.label || 'Marcador',
+                  }))}
                 />
               )}
             </>

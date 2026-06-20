@@ -8496,6 +8496,117 @@ body.model3d-open .site-header {
 
 .editorial-editor__holder .codex-editor__redactor { padding-bottom: 120px !important; }
 
+/* Ensure the Editor.js text is always dark on the white surface (the fullscreen route
+   has no creator layout, so without this it inherits the dark-theme light --text and
+   becomes invisible until selected). Applies in both normal and fullscreen modes. */
+.editorial-editor__holder,
+.editorial-editor__holder .codex-editor,
+.editorial-editor__holder .codex-editor__redactor,
+.editorial-editor__holder .ce-block,
+.editorial-editor__holder .ce-block__content,
+.editorial-editor__holder .ce-paragraph,
+.editorial-editor__holder .ce-header,
+.editorial-editor__holder .cdx-block,
+.editorial-editor__holder .tc-table,
+.editorial-editor__holder .cdx-list,
+.editorial-editor__holder .cdx-checklist__item-text {
+  color: #0f172a;
+}
+
+.editorial-editor__holder .ce-paragraph[data-placeholder]:empty::before,
+.editorial-editor__holder .cdx-block[data-placeholder]:empty::before,
+.editorial-editor__holder [contenteditable][data-placeholder]:empty::before {
+  color: #94a3b8;
+}
+
+.editorial-editor__holder ::selection { background: #bae6fd; color: #0f172a; }
+.editorial-editor__holder a { color: #0369a1; }
+
+/* In-editor cards for the custom Modelo 3D / Marcador block tools. */
+.ejs-tool-card {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border: 1px solid #cffafe;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ecfeff, #f0f9ff);
+}
+.ejs-tool-card__head { display: inline-flex; align-items: center; gap: 8px; color: #0f172a; }
+.ejs-tool-card__head .material-symbols-rounded { color: #0e7490; }
+.ejs-tool-card__select,
+.ejs-tool-card__caption {
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #0f172a;
+  font: inherit;
+}
+.ejs-tool-card__readonly { color: #334155; font-weight: 700; }
+
+/* Editor insert modals (link / image / table / model3d / marker) */
+.editor-modal-form { display: grid; gap: 12px; padding: 4px 2px 2px; }
+.editor-modal-form .field { display: grid; gap: 4px; }
+.editor-modal-form .field > span { font-size: 0.8rem; font-weight: 800; color: #334155; }
+.editor-modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.editor-modal-check { display: inline-flex; align-items: center; gap: 8px; font-size: 0.84rem; font-weight: 600; color: #334155; }
+.editor-modal-or { margin: 0; text-align: center; color: #94a3b8; font-size: 0.78rem; font-weight: 700; }
+.editor-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+.editor-modal-cancel {
+  padding: 9px 16px; border: 1px solid #cbd5e1; border-radius: 999px;
+  background: #ffffff; color: #334155; font-weight: 800; cursor: pointer;
+}
+.editor-modal-confirm {
+  padding: 9px 18px; border: 0; border-radius: 999px;
+  background: linear-gradient(120deg, #049dd9, #30cff2); color: #04202b; font-weight: 850; cursor: pointer;
+}
+.editor-modal-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Standalone fullscreen writing page (route /creator/legends/:id/write) */
+.fullscreen-editorial {
+  min-height: 100dvh;
+  background: #eef2f6;
+  color: #0f172a;
+  padding: clamp(12px, 2vw, 24px);
+  box-sizing: border-box;
+}
+
+.fullscreen-editorial__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 1180px;
+  margin: 0 auto 14px;
+}
+
+.fullscreen-editorial__title { display: flex; flex-direction: column; line-height: 1.2; }
+.fullscreen-editorial__title strong { font-size: 1.15rem; color: #0f172a; }
+.fullscreen-editorial__title span { font-size: 0.78rem; color: #64748b; font-weight: 700; }
+
+.fullscreen-editorial__actions { display: inline-flex; align-items: center; gap: 12px; }
+.fullscreen-editorial__msg { color: #0f766e; font-weight: 800; font-size: 0.84rem; }
+
+.fullscreen-editorial__close {
+  padding: 9px 18px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #334155;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.fullscreen-editorial__close:hover { border-color: #30cff2; color: #04202b; }
+
+.fullscreen-editorial__body { max-width: 1180px; margin: 0 auto; }
+
+/* Hide the global fixed navbar while the standalone writer is open. */
+body.fullscreen-editorial-open .site-header { display: none; }
+
 .editorial-editor__preview {
   min-height: 320px;
   padding: 14px clamp(8px, 4%, 40px);

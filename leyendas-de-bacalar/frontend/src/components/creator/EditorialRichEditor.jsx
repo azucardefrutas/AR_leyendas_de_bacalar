@@ -6,17 +6,49 @@ import Quote from '@editorjs/quote';
 import Delimiter from '@editorjs/delimiter';
 import Checklist from '@editorjs/checklist';
 import Table from '@editorjs/table';
+import ImageTool from '@editorjs/image';
 import { editorJsToHtml, editorJsToPlainText } from '../../utils/editorJsToHtml.js';
 import EditorJsPreview from './EditorJsPreview.jsx';
+import { makeAssetCardTool } from './editorBlockTools.js';
+import InsertLinkModal from './editor-modals/InsertLinkModal.jsx';
+import InsertImageModal from './editor-modals/InsertImageModal.jsx';
+import InsertTableModal from './editor-modals/InsertTableModal.jsx';
+import InsertModel3DModal from './editor-modals/InsertModel3DModal.jsx';
+import InsertMarkerModal from './editor-modals/InsertMarkerModal.jsx';
 
-const EDITOR_TOOLS = {
-  header: { class: Header, inlineToolbar: true, config: { placeholder: 'Encabezado', levels: [2, 3, 4], defaultLevel: 2 } },
-  list: { class: List, inlineToolbar: true },
-  quote: { class: Quote, inlineToolbar: true },
-  delimiter: { class: Delimiter },
-  checklist: { class: Checklist, inlineToolbar: true },
-  table: { class: Table, inlineToolbar: true },
-};
+const Model3DTool = makeAssetCardTool({ kind: 'model3d', toolTitle: 'Modelo 3D' });
+const MarkerTool = makeAssetCardTool({ kind: 'marker', toolTitle: 'Marcador' });
+
+const isHttpUrl = (value = '') => /^https?:\/\//i.test(String(value).trim());
+
+// Tools config is built per editor so the image uploader and the model/marker pickers
+// receive the legend's assets + upload handler.
+function buildTools({ availableModels = [], availableMarkers = [], onUploadImage = null }) {
+  return {
+    header: { class: Header, inlineToolbar: true, config: { placeholder: 'Encabezado', levels: [1, 2, 3, 4], defaultLevel: 2 } },
+    list: { class: List, inlineToolbar: true },
+    quote: { class: Quote, inlineToolbar: true },
+    delimiter: { class: Delimiter },
+    checklist: { class: Checklist, inlineToolbar: true },
+    table: { class: Table, inlineToolbar: true },
+    image: {
+      class: ImageTool,
+      config: {
+        uploader: {
+          // URL images need no backend. File upload uses the provided handler (if any).
+          uploadByUrl: (url) => Promise.resolve(
+            isHttpUrl(url) ? { success: 1, file: { url } } : { success: 0 },
+          ),
+          uploadByFile: (file) => (onUploadImage
+            ? Promise.resolve(onUploadImage(file)).then((url) => ({ success: url ? 1 : 0, file: { url } }))
+            : Promise.reject(new Error('Subida de archivos no disponible; usa una URL.'))),
+        },
+      },
+    },
+    model3d: { class: Model3DTool, config: { assets: availableModels } },
+    marker: { class: MarkerTool, config: { assets: availableMarkers } },
+  };
+}
 
 const emptyData = () => ({ blocks: [] });
 
@@ -49,6 +81,10 @@ export default function EditorialRichEditor({
   canSave = true,
   expandHref = '',
   hideExpand = false,
+  availableModels = [],
+  availableMarkers = [],
+  onUploadImage = null,
+  onGoToResources = null,
 }) {
   const holderRef = useRef(null);
   const editorRef = useRef(null);
@@ -59,8 +95,12 @@ export default function EditorialRichEditor({
   const [expanded, setExpanded] = useState(false);
   const [previewData, setPreviewData] = useState(null);
   const [stats, setStats] = useState({ words: 0, chars: 0 });
+  const [openModal, setOpenModal] = useState(null); // 'link' | 'image' | 'table' | 'model3d' | 'marker'
 
   pagesRef.current = pages;
+  // Keep the latest tool options available to the one-time editor init.
+  const toolsOptionsRef = useRef({ availableModels, availableMarkers, onUploadImage });
+  toolsOptionsRef.current = { availableModels, availableMarkers, onUploadImage };
   const selectedPage = pages.find((page) => page.client_id === selectedPageId) ?? pages[0];
 
   // Save the editor's current content back into its page (returns the saved payload).
@@ -103,7 +143,7 @@ export default function EditorialRichEditor({
       autofocus: false,
       placeholder: 'Escribe la historia de esta página…',
       data: startPage?.editor_data?.blocks ? startPage.editor_data : emptyData(),
-      tools: EDITOR_TOOLS,
+      tools: buildTools(toolsOptionsRef.current),
       onChange: () => {
         window.clearTimeout(debounceRef.current);
         debounceRef.current = window.setTimeout(async () => {
@@ -205,10 +245,28 @@ export default function EditorialRichEditor({
     try { document.execCommand(command, false, value); } catch { /* ignore */ }
   };
 
-  const applyLink = () => {
-    const url = window.prompt('URL del enlace:', 'https://');
-    if (url) applyInline('createLink', url);
+  const escapeHtml = (value = '') => String(value)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  const handleInsertLink = ({ url, text, newTab, rel }) => {
+    const safeUrl = String(url).replace(/"/g, '%22');
+    const attrs = `href="${safeUrl}"${newTab ? ' target="_blank"' : ''}${rel ? ` rel="${rel}"` : ''}`;
+    insertBlock('paragraph', { text: `<a ${attrs}>${escapeHtml(text)}</a>` });
+    setOpenModal(null);
   };
+
+  const handleInsertImage = ({ url, caption }) => {
+    if (isHttpUrl(url)) insertBlock('image', { file: { url }, caption: caption || '' });
+    setOpenModal(null);
+  };
+
+  const handleInsertTable = ({ withHeadings, content }) => {
+    insertBlock('table', { withHeadings, content });
+    setOpenModal(null);
+  };
+
+  const handleInsertModel3D = (data) => { insertBlock('model3d', data); setOpenModal(null); };
+  const handleInsertMarker = (data) => { insertBlock('marker', data); setOpenModal(null); };
 
   // Keep the editor selection when clicking a toolbar button (prevent focus steal).
   const keepSelection = (event) => event.preventDefault();
@@ -255,7 +313,7 @@ export default function EditorialRichEditor({
             <button type="button" title="Cursiva" onMouseDown={keepSelection} onClick={() => applyInline('italic')}><i>I</i></button>
             <button type="button" title="Subrayado" onMouseDown={keepSelection} onClick={() => applyInline('underline')}><u>U</u></button>
             <button type="button" title="Tachado" onMouseDown={keepSelection} onClick={() => applyInline('strikeThrough')}><s>S</s></button>
-            <button type="button" title="Enlace" onMouseDown={keepSelection} onClick={applyLink}>Link</button>
+            <button type="button" title="Enlace" onClick={() => setOpenModal('link')}>Link</button>
           </div>
           <span className="editorial-editor__toolbar-sep" aria-hidden="true" />
           <div className="editorial-editor__toolbar-group">
@@ -265,7 +323,10 @@ export default function EditorialRichEditor({
             <button type="button" title="Checklist" onClick={() => insertBlock('checklist', { items: [] })}>Checklist</button>
             <button type="button" title="Cita" onClick={() => insertBlock('quote', { text: '', caption: '' })}>Quote</button>
             <button type="button" title="Separador" onClick={() => insertBlock('delimiter', {})}>—</button>
-            <button type="button" title="Tabla" onClick={() => insertBlock('table', {})}>Tabla</button>
+            <button type="button" title="Tabla" onClick={() => setOpenModal('table')}>Tabla</button>
+            <button type="button" title="Imagen" onClick={() => setOpenModal('image')}>Imagen</button>
+            <button type="button" title="Modelo 3D" onClick={() => setOpenModal('model3d')}>Modelo 3D</button>
+            <button type="button" title="Marcador" onClick={() => setOpenModal('marker')}>Marcador</button>
           </div>
         </div>
       )}
@@ -316,6 +377,22 @@ export default function EditorialRichEditor({
       </div>
 
       {expanded && <button type="button" className="editorial-editor__expand-backdrop" aria-label="Reducir escritura" onClick={() => setExpanded(false)} />}
+
+      {openModal === 'link' && (
+        <InsertLinkModal onInsert={handleInsertLink} onClose={() => setOpenModal(null)} />
+      )}
+      {openModal === 'image' && (
+        <InsertImageModal onInsert={handleInsertImage} onClose={() => setOpenModal(null)} onUploadImage={onUploadImage} />
+      )}
+      {openModal === 'table' && (
+        <InsertTableModal onInsert={handleInsertTable} onClose={() => setOpenModal(null)} />
+      )}
+      {openModal === 'model3d' && (
+        <InsertModel3DModal assets={availableModels} onInsert={handleInsertModel3D} onClose={() => setOpenModal(null)} onGoToResources={onGoToResources} />
+      )}
+      {openModal === 'marker' && (
+        <InsertMarkerModal assets={availableMarkers} onInsert={handleInsertMarker} onClose={() => setOpenModal(null)} onGoToResources={onGoToResources} />
+      )}
     </div>
   );
 }
