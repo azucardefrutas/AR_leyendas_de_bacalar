@@ -38,6 +38,14 @@ const FILE_RULES_BY_TYPE = {
     folder: 'backdrop',
     dbAssetType: 'backdrop',
   },
+  editor_image: {
+    extensions: ['png', 'jpg', 'jpeg', 'webp'],
+    mimeTypes: ['image/png', 'image/jpeg', 'image/webp'],
+    maxBytes: 10 * MB,
+    bucket: STORAGE_BUCKETS.assets,
+    folder: 'editor-images',
+    dbAssetType: 'image',
+  },
   pdf: {
     extensions: ['pdf'],
     mimeTypes: ['application/pdf'],
@@ -76,6 +84,7 @@ const FILE_RULES_BY_TYPE = {
   model_3d: {
     extensions: ['glb', 'gltf'],
     mimeTypes: ['model/gltf-binary', 'model/gltf+json', 'application/octet-stream', ''],
+    maxBytes: 50 * MB,
     bucket: STORAGE_BUCKETS.assets,
     folder: 'models',
     dbAssetType: 'model_3d',
@@ -83,6 +92,7 @@ const FILE_RULES_BY_TYPE = {
   marker_image: {
     extensions: ['png', 'jpg', 'jpeg', 'webp'],
     mimeTypes: ['image/png', 'image/jpeg', 'image/webp'],
+    maxBytes: 10 * MB,
     bucket: STORAGE_BUCKETS.assets,
     folder: 'markers',
     dbAssetType: 'marker_image',
@@ -737,9 +747,9 @@ export async function createArMarker({ legendId, sceneId, markerAssetId }) {
 }
 
 export async function getLegendResources(legendId) {
-  if (isInvalidId(legendId)) return { data: { media: [], documents: [], arScenes: [], arMarkers: [] }, error: null };
+  if (isInvalidId(legendId)) return { data: { media: [], documents: [], modelAssets: [], arScenes: [], arMarkers: [] }, error: null };
   const { data: client, error: clientError } = getClient();
-  if (clientError) return { data: { media: [], documents: [], arScenes: [], arMarkers: [] }, error: clientError };
+  if (clientError) return { data: { media: [], documents: [], modelAssets: [], arScenes: [], arMarkers: [] }, error: clientError };
 
   try {
     const [mediaResult, documentsResult] = await Promise.all([
@@ -755,7 +765,7 @@ export async function getLegendResources(legendId) {
     const pageIds = await getLegendPageIds(client, legendId);
     const modelAssetsResult = await client
       .from('assets')
-      .select('id')
+      .select('*')
       .eq('asset_type', 'model_3d')
       .eq('metadata->>legend_id', legendId);
     if (modelAssetsResult.error) logStorageError('select model assets', { table: 'assets', error: modelAssetsResult.error });
@@ -789,9 +799,10 @@ export async function getLegendResources(legendId) {
       : { data: [], error: null };
     if (markersResult.error) logStorageError('select ar markers', { table: 'ar_markers', error: markersResult.error });
 
-    const [media, documents, arScenes, linkedArMarkers, markerAssets] = await Promise.all([
+    const [media, documents, modelAssets, arScenes, linkedArMarkers, markerAssets] = await Promise.all([
       hydrateRowsWithAssets(client, mediaResult.data ?? []),
       hydrateRowsWithAssets(client, documentsResult.data ?? []),
+      Promise.all((modelAssetsResult.data ?? []).map((asset) => resolveAssetForClient(client, asset))),
       hydrateRowsWithAssets(client, sceneRows),
       hydrateRowsWithAssets(client, markersResult.data ?? []),
       Promise.all((markerAssetsResult.data ?? []).map((asset) => resolveAssetForClient(client, asset))),
@@ -819,6 +830,7 @@ export async function getLegendResources(legendId) {
       data: {
         media,
         documents,
+        modelAssets: modelAssets.filter(Boolean),
         arScenes,
         arMarkers: [...markerMap.values()],
       },
@@ -826,7 +838,7 @@ export async function getLegendResources(legendId) {
     };
   } catch (error) {
     logStorageError('get legend resources error', { error });
-    return { data: { media: [], documents: [], arScenes: [], arMarkers: [] }, error: null };
+    return { data: { media: [], documents: [], modelAssets: [], arScenes: [], arMarkers: [] }, error: null };
   }
 }
 

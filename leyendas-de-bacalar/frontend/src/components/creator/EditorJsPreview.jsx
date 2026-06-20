@@ -81,7 +81,7 @@ function Block({ block, onOpenModel }) {
       if (!url) return null;
       return (
         <figure className="ejs-image">
-          <img src={url} alt={stripTags(data.caption)} loading="lazy" />
+          <img src={url} alt={stripTags(data.alt || data.caption)} loading="lazy" />
           {data.caption ? <figcaption><Inline html={data.caption} /></figcaption> : null}
         </figure>
       );
@@ -103,7 +103,9 @@ function Block({ block, onOpenModel }) {
     case 'leyendaMarker':
       return (
         <div className="ejs-model3d ejs-marker">
-          <span className="ejs-model3d__icon"><EditorIcon name="bookmark" size={24} /></span>
+          {data.previewUrl
+            ? <img className="ejs-marker__thumbnail" src={data.previewUrl} alt="" loading="lazy" />
+            : <span className="ejs-model3d__icon"><EditorIcon name="bookmark" size={24} /></span>}
           <div className="ejs-model3d__info">
             <strong>{data.title || 'Marcador'}</strong>
             {data.caption ? <p><Inline html={data.caption} /></p> : null}

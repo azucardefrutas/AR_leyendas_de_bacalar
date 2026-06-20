@@ -1528,7 +1528,7 @@ export async function getLegendEditorData(legendId) {
     }
 
     const resourcesResult = await getLegendResources(legend.id);
-    const resources = resourcesResult.data ?? { media: [], documents: [], arScenes: [], arMarkers: [] };
+    const resources = resourcesResult.data ?? { media: [], documents: [], modelAssets: [], arScenes: [], arMarkers: [] };
     const genresResult = await getLegendGenres(client, legend.id);
 
     return {
@@ -1539,6 +1539,7 @@ export async function getLegendEditorData(legendId) {
         genres: genresResult.data ?? [],
         media: resources.media ?? [],
         sourceDocuments: resources.documents ?? [],
+        modelAssets: resources.modelAssets ?? [],
         arScenes: resources.arScenes ?? [],
         arMarkers: resources.arMarkers ?? [],
         resources,

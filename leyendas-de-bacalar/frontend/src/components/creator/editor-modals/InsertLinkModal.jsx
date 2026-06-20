@@ -1,45 +1,67 @@
 import React, { useState } from 'react';
-import Modal from '../../ui/Modal.jsx';
+import EditorModal from './EditorModal.jsx';
+import { buildRelValue, isSafeHttpUrl } from './editorModalUtils.js';
 
-const isHttpUrl = (value = '') => /^https?:\/\//i.test(String(value).trim());
-
-/**
- * Insert a link as a sanitized paragraph block. The preview/backend sanitize the markup,
- * so no raw HTML is ever shown.
- */
 export default function InsertLinkModal({ onInsert, onClose }) {
   const [url, setUrl] = useState('https://');
   const [text, setText] = useState('');
   const [newTab, setNewTab] = useState(true);
   const [noopener, setNoopener] = useState(true);
+  const [noreferrer, setNoreferrer] = useState(true);
   const [nofollow, setNofollow] = useState(false);
+  const [ugc, setUgc] = useState(false);
+  const [sponsored, setSponsored] = useState(false);
   const [error, setError] = useState('');
 
   const submit = (event) => {
     event.preventDefault();
-    if (!isHttpUrl(url)) { setError('La URL debe empezar con http(s)://'); return; }
-    const rel = [noopener && 'noopener noreferrer', nofollow && 'nofollow'].filter(Boolean).join(' ');
-    onInsert({ url: url.trim(), text: (text.trim() || url.trim()), newTab, rel });
+    if (!isSafeHttpUrl(url)) {
+      setError('Usa una URL válida que empiece con http:// o https://.');
+      return;
+    }
+
+    onInsert({
+      url: url.trim(),
+      text: text.trim() || url.trim(),
+      newTab,
+      rel: buildRelValue({ newTab, noopener, noreferrer, nofollow, ugc, sponsored }),
+    });
   };
 
   return (
-    <Modal title="Insertar enlace" onClose={onClose}>
+    <EditorModal
+      title="Insertar enlace"
+      description="Crea un enlace seguro dentro de un bloque de texto."
+      onClose={onClose}
+    >
       <form className="editor-modal-form" onSubmit={submit}>
-        <label className="field"><span>URL</span>
-          <input className="standalone-input" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://..." />
+        <label className="field">
+          <span>URL</span>
+          <input data-autofocus value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://ejemplo.com" />
         </label>
-        <label className="field"><span>Texto</span>
-          <input className="standalone-input" value={text} onChange={(e) => setText(e.target.value)} placeholder="Texto del enlace" />
+        <label className="field">
+          <span>Texto</span>
+          <input value={text} onChange={(event) => setText(event.target.value)} placeholder="Texto visible del enlace" />
         </label>
-        <label className="editor-modal-check"><input type="checkbox" checked={newTab} onChange={(e) => setNewTab(e.target.checked)} /> Abrir en nueva pestaña</label>
-        <label className="editor-modal-check"><input type="checkbox" checked={noopener} onChange={(e) => setNoopener(e.target.checked)} /> rel="noopener noreferrer"</label>
-        <label className="editor-modal-check"><input type="checkbox" checked={nofollow} onChange={(e) => setNofollow(e.target.checked)} /> rel="nofollow"</label>
-        {error && <p className="error-message">{error}</p>}
+
+        <fieldset className="editor-modal-fieldset">
+          <legend>Comportamiento y atributos rel</legend>
+          <label className="editor-modal-check"><input type="checkbox" checked={newTab} onChange={(event) => setNewTab(event.target.checked)} /> Abrir en nueva pestaña</label>
+          <div className="editor-modal-check-grid">
+            <label className="editor-modal-check"><input type="checkbox" checked={noopener} onChange={(event) => setNoopener(event.target.checked)} /> noopener</label>
+            <label className="editor-modal-check"><input type="checkbox" checked={noreferrer} onChange={(event) => setNoreferrer(event.target.checked)} /> noreferrer</label>
+            <label className="editor-modal-check"><input type="checkbox" checked={nofollow} onChange={(event) => setNofollow(event.target.checked)} /> nofollow</label>
+            <label className="editor-modal-check"><input type="checkbox" checked={ugc} onChange={(event) => setUgc(event.target.checked)} /> ugc</label>
+            <label className="editor-modal-check"><input type="checkbox" checked={sponsored} onChange={(event) => setSponsored(event.target.checked)} /> sponsored</label>
+          </div>
+        </fieldset>
+
+        {error && <p className="editor-modal-error" role="alert">{error}</p>}
         <div className="editor-modal-actions">
           <button type="button" className="editor-modal-cancel" onClick={onClose}>Cancelar</button>
-          <button type="submit" className="editor-modal-confirm">Insertar</button>
+          <button type="submit" className="editor-modal-confirm">Insertar enlace</button>
         </div>
       </form>
-    </Modal>
+    </EditorModal>
   );
 }

@@ -1239,6 +1239,7 @@ function CreateLegendPage() {
               saving={saving}
               canSave={hasDraft}
               expandHref={hasDraft && draft?.legend?.id ? `/creator/legends/${draft.legend.id}/write` : ''}
+              legendId={draft?.legend?.id || ''}
             />
           </div>
         )}

@@ -352,7 +352,7 @@ function LegendEditor({ legendId }) {
   const [selectedPageKey, setSelectedPageKey] = useState(null);
   const [legendCreationMode, setLegendCreationMode] = useState(null);
   const [resources, setResources] = useState(defaultResources);
-  const [existingResources, setExistingResources] = useState({ media: [], documents: [], arScenes: [], arMarkers: [] });
+  const [existingResources, setExistingResources] = useState({ media: [], documents: [], modelAssets: [], arScenes: [], arMarkers: [] });
   const [activeScene, setActiveScene] = useState(null);
   const [arPageNumber] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -431,6 +431,7 @@ function LegendEditor({ legendId }) {
       setExistingResources({
         media: data.media ?? data.resources?.media ?? [],
         documents: data.sourceDocuments ?? data.resources?.documents ?? [],
+        modelAssets: data.modelAssets ?? data.resources?.modelAssets ?? [],
         arScenes: data.arScenes ?? data.resources?.arScenes ?? [],
         arMarkers: data.arMarkers ?? data.resources?.arMarkers ?? [],
       });
@@ -927,14 +928,9 @@ function LegendEditor({ legendId }) {
                   saving={saving}
                   canSave={!isReviewLocked}
                   expandHref={legendId ? `/creator/legends/${legendId}/write` : ''}
-                  availableModels={(existingResources.arScenes ?? []).map((scene) => ({
-                    id: scene.model_asset_id || scene.id,
-                    name: scene.name || 'Modelo 3D',
-                  }))}
-                  availableMarkers={(existingResources.arMarkers ?? []).map((marker) => ({
-                    id: getMarkerAssetId(marker) || marker.id,
-                    name: marker.marker_code || marker.label || 'Marcador',
-                  }))}
+                  legendId={legendId}
+                  availableModels={[...(existingResources.modelAssets ?? []), ...(existingResources.arScenes ?? [])]}
+                  availableMarkers={existingResources.arMarkers ?? []}
                 />
               )}
             </>

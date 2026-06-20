@@ -33,7 +33,7 @@ export default function FullscreenEditorialEditorPage() {
   const [pages, setPages] = useState([createPage(1)]);
   const [removedPages, setRemovedPages] = useState([]);
   const [selectedPageKey, setSelectedPageKey] = useState(null);
-  const [resources, setResources] = useState({ arScenes: [], arMarkers: [] });
+  const [resources, setResources] = useState({ modelAssets: [], arScenes: [], arMarkers: [] });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [saveError, setSaveError] = useState('');
@@ -50,6 +50,7 @@ export default function FullscreenEditorialEditorPage() {
     setLegend(data.legend);
     setVersion(data.version);
     setResources({
+      modelAssets: data.modelAssets ?? data.resources?.modelAssets ?? [],
       arScenes: data.arScenes ?? data.resources?.arScenes ?? [],
       arMarkers: data.arMarkers ?? data.resources?.arMarkers ?? [],
     });
@@ -152,14 +153,9 @@ export default function FullscreenEditorialEditorPage() {
         statusMessage={message}
         statusError={saveError}
         onClose={closeEditor}
-        availableModels={(resources.arScenes ?? []).map((scene) => ({
-          id: scene.model_asset_id || scene.id,
-          name: scene.name || 'Modelo 3D',
-        }))}
-        availableMarkers={(resources.arMarkers ?? []).map((marker) => ({
-          id: marker.marker_asset_id || marker.assets?.id || marker.id,
-          name: marker.marker_code || marker.label || 'Marcador',
-        }))}
+        legendId={legendId}
+        availableModels={[...(resources.modelAssets ?? []), ...(resources.arScenes ?? [])]}
+        availableMarkers={resources.arMarkers ?? []}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import EditorJS from '@editorjs/editorjs';
 import Header from '@editorjs/header';
 import List from '@editorjs/list';
@@ -7,6 +7,7 @@ import Delimiter from '@editorjs/delimiter';
 import Checklist from '@editorjs/checklist';
 import Table from '@editorjs/table';
 import ImageTool from '@editorjs/image';
+import { uploadLegendAsset } from '../../services/assetService.js';
 import { editorJsToHtml, editorJsToPlainText } from '../../utils/editorJsToHtml.js';
 import EditorJsPreview from './EditorJsPreview.jsx';
 import EditorJsToolbar, { EditorIcon } from './EditorJsToolbar.jsx';
@@ -16,11 +17,36 @@ import InsertImageModal from './editor-modals/InsertImageModal.jsx';
 import InsertTableModal from './editor-modals/InsertTableModal.jsx';
 import InsertModel3DModal from './editor-modals/InsertModel3DModal.jsx';
 import InsertMarkerModal from './editor-modals/InsertMarkerModal.jsx';
+import { isSafeHttpUrl } from './editor-modals/editorModalUtils.js';
 
 const Model3DTool = makeAssetCardTool({ kind: 'model3d', toolTitle: 'Modelo 3D' });
 const MarkerTool = makeAssetCardTool({ kind: 'marker', toolTitle: 'Marcador' });
+const Model3DViewer = lazy(() => import('../3d/Model3DViewer.jsx'));
 
-const isHttpUrl = (value = '') => /^https?:\/\//i.test(String(value).trim());
+function getAssetUrl(asset = {}) {
+  return asset.previewUrl || asset.url || asset.public_url || asset.file_url || asset.external_url || asset.signed_url || '';
+}
+
+function normalizeEditorAsset(asset = {}, fallbackName) {
+  const nestedAsset = asset.assets || asset.asset || asset;
+  const id = asset.model_asset_id || asset.marker_asset_id || nestedAsset.id || asset.id;
+  return {
+    id,
+    name: nestedAsset.metadata?.original_name || asset.name || asset.marker_code || fallbackName || id,
+    fileSize: nestedAsset.file_size || asset.fileSize || null,
+    status: asset.status || nestedAsset.status || 'guardado',
+    previewUrl: getAssetUrl(nestedAsset),
+  };
+}
+
+function normalizeAssetList(assets = [], fallbackName) {
+  const byId = new Map();
+  for (const asset of assets) {
+    const normalized = normalizeEditorAsset(asset, fallbackName);
+    if (normalized.id) byId.set(String(normalized.id), normalized);
+  }
+  return [...byId.values()];
+}
 
 // Tools config is built per editor so the image uploader and the model/marker pickers
 // receive the legend's assets + upload handler.
@@ -38,7 +64,7 @@ function buildTools({ availableModels = [], availableMarkers = [], onUploadImage
         uploader: {
           // URL images need no backend. File upload uses the provided handler (if any).
           uploadByUrl: (url) => Promise.resolve(
-            isHttpUrl(url) ? { success: 1, file: { url } } : { success: 0 },
+            isSafeHttpUrl(url) ? { success: 1, file: { url } } : { success: 0 },
           ),
           uploadByFile: (file) => (onUploadImage
             ? Promise.resolve(onUploadImage(file)).then((url) => ({ success: url ? 1 : 0, file: { url } }))
@@ -48,6 +74,7 @@ function buildTools({ availableModels = [], availableMarkers = [], onUploadImage
     },
     model3d: { class: Model3DTool, config: { assets: availableModels } },
     marker: { class: MarkerTool, config: { assets: availableMarkers } },
+    leyendaMarker: { class: MarkerTool, config: { assets: availableMarkers } },
   };
 }
 
@@ -85,7 +112,7 @@ export default function EditorialRichEditor({
   availableModels = [],
   availableMarkers = [],
   onUploadImage = null,
-  onGoToResources = null,
+  legendId = '',
   variant = 'default',
   legendTitle = '',
   statusMessage = '',
@@ -106,12 +133,51 @@ export default function EditorialRichEditor({
   const [editorError, setEditorError] = useState('');
   const [dirty, setDirty] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [previewModel, setPreviewModel] = useState(null);
+  const [modelOptions, setModelOptions] = useState(() => normalizeAssetList(availableModels, 'Modelo 3D'));
+  const [markerOptions, setMarkerOptions] = useState(() => normalizeAssetList(availableMarkers, 'Marcador'));
   const isFullscreen = variant === 'fullscreen';
+
+  useEffect(() => {
+    setModelOptions((current) => normalizeAssetList([...availableModels, ...current], 'Modelo 3D'));
+  }, [availableModels]);
+
+  useEffect(() => {
+    setMarkerOptions((current) => normalizeAssetList([...availableMarkers, ...current], 'Marcador'));
+  }, [availableMarkers]);
+
+  const uploadEditorAsset = useCallback(async (file, assetType, fallbackName) => {
+    if (!legendId) throw new Error('Guarda la leyenda antes de subir recursos.');
+    const result = await uploadLegendAsset({ file, legendId, assetType });
+    if (result.error) throw result.error;
+    const asset = result.data?.asset || result.data;
+    if (!asset?.id) throw new Error('No se obtuvo un asset válido después de la subida.');
+    return normalizeEditorAsset(asset, fallbackName || file.name);
+  }, [legendId]);
+
+  const uploadEditorImage = useCallback(async (file) => {
+    if (onUploadImage) return onUploadImage(file);
+    const uploaded = await uploadEditorAsset(file, 'editor_image', file.name);
+    if (!uploaded.previewUrl) throw new Error('La imagen se guardó, pero no tiene una URL utilizable.');
+    return uploaded.previewUrl;
+  }, [onUploadImage, uploadEditorAsset]);
+
+  const uploadEditorModel = useCallback(async (file) => {
+    const uploaded = await uploadEditorAsset(file, 'model_3d', file.name);
+    setModelOptions((current) => [uploaded, ...current.filter((asset) => String(asset.id) !== String(uploaded.id))]);
+    return uploaded;
+  }, [uploadEditorAsset]);
+
+  const uploadEditorMarker = useCallback(async (file) => {
+    const uploaded = await uploadEditorAsset(file, 'marker_image', file.name);
+    setMarkerOptions((current) => [uploaded, ...current.filter((asset) => String(asset.id) !== String(uploaded.id))]);
+    return uploaded;
+  }, [uploadEditorAsset]);
 
   pagesRef.current = pages;
   // Keep the latest tool options available to the one-time editor init.
-  const toolsOptionsRef = useRef({ availableModels, availableMarkers, onUploadImage });
-  toolsOptionsRef.current = { availableModels, availableMarkers, onUploadImage };
+  const toolsOptionsRef = useRef({ availableModels: modelOptions, availableMarkers: markerOptions, onUploadImage: uploadEditorImage });
+  toolsOptionsRef.current = { availableModels: modelOptions, availableMarkers: markerOptions, onUploadImage: uploadEditorImage };
   const selectedPage = pages.find((page) => page.client_id === selectedPageId) ?? pages[0];
 
   // Save the editor's current content back into its page (returns the saved payload).
@@ -301,8 +367,17 @@ export default function EditorialRichEditor({
     setOpenModal(null);
   };
 
-  const handleInsertImage = ({ url, caption }) => {
-    if (isHttpUrl(url)) insertBlock('image', { file: { url }, caption: caption || '' });
+  const handleInsertImage = ({ url, alt, caption }) => {
+    if (isSafeHttpUrl(url)) {
+      insertBlock('image', {
+        file: { url },
+        alt: alt || '',
+        caption: caption || '',
+        withBorder: false,
+        withBackground: false,
+        stretched: false,
+      });
+    }
     setOpenModal(null);
   };
 
@@ -312,7 +387,15 @@ export default function EditorialRichEditor({
   };
 
   const handleInsertModel3D = (data) => { insertBlock('model3d', data); setOpenModal(null); };
-  const handleInsertMarker = (data) => { insertBlock('marker', data); setOpenModal(null); };
+  const handleInsertMarker = (data) => { insertBlock('leyendaMarker', data); setOpenModal(null); };
+  const handleOpenModel = (data) => {
+    const asset = modelOptions.find((option) => String(option.id) === String(data.assetId));
+    if (!asset?.previewUrl) {
+      setEditorError('El modelo está registrado, pero no tiene una URL utilizable para abrir el visor.');
+      return;
+    }
+    setPreviewModel({ ...data, modelUrl: asset.previewUrl, title: data.title || asset.name });
+  };
 
   const pagesWithText = useMemo(
     () => pages.filter((page) => (page.text_content || '').trim()).length,
@@ -434,7 +517,7 @@ export default function EditorialRichEditor({
 
       {activeTab === 'preview' && (
         <div className="editorial-editor__preview" aria-label="Vista previa">
-          <EditorJsPreview data={previewData} />
+          <EditorJsPreview data={previewData} onOpenModel={handleOpenModel} />
         </div>
       )}
     </>
@@ -483,8 +566,8 @@ export default function EditorialRichEditor({
           onInline={applyInline}
           onInsertBlock={insertBlock}
           onOpenModal={setOpenModal}
-          showModel3d={availableModels.length > 0 || Boolean(onGoToResources)}
-          showMarker={availableMarkers.length > 0 || Boolean(onGoToResources)}
+          showModel3d={modelOptions.length > 0 || Boolean(legendId)}
+          showMarker={markerOptions.length > 0 || Boolean(legendId)}
         />
       )}
 
@@ -560,16 +643,39 @@ export default function EditorialRichEditor({
         <InsertLinkModal onInsert={handleInsertLink} onClose={() => setOpenModal(null)} />
       )}
       {openModal === 'image' && (
-        <InsertImageModal onInsert={handleInsertImage} onClose={() => setOpenModal(null)} onUploadImage={onUploadImage} />
+        <InsertImageModal
+          onInsert={handleInsertImage}
+          onClose={() => setOpenModal(null)}
+          onUploadImage={(onUploadImage || legendId) ? uploadEditorImage : null}
+        />
       )}
       {openModal === 'table' && (
         <InsertTableModal onInsert={handleInsertTable} onClose={() => setOpenModal(null)} />
       )}
       {openModal === 'model3d' && (
-        <InsertModel3DModal assets={availableModels} onInsert={handleInsertModel3D} onClose={() => setOpenModal(null)} onGoToResources={onGoToResources} />
+        <InsertModel3DModal
+          assets={modelOptions}
+          onInsert={handleInsertModel3D}
+          onClose={() => setOpenModal(null)}
+          onUploadAsset={legendId ? uploadEditorModel : null}
+        />
       )}
       {openModal === 'marker' && (
-        <InsertMarkerModal assets={availableMarkers} onInsert={handleInsertMarker} onClose={() => setOpenModal(null)} onGoToResources={onGoToResources} />
+        <InsertMarkerModal
+          assets={markerOptions}
+          onInsert={handleInsertMarker}
+          onClose={() => setOpenModal(null)}
+          onUploadAsset={legendId ? uploadEditorMarker : null}
+        />
+      )}
+      {previewModel && (
+        <Suspense fallback={null}>
+          <Model3DViewer
+            modelUrl={previewModel.modelUrl}
+            title={previewModel.title}
+            onClose={() => setPreviewModel(null)}
+          />
+        </Suspense>
       )}
     </div>
   );

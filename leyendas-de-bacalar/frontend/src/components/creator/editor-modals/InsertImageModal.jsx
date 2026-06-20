@@ -1,34 +1,43 @@
 import React, { useState } from 'react';
-import Modal from '../../ui/Modal.jsx';
+import EditorModal from './EditorModal.jsx';
+import { isSafeHttpUrl } from './editorModalUtils.js';
 
-const isHttpUrl = (value = '') => /^https?:\/\//i.test(String(value).trim());
+const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/webp']);
 
-/**
- * Insert an image by URL or by uploading a file. File upload is delegated to the parent
- * `onUploadImage(file) -> url` (reuses the project's asset upload); if not provided, only
- * URL is available.
- */
 export default function InsertImageModal({ onInsert, onClose, onUploadImage }) {
+  const [file, setFile] = useState(null);
   const [url, setUrl] = useState('');
   const [alt, setAlt] = useState('');
   const [caption, setCaption] = useState('');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
 
-  const insertWithUrl = (finalUrl) => {
-    onInsert({ url: finalUrl, alt: alt.trim(), caption: caption.trim() });
+  const chooseFile = (event) => {
+    const selectedFile = event.target.files?.[0] || null;
+    if (selectedFile && !IMAGE_TYPES.has(selectedFile.type)) {
+      setFile(null);
+      setError('Selecciona una imagen PNG, JPG o WebP.');
+      event.target.value = '';
+      return;
+    }
+    setFile(selectedFile);
+    setError('');
   };
 
-  const handleFile = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (!onUploadImage) { setError('La subida no está disponible aquí; usa una URL.'); return; }
-    setUploading(true);
+  const submit = async (event) => {
+    event.preventDefault();
     setError('');
+
+    if (!file && !isSafeHttpUrl(url)) {
+      setError('Selecciona una imagen o usa una URL http(s) válida.');
+      return;
+    }
+
+    setUploading(true);
     try {
-      const uploadedUrl = await onUploadImage(file);
-      if (!uploadedUrl) throw new Error('No se obtuvo URL.');
-      insertWithUrl(uploadedUrl);
+      const finalUrl = file ? await onUploadImage(file) : url.trim();
+      if (!finalUrl) throw new Error('No se obtuvo una URL utilizable para la imagen.');
+      onInsert({ url: finalUrl, alt: alt.trim(), caption: caption.trim() });
     } catch (uploadError) {
       setError(uploadError?.message || 'No se pudo subir la imagen.');
     } finally {
@@ -36,35 +45,45 @@ export default function InsertImageModal({ onInsert, onClose, onUploadImage }) {
     }
   };
 
-  const submitUrl = (event) => {
-    event.preventDefault();
-    if (!isHttpUrl(url)) { setError('La URL debe empezar con http(s)://'); return; }
-    insertWithUrl(url.trim());
-  };
-
   return (
-    <Modal title="Insertar imagen" onClose={onClose}>
-      <form className="editor-modal-form" onSubmit={submitUrl}>
-        <label className="field"><span>Subir imagen</span>
-          <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleFile} disabled={uploading || !onUploadImage} />
+    <EditorModal
+      title="Insertar imagen"
+      description="Sube una imagen de la leyenda o utiliza una URL externa segura."
+      onClose={onClose}
+      busy={uploading}
+    >
+      <form className="editor-modal-form" onSubmit={submit}>
+        {onUploadImage && (
+          <label className="field editor-modal-file-field">
+            <span>Subir desde computadora</span>
+            <input data-autofocus type="file" accept="image/png,image/jpeg,image/webp" onChange={chooseFile} disabled={uploading} />
+            {file && <small>{file.name}</small>}
+          </label>
+        )}
+
+        {onUploadImage && <p className="editor-modal-or"><span>o</span></p>}
+
+        <label className="field">
+          <span>URL de imagen</span>
+          <input data-autofocus={!onUploadImage || undefined} value={url} onChange={(event) => setUrl(event.target.value)} placeholder="https://ejemplo.com/imagen.webp" disabled={uploading || Boolean(file)} />
         </label>
-        <p className="editor-modal-or">— o —</p>
-        <label className="field"><span>URL de imagen</span>
-          <input className="standalone-input" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://..." />
+        <label className="field">
+          <span>Texto alternativo</span>
+          <input value={alt} onChange={(event) => setAlt(event.target.value)} placeholder="Describe el contenido de la imagen" disabled={uploading} />
         </label>
-        <label className="field"><span>Texto alternativo</span>
-          <input className="standalone-input" value={alt} onChange={(e) => setAlt(e.target.value)} placeholder="Describe la imagen" />
+        <label className="field">
+          <span>Caption <em>opcional</em></span>
+          <input value={caption} onChange={(event) => setCaption(event.target.value)} placeholder="Texto visible debajo de la imagen" disabled={uploading} />
         </label>
-        <label className="field"><span>Caption</span>
-          <input className="standalone-input" value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Texto debajo (opcional)" />
-        </label>
-        {uploading && <p className="creator-muted">Subiendo imagen…</p>}
-        {error && <p className="error-message">{error}</p>}
+
+        {error && <p className="editor-modal-error" role="alert">{error}</p>}
         <div className="editor-modal-actions">
-          <button type="button" className="editor-modal-cancel" onClick={onClose}>Cancelar</button>
-          <button type="submit" className="editor-modal-confirm" disabled={uploading}>Insertar URL</button>
+          <button type="button" className="editor-modal-cancel" onClick={onClose} disabled={uploading}>Cancelar</button>
+          <button type="submit" className="editor-modal-confirm" disabled={uploading || (!file && !url.trim())}>
+            {uploading ? 'Subiendo…' : 'Insertar imagen'}
+          </button>
         </div>
       </form>
-    </Modal>
+    </EditorModal>
   );
 }
