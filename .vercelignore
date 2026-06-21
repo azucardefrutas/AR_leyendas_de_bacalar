@@ -1,0 +1,11 @@
+.git
+.agents
+.claude
+.codex
+.worktrees
+docs
+**/.env
+**/.env.*
+**/node_modules
+**/dist
+leyendas-de-bacalar/backend

@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "backend-engineer": {
+      "source": "siviter-xyz/dot-agent",
+      "sourceType": "github",
+      "skillPath": "skills/backend-engineer/SKILL.md",
+      "computedHash": "7fb25764272b305f875e879edf17232a4949930d23ad5223de1f54537fe2cece"
+    },
     "brandkit": {
       "source": "leonxlnx/taste-skill",
       "sourceType": "github",

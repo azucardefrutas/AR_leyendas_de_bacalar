@@ -9,7 +9,6 @@ import Delimiter from '@editorjs/delimiter';
 import Checklist from '@editorjs/checklist';
 import Table from '@editorjs/table';
 import { uploadLegendAsset } from '../../services/assetService.js';
-import { uploadEditorImageBackend } from '../../services/backendApiService.js';
 import { editorJsToHtml, editorJsToPlainText } from '../../utils/editorJsToHtml.js';
 import EditorJsPreview from './EditorJsPreview.jsx';
 import EditorJsToolbar, { EditorIcon } from './EditorJsToolbar.jsx';
@@ -165,17 +164,10 @@ export default function EditorialRichEditor({
 
   const uploadEditorImage = useCallback(async (file) => {
     if (onUploadImage) return onUploadImage(file);
-    try {
-      const uploaded = await uploadEditorAsset(file, 'editor_image', file.name);
-      if (uploaded?.previewUrl) return uploaded;
-    } catch (primaryError) {
-      if (import.meta.env.DEV) console.warn('[editor image] asset upload failed, trying backend endpoint', primaryError);
-    }
-    // Fallback: dedicated backend multipart endpoint (service-role validated).
-    if (!legendId) throw new Error('Guarda la leyenda antes de subir imágenes.');
-    const url = await uploadEditorImageBackend(legendId, file);
-    return url;
-  }, [onUploadImage, uploadEditorAsset, legendId]);
+    const uploaded = await uploadEditorAsset(file, 'editor_image', file.name);
+    if (!uploaded.previewUrl) throw new Error('La imagen se guardó, pero no tiene una URL utilizable.');
+    return uploaded;
+  }, [onUploadImage, uploadEditorAsset]);
 
   const uploadEditorModel = useCallback(async (file) => {
     const uploaded = await uploadEditorAsset(file, 'model_3d', file.name);
