@@ -771,7 +771,7 @@ function CreateLegendPage() {
     setError(null);
     setMessage(null);
 
-    const { data, error: pagesError } = await saveLegendPages({ versionId: draft.version.id, pages: pagesToSave });
+    const { data, error: pagesError } = await saveLegendPages({ versionId: draft.version.id, pages: pagesToSave, legendId: draft.legend.id });
     setSaving(false);
 
     if (pagesError) {

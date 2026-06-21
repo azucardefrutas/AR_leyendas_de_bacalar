@@ -569,7 +569,7 @@ function LegendEditor({ legendId }) {
     setError(null);
     setMessage(null);
 
-    const { data, error: pagesError } = await saveLegendPages({ versionId: version?.id, pages: pagesToSave });
+    const { data, error: pagesError } = await saveLegendPages({ versionId: version?.id, pages: pagesToSave, legendId });
     setSaving(false);
 
     if (pagesError) {

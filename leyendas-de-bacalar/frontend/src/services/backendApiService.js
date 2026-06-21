@@ -190,6 +190,59 @@ export function prepareLegendUpload({ legendId, filename, mimeType, sizeBytes, p
   });
 }
 
+// Backend-sanitized HTML + stats for an Editor.js page. Use on save so stored
+// rendered_html is sanitized server-side (no scripts / unsafe markup).
+export function renderEditorHtml(legendId, editorData) {
+  return requestBackend(`/api/v1/legends/${encodeURIComponent(legendId)}/editor-content/render-html`, {
+    method: 'POST',
+    operation: 'editor-render-html',
+    body: { editorData },
+  });
+}
+
+// Upload an editor image through the backend (service-role + server-side mime/size
+// validation). Returns the public URL. Multipart, so it does not use requestBackend.
+export async function uploadEditorImageBackend(legendId, file) {
+  const url = buildBackendUrl(`/api/v1/legends/${encodeURIComponent(legendId)}/editor-assets/image`);
+  const accessToken = await getAccessToken();
+  const form = new FormData();
+  form.append('image', file);
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: { Accept: 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: form,
+    });
+  } catch (networkError) {
+    throw new BackendApiError('No se pudo conectar con el backend para subir la imagen.', { status: 0, data: networkError });
+  }
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data?.file?.url) {
+    throw new BackendApiError(data?.message || STATUS_MESSAGES[response.status] || 'No se pudo subir la imagen.', {
+      status: response.status,
+      data,
+    });
+  }
+  return data.file.url;
+}
+
+// Save editorial pages through the backend so rendered_html is sanitized server-side.
+export function saveEditorPagesBackend(legendId, versionId, pages) {
+  return requestBackend(`/api/v1/legends/${encodeURIComponent(legendId)}/versions/${encodeURIComponent(versionId)}/editor-pages`, {
+    method: 'PUT',
+    operation: 'editor-pages-save',
+    body: { pages },
+  });
+}
+
+export function getEditorPagesBackend(legendId, versionId) {
+  return requestBackend(`/api/v1/legends/${encodeURIComponent(legendId)}/versions/${encodeURIComponent(versionId)}/editor-pages`, {
+    method: 'GET',
+    operation: 'editor-pages-get',
+  });
+}
+
 export function registerLegendUpload({ legendId, bucket, path, filename, mimeType, sizeBytes, purpose }) {
   return requestBackend('/api/v1/documents/register-upload', {
     method: 'POST',

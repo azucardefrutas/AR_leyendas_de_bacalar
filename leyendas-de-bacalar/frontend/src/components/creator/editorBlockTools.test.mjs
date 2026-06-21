@@ -49,9 +49,36 @@ test('normalizes model and marker data without replacing visible names with UUID
     assetId: 'asset-model',
     title: 'Modelo 3D',
     caption: 'Criatura de la selva',
-    displayMode: 'inline-card',
+    displayMode: 'inline-model',
     modelUrl: '',
     imageUrl: '',
     layout: { width: 520, height: 360, align: 'center' },
   });
+});
+
+test('recognizes a safe inline model URL', () => {
+  assert.equal(typeof blockTools.canRenderInlineModel, 'function');
+  assert.equal(blockTools.canRenderInlineModel({ modelUrl: 'https://example.com/model.glb' }), true);
+  assert.equal(blockTools.canRenderInlineModel({ modelUrl: 'javascript:alert(1)' }), false);
+});
+
+test('upgrades legacy model cards to inline model mode when saved again', () => {
+  const data = blockTools.normalizeAssetBlockData({
+    assetId: 'asset-model',
+    title: 'Sisimite',
+    displayMode: 'inline-card',
+  }, { kind: 'model3d', toolTitle: 'Modelo 3D' });
+
+  assert.equal(data.displayMode, 'inline-model');
+});
+
+test('resolves a legacy model URL from its registered asset id', () => {
+  assert.equal(typeof blockTools.resolveModelBlockData, 'function');
+  const data = blockTools.resolveModelBlockData({ assetId: 'asset-model', title: '' }, [
+    { id: 'asset-model', name: 'sisimite.glb', previewUrl: 'https://example.com/sisimite.glb' },
+  ]);
+
+  assert.equal(data.modelUrl, 'https://example.com/sisimite.glb');
+  assert.equal(data.title, 'sisimite.glb');
+  assert.equal(data.displayMode, 'inline-model');
 });

@@ -4,6 +4,7 @@ import {
   getCreatorIdCandidates,
 } from './creatorAccessService.js';
 import { getLegendResources, STORAGE_BUCKETS } from './assetService.js';
+import { saveEditorPagesBackend } from './backendApiService.js';
 import {
   canDeleteCreatorLegend,
   getCreatorLegendCardData,
@@ -1552,10 +1553,35 @@ export async function getLegendEditorData(legendId) {
   }
 }
 
-export async function saveLegendPages({ versionId, pages = [] }) {
+export async function saveLegendPages({ versionId, pages = [], legendId = '' }) {
   if (isInvalidId(versionId)) return { data: [], error: friendlyLegendError('No pudimos guardar las paginas.') };
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: [], error: clientError };
+
+  // When the pages are Editor.js content and we know the legend, save through the
+  // backend so rendered_html is sanitized server-side. Fall back to the direct path
+  // (below) if the backend is unavailable, so saving never silently fails.
+  const livePages = pages.filter((page) => !page._delete);
+  const isEditorjs = livePages.length > 0 && livePages.every((page) => page.editor_data?.blocks);
+  if (!isInvalidId(legendId) && isEditorjs) {
+    try {
+      const response = await saveEditorPagesBackend(legendId, versionId, pages);
+      const rows = (response?.pages ?? []).map((page) => ({
+        id: page.id,
+        page_number: page.pageNumber,
+        title: page.title,
+        text_content: page.textContent,
+        editor_data: page.editorData,
+        rendered_html: page.renderedHtml,
+        content_format: page.contentFormat,
+        editor_version: page.editorVersion,
+        editor_stats: page.editorStats,
+      }));
+      return { data: rows.sort((a, b) => a.page_number - b.page_number), error: null };
+    } catch (backendError) {
+      if (import.meta.env.DEV) console.warn('[saveLegendPages] backend save failed, falling back to direct', backendError);
+    }
+  }
 
   try {
     debugEditor('versionId', versionId);

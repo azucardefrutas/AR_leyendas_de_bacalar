@@ -6,6 +6,7 @@ import {
   registerLegendUpload,
   uploadFileToSignedUrl,
 } from './backendApiService.js';
+import { shouldFallbackEditorImageUpload } from './editorAssetUploadPolicy.js';
 
 export const STORAGE_BUCKETS = {
   assets: import.meta.env.VITE_SUPABASE_STORAGE_BUCKET || 'legend-assets',
@@ -419,6 +420,7 @@ async function createAssetRecord({
       bucket,
       legend_id: legendId,
       kind: assetType,
+      ...(assetType === 'editor_image' ? { context: 'manual_editor' } : {}),
       original_name: originalName,
       safe_file_name: safeFileName(originalName),
       extension: getExtension(originalName),
@@ -499,10 +501,15 @@ export async function uploadProjectAsset({ file, legendId, kind, userId: provide
     try {
       return await uploadAssetWithBackend({ file, legendId, assetType });
     } catch (error) {
-      return {
-        data: null,
-        error: friendlyAssetError(error.message || 'No pudimos subir el archivo.', { supabaseError: error }),
-      };
+      if (!shouldFallbackEditorImageUpload(error)) {
+        return {
+          data: null,
+          error: friendlyAssetError(error.message || 'No pudimos subir el archivo.', { supabaseError: error }),
+        };
+      }
+      if (import.meta.env.DEV) {
+        console.warn('[EditorAssetUpload] Backend desactualizado para editor_image; usando Supabase con RLS.');
+      }
     }
   }
 

@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { EditorIcon } from './EditorJsToolbar.jsx';
-import { normalizeBlockLayout } from './editorBlockTools.js';
+import { canRenderInlineModel, normalizeBlockLayout } from './editorBlockTools.js';
+
+const InlineModel3DViewer = lazy(() => import('../3d/Model3DViewer.jsx'));
 
 // Editor.js stores inline formatting (bold/italic/links) as HTML inside text fields.
 // We render blocks as React elements and sanitize only the inline HTML with a strict
@@ -41,6 +43,61 @@ function ListItems({ items = [], ordered = false }) {
         return <li key={index}><Inline html={content} />{nested}</li>;
       })}
     </Tag>
+  );
+}
+
+function InlineModelPreview({ data, onOpenModel }) {
+  const holderRef = useRef(null);
+  const [visible, setVisible] = useState(false);
+  const normalizedLayout = normalizeBlockLayout(data.layout, { defaultWidth: 520, defaultHeight: 360 });
+  const style = {
+    ...getLayoutStyle(normalizedLayout, { defaultWidth: 520, defaultHeight: 360 }),
+    height: `${normalizedLayout.height === 'auto' ? 360 : normalizedLayout.height}px`,
+  };
+
+  useEffect(() => {
+    const node = holderRef.current;
+    if (!node || typeof IntersectionObserver === 'undefined') {
+      setVisible(true);
+      return undefined;
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setVisible(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: '180px' });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  if (!canRenderInlineModel(data)) {
+    return (
+      <div className="ejs-inline-model-fallback" style={style}>
+        <span className="ejs-model3d__icon"><EditorIcon name="box" size={24} /></span>
+        <strong>{data.title || 'Modelo 3D'}</strong>
+        {onOpenModel && data.assetId && <button type="button" onClick={() => onOpenModel(data)}>Abrir modelo</button>}
+      </div>
+    );
+  }
+
+  return (
+    <figure ref={holderRef} className="ejs-inline-model" style={style}>
+      <div className="ejs-inline-model__stage">
+        {visible ? (
+          <Suspense fallback={<div className="ejs-inline-model__loading">Cargando modelo 3D…</div>}>
+            <InlineModel3DViewer
+              modelUrl={data.modelUrl}
+              title={data.title}
+              embedded
+              hideHeading
+              compactControls
+            />
+          </Suspense>
+        ) : <div className="ejs-inline-model__loading">Modelo 3D listo para cargar</div>}
+      </div>
+      {data.caption ? <figcaption><Inline html={data.caption} /></figcaption> : null}
+    </figure>
   );
 }
 
@@ -99,18 +156,7 @@ function Block({ block, onOpenModel }) {
       );
     }
     case 'model3d':
-      return (
-        <div className="ejs-model3d" style={getLayoutStyle(data.layout, { defaultWidth: 520, defaultHeight: 360 })}>
-          <span className="ejs-model3d__icon"><EditorIcon name="box" size={24} /></span>
-          <div className="ejs-model3d__info">
-            <strong>{data.title || 'Modelo 3D'}</strong>
-            {data.caption ? <p><Inline html={data.caption} /></p> : null}
-          </div>
-          {onOpenModel && (data.assetId || data.modelUrl) && (
-            <button type="button" onClick={() => onOpenModel(data)}>Ver modelo</button>
-          )}
-        </div>
-      );
+      return <InlineModelPreview data={data} onOpenModel={onOpenModel} />;
     case 'marker':
     case 'leyendaMarker':
       return (

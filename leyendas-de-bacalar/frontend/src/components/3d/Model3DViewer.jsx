@@ -2,6 +2,7 @@ import React, { Suspense, useEffect, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Bounds, Center, Html, OrbitControls, useGLTF } from '@react-three/drei';
 import Button from '../ui/Button.jsx';
+import { getOrbitControlOptions } from './model3dViewerOptions.js';
 
 function getModelAsset(scene = {}) {
   return scene?.assets || scene?.asset || scene?.model_asset || null;
@@ -38,7 +39,8 @@ function GltfModel({ url }) {
   return <primitive object={scene} />;
 }
 
-function ModelCanvas({ url, onError, embedded = false }) {
+function ModelCanvas({ url, onError, embedded = false, compactControls = false }) {
+  const orbitOptions = getOrbitControlOptions({ embedded, compactControls });
   return (
     <Canvas gl={{ alpha: true }} camera={{ position: [0, 0, embedded ? 4.2 : 4], fov: embedded ? 35 : 45 }} dpr={[1, 2]}>
       <ambientLight intensity={embedded ? 1.1 : 0.7} />
@@ -57,10 +59,7 @@ function ModelCanvas({ url, onError, embedded = false }) {
       </ModelErrorBoundary>
       <OrbitControls
         makeDefault
-        enablePan={!embedded}
-        enableZoom={!embedded}
-        enableRotate
-        autoRotate={embedded}
+        {...orbitOptions}
         autoRotateSpeed={0.8}
       />
     </Canvas>
@@ -79,6 +78,7 @@ function Model3DViewer({
   onClose,
   hideHeading = false,
   embedded = false,
+  compactControls = false,
 }) {
   const [expanded, setExpanded] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -96,7 +96,7 @@ function Model3DViewer({
   if (embedded) {
     return (
       <div
-        className="model3d-inline"
+        className={`model3d-inline ${compactControls ? 'is-editor-inline' : ''}`}
         role="group"
         aria-label={`Modelo 3D interactivo: ${name}`}
       >
@@ -108,7 +108,7 @@ function Model3DViewer({
               No se pudo cargar el modelo 3D. Verifica el archivo (GLB/GLTF) o la URL.
             </div>
           ) : (
-            <ModelCanvas url={url} onError={() => setFailed(true)} embedded />
+            <ModelCanvas url={url} onError={() => setFailed(true)} embedded compactControls={compactControls} />
           )}
         </div>
       </div>

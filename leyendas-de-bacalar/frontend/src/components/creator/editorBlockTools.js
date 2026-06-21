@@ -50,13 +50,28 @@ export function normalizeAssetBlockData(data = {}, { kind, toolTitle }) {
     assetId: data.assetId || '',
     title: data.title || toolTitle,
     caption: data.caption || '',
-    displayMode: data.displayMode || 'inline-card',
+    displayMode: isModel ? 'inline-model' : (data.displayMode || 'inline-card'),
     modelUrl: data.modelUrl || '',
     imageUrl: data.imageUrl || data.previewUrl || '',
     layout: normalizeBlockLayout(data.layout, {
       defaultWidth: isModel ? 520 : 180,
       defaultHeight: isModel ? 360 : 'auto',
     }),
+  };
+}
+
+export function canRenderInlineModel(data = {}) {
+  return /^https?:\/\//i.test(String(data.modelUrl || '').trim());
+}
+
+export function resolveModelBlockData(data = {}, assets = []) {
+  const normalized = normalizeAssetBlockData(data, { kind: 'model3d', toolTitle: 'Modelo 3D' });
+  const asset = assets.find((item) => String(item?.id) === String(normalized.assetId));
+  if (!asset) return normalized;
+  return {
+    ...normalized,
+    modelUrl: normalized.modelUrl || asset.previewUrl || asset.url || '',
+    title: data.title || asset.name || normalized.title,
   };
 }
 
@@ -273,9 +288,54 @@ class AssetBlockTool {
     this.config = config || {};
     this.readOnly = Boolean(readOnly);
     this.data = normalizeAssetBlockData(data, { kind, toolTitle });
+    this.inlineObserver = null;
+    this.inlineCleanup = null;
+  }
+
+  createInlineModel() {
+    const figure = document.createElement('figure');
+    figure.className = 'ejs-inline-model';
+    const stage = document.createElement('div');
+    stage.className = 'ejs-inline-model__stage';
+    const loading = document.createElement('span');
+    loading.className = 'ejs-inline-model__loading';
+    loading.textContent = 'Cargando modelo 3D…';
+    stage.appendChild(loading);
+    figure.appendChild(stage);
+    if (this.data.caption) {
+      const caption = document.createElement('figcaption');
+      caption.textContent = this.data.caption;
+      figure.appendChild(caption);
+    }
+    this.inlineStage = stage;
+    return figure;
+  }
+
+  mountInlineModel() {
+    if (!this.inlineStage || this.inlineCleanup || !this.config.mountInlineModel) return;
+    this.inlineCleanup = this.config.mountInlineModel(this.inlineStage, this.data) || (() => {});
+  }
+
+  observeInlineModel() {
+    if (!this.inlineStage) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      this.mountInlineModel();
+      return;
+    }
+    this.inlineObserver = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      this.inlineObserver?.disconnect();
+      this.inlineObserver = null;
+      this.mountInlineModel();
+    }, { rootMargin: '180px' });
+    this.inlineObserver.observe(this.inlineStage);
   }
 
   createContent() {
+    if (this.kind === 'model3d' && canRenderInlineModel(this.data) && this.config.mountInlineModel) {
+      return this.createInlineModel();
+    }
+
     const card = document.createElement('article');
     card.className = `ejs-visual-asset ejs-visual-asset--${this.kind}`;
 
@@ -324,7 +384,10 @@ class AssetBlockTool {
 
   render() {
     const content = this.createContent();
-    if (this.readOnly) return content;
+    if (this.readOnly) {
+      queueMicrotask(() => this.observeInlineModel());
+      return content;
+    }
     this.view = new ResizableBlockView({
       data: this.data,
       api: this.api,
@@ -332,7 +395,9 @@ class AssetBlockTool {
       kind: this.kind,
       allowHeight: this.kind === 'model3d',
     });
-    return this.view.render(content);
+    const rendered = this.view.render(content);
+    queueMicrotask(() => this.observeInlineModel());
+    return rendered;
   }
 
   save() {
@@ -341,6 +406,13 @@ class AssetBlockTool {
 
   validate(data) {
     return Boolean(data?.assetId);
+  }
+
+  destroy() {
+    this.inlineObserver?.disconnect();
+    this.inlineCleanup?.();
+    this.inlineObserver = null;
+    this.inlineCleanup = null;
   }
 
   static get sanitize() {
@@ -363,6 +435,7 @@ export class Model3DBlockTool extends AssetBlockTool {
 
   constructor(options) {
     super(options, { kind: 'model3d', toolTitle: 'Modelo 3D' });
+    this.data = resolveModelBlockData(this.data, this.config.assets || []);
   }
 }
 

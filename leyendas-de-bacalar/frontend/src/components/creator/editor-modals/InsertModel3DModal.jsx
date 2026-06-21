@@ -57,7 +57,7 @@ export default function InsertModel3DModal({ assets = [], onInsert, onClose, onU
       assetId: selectedModel.id,
       title: title.trim() || selectedModel.name || 'Modelo 3D',
       caption: caption.trim(),
-      displayMode: 'inline-card',
+      displayMode: 'inline-model',
       modelUrl: selectedModel.previewUrl || '',
       layout: { width: 520, height: 360, align: 'center' },
     });

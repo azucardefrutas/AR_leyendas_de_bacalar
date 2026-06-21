@@ -104,7 +104,7 @@ export default function FullscreenEditorialEditorPage() {
     setMessage('');
     setSaveError('');
     try {
-      const { data, error: savePagesError } = await saveLegendPages({ versionId: version?.id, pages: pagesToSave });
+      const { data, error: savePagesError } = await saveLegendPages({ versionId: version?.id, pages: pagesToSave, legendId });
       if (savePagesError) {
         setSaveError(savePagesError.message || 'No se pudieron guardar las páginas. Intenta de nuevo.');
         return false;

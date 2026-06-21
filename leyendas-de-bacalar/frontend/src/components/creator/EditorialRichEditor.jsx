@@ -1,5 +1,6 @@
 import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
+import { createRoot } from 'react-dom/client';
 import EditorJS from '@editorjs/editorjs';
 import Header from '@editorjs/header';
 import List from '@editorjs/list';
@@ -8,6 +9,7 @@ import Delimiter from '@editorjs/delimiter';
 import Checklist from '@editorjs/checklist';
 import Table from '@editorjs/table';
 import { uploadLegendAsset } from '../../services/assetService.js';
+import { uploadEditorImageBackend } from '../../services/backendApiService.js';
 import { editorJsToHtml, editorJsToPlainText } from '../../utils/editorJsToHtml.js';
 import EditorJsPreview from './EditorJsPreview.jsx';
 import EditorJsToolbar, { EditorIcon } from './EditorJsToolbar.jsx';
@@ -20,6 +22,22 @@ import InsertMarkerModal from './editor-modals/InsertMarkerModal.jsx';
 import { isSafeHttpUrl } from './editor-modals/editorModalUtils.js';
 
 const Model3DViewer = lazy(() => import('../3d/Model3DViewer.jsx'));
+
+function mountInlineModel(container, data) {
+  const root = createRoot(container);
+  root.render(
+    <Suspense fallback={<div className="ejs-inline-model__loading">Cargando modelo 3D…</div>}>
+      <Model3DViewer
+        modelUrl={data.modelUrl}
+        title={data.title}
+        embedded
+        hideHeading
+        compactControls
+      />
+    </Suspense>,
+  );
+  return () => root.unmount();
+}
 
 function getAssetUrl(asset = {}) {
   return asset.previewUrl || asset.url || asset.public_url || asset.file_url || asset.external_url || asset.signed_url || '';
@@ -48,7 +66,7 @@ function normalizeAssetList(assets = [], fallbackName) {
 
 // Tools config is built per editor so the image uploader and the model/marker pickers
 // receive the legend's assets + upload handler.
-function buildTools({ onDataChange = null, onOpenModel = null }) {
+function buildTools({ availableModels = [], onDataChange = null, onOpenModel = null, mountModel = null }) {
   return {
     header: { class: Header, inlineToolbar: true, config: { placeholder: 'Encabezado', levels: [1, 2, 3, 4], defaultLevel: 2 } },
     list: { class: List, inlineToolbar: true },
@@ -61,7 +79,7 @@ function buildTools({ onDataChange = null, onOpenModel = null }) {
       toolbox: false,
       config: { onDataChange },
     },
-    model3d: { class: Model3DBlockTool, toolbox: false, config: { onDataChange, onOpenModel } },
+    model3d: { class: Model3DBlockTool, toolbox: false, config: { assets: availableModels, onDataChange, onOpenModel, mountInlineModel: mountModel } },
     marker: { class: MarkerBlockTool, toolbox: false, config: { onDataChange } },
     leyendaMarker: { class: MarkerBlockTool, toolbox: false, config: { onDataChange } },
   };
@@ -147,10 +165,17 @@ export default function EditorialRichEditor({
 
   const uploadEditorImage = useCallback(async (file) => {
     if (onUploadImage) return onUploadImage(file);
-    const uploaded = await uploadEditorAsset(file, 'editor_image', file.name);
-    if (!uploaded.previewUrl) throw new Error('La imagen se guardó, pero no tiene una URL utilizable.');
-    return uploaded;
-  }, [onUploadImage, uploadEditorAsset]);
+    try {
+      const uploaded = await uploadEditorAsset(file, 'editor_image', file.name);
+      if (uploaded?.previewUrl) return uploaded;
+    } catch (primaryError) {
+      if (import.meta.env.DEV) console.warn('[editor image] asset upload failed, trying backend endpoint', primaryError);
+    }
+    // Fallback: dedicated backend multipart endpoint (service-role validated).
+    if (!legendId) throw new Error('Guarda la leyenda antes de subir imágenes.');
+    const url = await uploadEditorImageBackend(legendId, file);
+    return url;
+  }, [onUploadImage, uploadEditorAsset, legendId]);
 
   const uploadEditorModel = useCallback(async (file) => {
     const uploaded = await uploadEditorAsset(file, 'model_3d', file.name);
@@ -167,11 +192,13 @@ export default function EditorialRichEditor({
   pagesRef.current = pages;
   // Keep the latest tool options available to the one-time editor init.
   const toolsOptionsRef = useRef({
+    availableModels: modelOptions,
     onDataChange: () => {
       dirtyRef.current = true;
       setDirty(true);
     },
     onOpenModel: (data) => openModelRef.current?.(data),
+    mountModel: mountInlineModel,
   });
   const selectedPage = pages.find((page) => page.client_id === selectedPageId) ?? pages[0];
 
