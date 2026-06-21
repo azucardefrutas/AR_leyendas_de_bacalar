@@ -9540,6 +9540,48 @@ body.fullscreen-editorial-open .site-header { display: none; }
 .editorial-content .ejs-table { width: 100%; border-collapse: collapse; margin: 0 0 0.8em; }
 .editorial-content .ejs-table td, .editorial-content .ejs-table th { border: 1px solid #e2e8f0; padding: 8px 10px; }
 .editorial-content .ejs-image img { max-width: 100%; border-radius: 10px; }
+
+/* ---- Images: tidy appearance in the editor and the preview ---- */
+/* Editor.js Image Tool inside the writing surface. */
+.editorial-editor__holder .image-tool__image,
+.editorial-editor__holder .cdx-block img {
+  border-radius: 10px;
+  overflow: hidden;
+}
+.editorial-editor__holder .image-tool__image-picture,
+.editorial-editor__holder .cdx-block img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  max-height: 460px;
+  object-fit: contain;
+  background: #f8fafc;
+}
+.editorial-editor__holder .image-tool__caption {
+  margin-top: 6px;
+  color: #475569;
+  font-size: 0.85rem;
+}
+.editorial-editor__holder .image-tool--loading .image-tool__image {
+  min-height: 120px;
+}
+
+/* Preview: centered figure with caption + soft shadow. */
+.editorial-content .ejs-image {
+  margin: 0 0 0.9em;
+  text-align: center;
+}
+.editorial-content .ejs-image img {
+  display: inline-block;
+  max-height: 480px;
+  object-fit: contain;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.12);
+}
+.editorial-content .ejs-image figcaption {
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 0.85rem;
+}
 .editorial-content .ejs-model3d {
   display: flex;
   align-items: center;
