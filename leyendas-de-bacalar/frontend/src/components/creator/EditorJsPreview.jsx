@@ -2,6 +2,7 @@ import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { EditorIcon } from './EditorJsToolbar.jsx';
 import { canRenderInlineModel, normalizeBlockLayout } from './editorBlockTools.js';
+import CompositionPreview from './editor-composition/CompositionPreview.jsx';
 
 const InlineModel3DViewer = lazy(() => import('../3d/Model3DViewer.jsx'));
 
@@ -170,6 +171,8 @@ function Block({ block, onOpenModel }) {
           </div>
         </div>
       );
+    case 'composition':
+      return <CompositionPreview data={data} />;
     default:
       return data.text ? <Inline as="p" html={data.text} /> : null;
   }

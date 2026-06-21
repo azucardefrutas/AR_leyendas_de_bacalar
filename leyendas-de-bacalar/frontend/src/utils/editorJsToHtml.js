@@ -1,3 +1,5 @@
+import { normalizeCompositionData } from '../components/creator/editor-composition/compositionState.js';
+
 // Convert Editor.js saved data ({ blocks: [...] }) into HTML for preview / rendered_html,
 // and into plain text for the existing text_content field (validation, search, fallback).
 // Supports: header, paragraph, list, quote, delimiter, checklist, table, image.
@@ -30,6 +32,26 @@ function listItemsToHtml(items = []) {
 function renderList(style, items) {
   const tag = style === 'ordered' ? 'ol' : 'ul';
   return `<${tag}>${listItemsToHtml(items)}</${tag}>`;
+}
+
+function compositionLayerStyle(layer) {
+  const left = (layer.x / 900) * 100;
+  const top = (layer.y / 560) * 100;
+  const width = (layer.width / 900) * 100;
+  const height = (layer.height / 560) * 100;
+  return `left:${left.toFixed(4)}%;top:${top.toFixed(4)}%;width:${width.toFixed(4)}%;height:${height.toFixed(4)}%;z-index:${layer.zIndex};opacity:${layer.opacity};transform:rotate(${layer.rotation}deg)`;
+}
+
+function renderComposition(data) {
+  const composition = normalizeCompositionData(data);
+  const layers = composition.layers.map((layer) => {
+    const style = compositionLayerStyle(layer);
+    if ((layer.type === 'image' || layer.type === 'marker') && layer.url) {
+      return `<figure class="ejs-composition-preview__layer ejs-composition-preview__layer--${layer.type}" style="${style}"><img src="${escapeHtml(layer.url)}" alt="${escapeHtml(stripTags(layer.alt || layer.title))}" /></figure>`;
+    }
+    return `<div class="ejs-composition-preview__layer ejs-composition-preview__layer--${layer.type}" style="${style}"><strong>${escapeHtml(layer.title || (layer.type === 'model3d' ? 'Modelo 3D' : 'Recurso'))}</strong></div>`;
+  }).join('');
+  return `<section class="ejs-composition-preview" style="background:${escapeHtml(composition.canvas.background)}"><div class="ejs-composition-preview__stage">${layers}</div></section>`;
 }
 
 function blockToHtml(block) {
@@ -82,6 +104,8 @@ function blockToHtml(block) {
         data.caption ? `<p>${escapeHtml(stripTags(data.caption))}</p>` : ''
       }</article>`;
     }
+    case 'composition':
+      return renderComposition(data);
     default:
       return data.text ? `<p>${inline(data.text)}</p>` : '';
   }
@@ -116,6 +140,12 @@ export function editorJsToPlainText(editorData) {
       }
     } else if (block?.type === 'table') {
       for (const row of data.content ?? []) lines.push((row ?? []).map(stripTags).join(' · '));
+    } else if (block?.type === 'composition') {
+      const composition = normalizeCompositionData(data);
+      for (const layer of composition.layers) {
+        const label = [layer.title, layer.caption].filter(Boolean).map(stripTags).join(' — ');
+        if (label) lines.push(label);
+      }
     } else if (data.text) {
       lines.push(stripTags(data.text));
     }

@@ -22,3 +22,34 @@ test('reader embedded mode keeps its existing passive behavior', async () => {
     autoRotate: true,
   });
 });
+
+test('composition move mode disables model pointer manipulation', async () => {
+  const { getOrbitControlOptions } = await import('./model3dViewerOptions.js');
+
+  assert.deepEqual(getOrbitControlOptions({
+    embedded: true,
+    compactControls: true,
+    interactionEnabled: false,
+  }), {
+    enabled: false,
+    enablePan: false,
+    enableZoom: false,
+    enableRotate: false,
+    autoRotate: false,
+  });
+});
+
+test('composition manipulate mode enables rotate and zoom', async () => {
+  const { getOrbitControlOptions } = await import('./model3dViewerOptions.js');
+
+  assert.deepEqual(getOrbitControlOptions({
+    embedded: true,
+    compactControls: true,
+    interactionEnabled: true,
+  }), {
+    enablePan: false,
+    enableZoom: true,
+    enableRotate: true,
+    autoRotate: false,
+  });
+});

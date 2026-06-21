@@ -39,8 +39,14 @@ function GltfModel({ url }) {
   return <primitive object={scene} />;
 }
 
-function ModelCanvas({ url, onError, embedded = false, compactControls = false }) {
-  const orbitOptions = getOrbitControlOptions({ embedded, compactControls });
+function ModelCanvas({
+  url,
+  onError,
+  embedded = false,
+  compactControls = false,
+  interactionEnabled = true,
+}) {
+  const orbitOptions = getOrbitControlOptions({ embedded, compactControls, interactionEnabled });
   return (
     <Canvas gl={{ alpha: true }} camera={{ position: [0, 0, embedded ? 4.2 : 4], fov: embedded ? 35 : 45 }} dpr={[1, 2]}>
       <ambientLight intensity={embedded ? 1.1 : 0.7} />
@@ -79,6 +85,7 @@ function Model3DViewer({
   hideHeading = false,
   embedded = false,
   compactControls = false,
+  interactionEnabled = true,
 }) {
   const [expanded, setExpanded] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -96,7 +103,7 @@ function Model3DViewer({
   if (embedded) {
     return (
       <div
-        className={`model3d-inline ${compactControls ? 'is-editor-inline' : ''}`}
+        className={`model3d-inline ${compactControls ? 'is-editor-inline' : ''} ${interactionEnabled ? 'is-interactive' : 'is-passive'}`}
         role="group"
         aria-label={`Modelo 3D interactivo: ${name}`}
       >
@@ -108,7 +115,13 @@ function Model3DViewer({
               No se pudo cargar el modelo 3D. Verifica el archivo (GLB/GLTF) o la URL.
             </div>
           ) : (
-            <ModelCanvas url={url} onError={() => setFailed(true)} embedded compactControls={compactControls} />
+            <ModelCanvas
+              url={url}
+              onError={() => setFailed(true)}
+              embedded
+              compactControls={compactControls}
+              interactionEnabled={interactionEnabled}
+            />
           )}
         </div>
       </div>
