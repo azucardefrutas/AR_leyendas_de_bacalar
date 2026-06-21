@@ -34,7 +34,21 @@ test('normalizes image data with asset id, URL and persisted layout', () => {
     withBorder: false,
     withBackground: false,
     stretched: false,
-    layout: { width: 640, height: 'auto', align: 'right' },
+    layout: {
+      mode: 'inline',
+      align: 'right',
+      layer: 'above-text',
+      x: 0,
+      y: 0,
+      width: 640,
+      height: 'auto',
+      rotation: 0,
+      zIndex: 1,
+      locked: false,
+      opacity: 1,
+      anchorBlockId: '',
+    },
+    crop: null,
   });
 });
 
@@ -52,7 +66,21 @@ test('normalizes model and marker data without replacing visible names with UUID
     displayMode: 'inline-model',
     modelUrl: '',
     imageUrl: '',
-    layout: { width: 520, height: 360, align: 'center' },
+    layout: {
+      mode: 'inline',
+      align: 'center',
+      layer: 'above-text',
+      x: 0,
+      y: 0,
+      width: 520,
+      height: 360,
+      rotation: 0,
+      zIndex: 1,
+      locked: false,
+      opacity: 1,
+      anchorBlockId: '',
+    },
+    crop: null,
   });
 });
 

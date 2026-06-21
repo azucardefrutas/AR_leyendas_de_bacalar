@@ -1,8 +1,9 @@
 import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { EditorIcon } from './EditorJsToolbar.jsx';
-import { canRenderInlineModel, normalizeBlockLayout } from './editorBlockTools.js';
-import CompositionPreview from './editor-composition/CompositionPreview.jsx';
+import { canRenderInlineModel } from './editorBlockTools.js';
+import { migrateEditorDataMedia } from './editor-media/compositionMigration.js';
+import { normalizeCrop, normalizeMediaLayout } from './editor-media/mediaLayoutState.js';
 
 const InlineModel3DViewer = lazy(() => import('../3d/Model3DViewer.jsx'));
 
@@ -17,13 +18,49 @@ const INLINE_CONFIG = {
 const stripTags = (value = '') => String(value ?? '').replace(/<[^>]*>/g, '');
 
 function getLayoutStyle(layout, defaults) {
-  const normalized = normalizeBlockLayout(layout, defaults);
-  return {
+  const normalized = normalizeMediaLayout(layout, defaults);
+  const common = {
     width: `${normalized.width}px`,
     maxWidth: '100%',
-    minHeight: normalized.height === 'auto' ? undefined : `${normalized.height}px`,
+    height: normalized.height === 'auto' ? undefined : `${normalized.height}px`,
+    opacity: normalized.opacity,
+    transform: `rotate(${normalized.rotation}deg)`,
+    zIndex: normalized.zIndex,
+  };
+  if (normalized.mode === 'free') {
+    return {
+      ...common,
+      position: 'absolute',
+      left: `${normalized.x}px`,
+      top: `${normalized.y}px`,
+      margin: 0,
+    };
+  }
+  if (normalized.mode === 'wrap-left' || normalized.mode === 'wrap-right') {
+    const left = normalized.mode === 'wrap-left';
+    return {
+      ...common,
+      float: left ? 'left' : 'right',
+      margin: left ? '0 24px 16px 0' : '0 0 16px 24px',
+    };
+  }
+  return {
+    ...common,
     marginLeft: normalized.align === 'left' ? 0 : 'auto',
     marginRight: normalized.align === 'right' ? 0 : 'auto',
+  };
+}
+
+function getCropStyle(crop) {
+  const normalized = normalizeCrop(crop);
+  if (!normalized) return {};
+  return {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover',
+    objectPosition: `${normalized.x * 100}% ${normalized.y * 100}%`,
+    transform: `scale(${normalized.zoom})`,
+    transformOrigin: `${normalized.x * 100}% ${normalized.y * 100}%`,
   };
 }
 
@@ -50,7 +87,7 @@ function ListItems({ items = [], ordered = false }) {
 function InlineModelPreview({ data, onOpenModel }) {
   const holderRef = useRef(null);
   const [visible, setVisible] = useState(false);
-  const normalizedLayout = normalizeBlockLayout(data.layout, { defaultWidth: 520, defaultHeight: 360 });
+  const normalizedLayout = normalizeMediaLayout(data.layout, { defaultWidth: 520, defaultHeight: 360 });
   const style = {
     ...getLayoutStyle(normalizedLayout, { defaultWidth: 520, defaultHeight: 360 }),
     height: `${normalizedLayout.height === 'auto' ? 360 : normalizedLayout.height}px`,
@@ -151,7 +188,7 @@ function Block({ block, onOpenModel }) {
       if (!url) return null;
       return (
         <figure className="ejs-image" style={getLayoutStyle(data.layout, { defaultWidth: 520, defaultHeight: 'auto' })}>
-          <img src={url} alt={stripTags(data.alt || data.caption)} loading="lazy" />
+          <img src={url} alt={stripTags(data.alt || data.caption)} loading="lazy" style={getCropStyle(data.crop)} />
           {data.caption ? <figcaption><Inline html={data.caption} /></figcaption> : null}
         </figure>
       );
@@ -163,7 +200,7 @@ function Block({ block, onOpenModel }) {
       return (
         <div className="ejs-model3d ejs-marker" style={getLayoutStyle(data.layout, { defaultWidth: 180, defaultHeight: 'auto' })}>
           {(data.imageUrl || data.previewUrl)
-            ? <img className="ejs-marker__thumbnail" src={data.imageUrl || data.previewUrl} alt={stripTags(data.title || 'Marcador')} loading="lazy" />
+            ? <img className="ejs-marker__thumbnail" src={data.imageUrl || data.previewUrl} alt={stripTags(data.title || 'Marcador')} loading="lazy" style={getCropStyle(data.crop)} />
             : <span className="ejs-model3d__icon"><EditorIcon name="bookmark" size={24} /></span>}
           <div className="ejs-model3d__info">
             <strong>{data.title || 'Marcador'}</strong>
@@ -171,8 +208,6 @@ function Block({ block, onOpenModel }) {
           </div>
         </div>
       );
-    case 'composition':
-      return <CompositionPreview data={data} />;
     default:
       return data.text ? <Inline as="p" html={data.text} /> : null;
   }
@@ -183,12 +218,13 @@ function Block({ block, onOpenModel }) {
  * formatting is sanitized with a strict allowlist (DOMPurify).
  */
 export default function EditorJsPreview({ data, className = '', onOpenModel }) {
-  const blocks = Array.isArray(data?.blocks) ? data.blocks : [];
+  const migrated = migrateEditorDataMedia(data || {});
+  const blocks = Array.isArray(migrated?.blocks) ? migrated.blocks : [];
   if (!blocks.length) {
     return <p className="editorial-editor__preview-empty">Esta página todavía no tiene contenido.</p>;
   }
   return (
-    <div className={`editorial-content ${className}`.trim()}>
+    <div className={`editorial-content editorial-content--hybrid ${className}`.trim()}>
       {blocks.map((block, index) => <Block key={block.id || index} block={block} onOpenModel={onOpenModel} />)}
     </div>
   );

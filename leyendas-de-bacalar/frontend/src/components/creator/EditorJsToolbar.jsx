@@ -35,7 +35,6 @@ export function EditorIcon({ name, size = 18, strokeWidth = 1.8, className = '' 
     plus: <><path d="M12 5v14" /><path d="M5 12h14" /></>,
     trash: <><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 15H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /></>,
     pages: <><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></>,
-    layers: <><path d="m12 2 9 5-9 5-9-5 9-5Z" /><path d="m3 12 9 5 9-5" /><path d="m3 17 9 5 9-5" /></>,
   };
 
   return <svg {...iconProps}>{paths[name]}</svg>;
@@ -81,14 +80,6 @@ export default function EditorJsToolbar({
         <ToolbarButton label="Imagen" icon="image" onClick={() => onOpenModal('image')} />
         {showModel3d && <ToolbarButton label="Modelo 3D" icon="box" onClick={() => onOpenModal('model3d')} />}
         {showMarker && <ToolbarButton label="Marcador" icon="bookmark" onClick={() => onOpenModal('marker')} />}
-        <ToolbarButton
-          label="Composición visual"
-          icon="layers"
-          onClick={() => onInsertBlock('composition', {
-            canvas: { width: 900, height: 560, background: '#ffffff' },
-            layers: [],
-          })}
-        />
       </div>
     </div>
   );

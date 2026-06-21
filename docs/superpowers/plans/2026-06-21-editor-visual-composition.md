@@ -1,4 +1,6 @@
-# Editor Visual Composition Implementation Plan
+# SUPERSEDED — Editor Visual Composition Implementation Plan
+
+> Este plan corresponde al diseño anterior de canvas 900×560 y ya no debe ejecutarse. Fue sustituido por la arquitectura híbrida aprobada en `docs/superpowers/specs/2026-06-21-editor-visual-composition-design.md`. Se escribirá un plan nuevo después de revisar esa especificación.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 

@@ -1,4 +1,5 @@
-import { normalizeCompositionData } from '../components/creator/editor-composition/compositionState.js';
+import { migrateEditorDataMedia } from '../components/creator/editor-media/compositionMigration.js';
+import { normalizeCrop, normalizeMediaLayout } from '../components/creator/editor-media/mediaLayoutState.js';
 
 // Convert Editor.js saved data ({ blocks: [...] }) into HTML for preview / rendered_html,
 // and into plain text for the existing text_content field (validation, search, fallback).
@@ -34,24 +35,27 @@ function renderList(style, items) {
   return `<${tag}>${listItemsToHtml(items)}</${tag}>`;
 }
 
-function compositionLayerStyle(layer) {
-  const left = (layer.x / 900) * 100;
-  const top = (layer.y / 560) * 100;
-  const width = (layer.width / 900) * 100;
-  const height = (layer.height / 560) * 100;
-  return `left:${left.toFixed(4)}%;top:${top.toFixed(4)}%;width:${width.toFixed(4)}%;height:${height.toFixed(4)}%;z-index:${layer.zIndex};opacity:${layer.opacity};transform:rotate(${layer.rotation}deg)`;
+function mediaStyle(layout, defaults) {
+  const normalized = normalizeMediaLayout(layout, defaults);
+  const size = `width:${normalized.width}px;max-width:100%;${normalized.height === 'auto' ? '' : `height:${normalized.height}px;`}`;
+  const visual = `opacity:${normalized.opacity};transform:rotate(${normalized.rotation}deg);z-index:${normalized.zIndex};`;
+  if (normalized.mode === 'free') {
+    return `${size}${visual}position:absolute;left:${normalized.x}px;top:${normalized.y}px;margin:0;`;
+  }
+  if (normalized.mode === 'wrap-left') return `${size}${visual}float:left;margin:0 24px 16px 0;`;
+  if (normalized.mode === 'wrap-right') return `${size}${visual}float:right;margin:0 0 16px 24px;`;
+  const margins = normalized.align === 'left'
+    ? 'margin-left:0;margin-right:auto;'
+    : normalized.align === 'right'
+      ? 'margin-left:auto;margin-right:0;'
+      : 'margin-left:auto;margin-right:auto;';
+  return `${size}${visual}${margins}`;
 }
 
-function renderComposition(data) {
-  const composition = normalizeCompositionData(data);
-  const layers = composition.layers.map((layer) => {
-    const style = compositionLayerStyle(layer);
-    if ((layer.type === 'image' || layer.type === 'marker') && layer.url) {
-      return `<figure class="ejs-composition-preview__layer ejs-composition-preview__layer--${layer.type}" style="${style}"><img src="${escapeHtml(layer.url)}" alt="${escapeHtml(stripTags(layer.alt || layer.title))}" /></figure>`;
-    }
-    return `<div class="ejs-composition-preview__layer ejs-composition-preview__layer--${layer.type}" style="${style}"><strong>${escapeHtml(layer.title || (layer.type === 'model3d' ? 'Modelo 3D' : 'Recurso'))}</strong></div>`;
-  }).join('');
-  return `<section class="ejs-composition-preview" style="background:${escapeHtml(composition.canvas.background)}"><div class="ejs-composition-preview__stage">${layers}</div></section>`;
+function cropStyle(crop) {
+  const normalized = normalizeCrop(crop);
+  if (!normalized) return '';
+  return `width:100%;height:100%;object-fit:cover;object-position:${normalized.x * 100}% ${normalized.y * 100}%;transform:scale(${normalized.zoom});transform-origin:${normalized.x * 100}% ${normalized.y * 100}%;`;
 }
 
 function blockToHtml(block) {
@@ -87,32 +91,31 @@ function blockToHtml(block) {
     case 'image': {
       const url = data?.file?.url || data?.url || '';
       if (!url) return '';
-      return `<figure class="ejs-image"><img src="${escapeHtml(url)}" alt="${escapeHtml(stripTags(data.alt || data.caption))}" />${
+      return `<figure class="ejs-image" style="${mediaStyle(data.layout, { defaultWidth: 520, defaultHeight: 'auto' })}"><img src="${escapeHtml(url)}" alt="${escapeHtml(stripTags(data.alt || data.caption))}" style="${cropStyle(data.crop)}" />${
         data.caption ? `<figcaption>${inline(data.caption)}</figcaption>` : ''
       }</figure>`;
     }
     case 'model3d':
-      return `<article class="ejs-model3d"><strong>${escapeHtml(data.title || 'Modelo 3D')}</strong>${
+      return `<article class="ejs-model3d" style="${mediaStyle(data.layout, { defaultWidth: 520, defaultHeight: 360 })}"><strong>${escapeHtml(data.title || 'Modelo 3D')}</strong>${
         data.caption ? `<p>${escapeHtml(stripTags(data.caption))}</p>` : ''
       }</article>`;
     case 'marker':
     case 'leyendaMarker': {
       const imageUrl = data.imageUrl || data.previewUrl || '';
-      return `<article class="ejs-model3d ejs-marker">${
-        imageUrl ? `<img class="ejs-marker__thumbnail" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(stripTags(data.title || 'Marcador'))}" />` : ''
+      return `<article class="ejs-model3d ejs-marker" style="${mediaStyle(data.layout, { defaultWidth: 180, defaultHeight: 'auto' })}">${
+        imageUrl ? `<img class="ejs-marker__thumbnail" src="${escapeHtml(imageUrl)}" alt="${escapeHtml(stripTags(data.title || 'Marcador'))}" style="${cropStyle(data.crop)}" />` : ''
       }<strong>${escapeHtml(data.title || 'Marcador')}</strong>${
         data.caption ? `<p>${escapeHtml(stripTags(data.caption))}</p>` : ''
       }</article>`;
     }
-    case 'composition':
-      return renderComposition(data);
     default:
       return data.text ? `<p>${inline(data.text)}</p>` : '';
   }
 }
 
 export function editorJsToHtml(editorData) {
-  const blocks = Array.isArray(editorData?.blocks) ? editorData.blocks : [];
+  const migrated = migrateEditorDataMedia(editorData || {});
+  const blocks = Array.isArray(migrated?.blocks) ? migrated.blocks : [];
   return blocks.map(blockToHtml).join('\n');
 }
 
@@ -129,7 +132,8 @@ export function plainTextToEditorData(text = '') {
 }
 
 export function editorJsToPlainText(editorData) {
-  const blocks = Array.isArray(editorData?.blocks) ? editorData.blocks : [];
+  const migrated = migrateEditorDataMedia(editorData || {});
+  const blocks = Array.isArray(migrated?.blocks) ? migrated.blocks : [];
   const lines = [];
   for (const block of blocks) {
     const data = block?.data ?? {};
@@ -140,12 +144,11 @@ export function editorJsToPlainText(editorData) {
       }
     } else if (block?.type === 'table') {
       for (const row of data.content ?? []) lines.push((row ?? []).map(stripTags).join(' · '));
-    } else if (block?.type === 'composition') {
-      const composition = normalizeCompositionData(data);
-      for (const layer of composition.layers) {
-        const label = [layer.title, layer.caption].filter(Boolean).map(stripTags).join(' — ');
-        if (label) lines.push(label);
-      }
+    } else if (block?.type === 'image' && data.caption) {
+      lines.push(stripTags(data.caption));
+    } else if (block?.type === 'model3d' || block?.type === 'marker' || block?.type === 'leyendaMarker') {
+      const label = [data.title, data.caption].filter(Boolean).map(stripTags).join(' — ');
+      if (label) lines.push(label);
     } else if (data.text) {
       lines.push(stripTags(data.text));
     }

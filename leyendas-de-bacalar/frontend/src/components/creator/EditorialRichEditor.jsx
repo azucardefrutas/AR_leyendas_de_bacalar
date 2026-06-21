@@ -13,7 +13,8 @@ import { editorJsToHtml, editorJsToPlainText } from '../../utils/editorJsToHtml.
 import EditorJsPreview from './EditorJsPreview.jsx';
 import EditorJsToolbar, { EditorIcon } from './EditorJsToolbar.jsx';
 import { ImageEditorBlockTool, MarkerBlockTool, Model3DBlockTool } from './editorBlockTools.js';
-import CompositionBlockTool from './editor-tools/CompositionBlockTool.js';
+import { migrateEditorDataMedia } from './editor-media/compositionMigration.js';
+import LegacyCompositionBlockTool from './editor-tools/LegacyCompositionBlockTool.js';
 import InsertLinkModal from './editor-modals/InsertLinkModal.jsx';
 import InsertImageModal from './editor-modals/InsertImageModal.jsx';
 import InsertTableModal from './editor-modals/InsertTableModal.jsx';
@@ -71,7 +72,6 @@ function buildTools({
   onDataChange = null,
   onOpenModel = null,
   mountModel = null,
-  requestAsset = null,
 }) {
   return {
     header: { class: Header, inlineToolbar: true, config: { placeholder: 'Encabezado', levels: [1, 2, 3, 4], defaultLevel: 2 } },
@@ -88,11 +88,7 @@ function buildTools({
     model3d: { class: Model3DBlockTool, toolbox: false, config: { assets: availableModels, onDataChange, onOpenModel, mountInlineModel: mountModel } },
     marker: { class: MarkerBlockTool, toolbox: false, config: { onDataChange } },
     leyendaMarker: { class: MarkerBlockTool, toolbox: false, config: { onDataChange } },
-    composition: {
-      class: CompositionBlockTool,
-      toolbox: false,
-      config: { onDataChange, requestAsset },
-    },
+    composition: { class: LegacyCompositionBlockTool, toolbox: false },
   };
 }
 
@@ -149,14 +145,12 @@ export default function EditorialRichEditor({
   const [previewData, setPreviewData] = useState(null);
   const [stats, setStats] = useState({ words: 0, chars: 0 });
   const [openModal, setOpenModal] = useState(null); // 'link' | 'image' | 'table' | 'model3d' | 'marker'
-  const [assetTarget, setAssetTarget] = useState('document');
   const [editorError, setEditorError] = useState('');
   const [dirty, setDirty] = useState(false);
   const [closing, setClosing] = useState(false);
   const [previewModel, setPreviewModel] = useState(null);
   const [modelOptions, setModelOptions] = useState(() => normalizeAssetList(availableModels, 'Modelo 3D'));
   const [markerOptions, setMarkerOptions] = useState(() => normalizeAssetList(availableMarkers, 'Marcador'));
-  const compositionAssetRequestRef = useRef(null);
   const isFullscreen = variant === 'fullscreen';
 
   useEffect(() => {
@@ -195,18 +189,6 @@ export default function EditorialRichEditor({
     return uploaded;
   }, [uploadEditorAsset]);
 
-  const clearCompositionRequest = useCallback(() => {
-    compositionAssetRequestRef.current = null;
-    setAssetTarget('document');
-  }, []);
-
-  const requestCompositionAsset = useCallback((kind, resolver) => {
-    if (typeof resolver !== 'function') return;
-    compositionAssetRequestRef.current = resolver;
-    setAssetTarget('composition');
-    setOpenModal(kind);
-  }, []);
-
   pagesRef.current = pages;
   // Keep the latest tool options available to the one-time editor init.
   const toolsOptionsRef = useRef({
@@ -217,7 +199,6 @@ export default function EditorialRichEditor({
     },
     onOpenModel: (data) => openModelRef.current?.(data),
     mountModel: mountInlineModel,
-    requestAsset: requestCompositionAsset,
   });
   const selectedPage = pages.find((page) => page.client_id === selectedPageId) ?? pages[0];
 
@@ -266,7 +247,7 @@ export default function EditorialRichEditor({
       holder: holderRef.current,
       autofocus: false,
       placeholder: 'Escribe la historia de esta página…',
-      data: startPage?.editor_data?.blocks ? startPage.editor_data : emptyData(),
+      data: startPage?.editor_data?.blocks ? migrateEditorDataMedia(startPage.editor_data) : emptyData(),
       tools: buildTools(toolsOptionsRef.current),
       onChange: () => {
         dirtyRef.current = true;
@@ -308,7 +289,7 @@ export default function EditorialRichEditor({
     if (currentPageIdRef.current === selectedPageId) return;
     const page = pagesRef.current.find((item) => item.client_id === selectedPageId);
     editor.isReady
-      .then(() => editor.render(page?.editor_data?.blocks ? page.editor_data : emptyData()))
+      .then(() => editor.render(page?.editor_data?.blocks ? migrateEditorDataMedia(page.editor_data) : emptyData()))
       .then(() => {
         currentPageIdRef.current = selectedPageId;
         setStats(countStats(page?.text_content || ''));
@@ -414,18 +395,6 @@ export default function EditorialRichEditor({
 
   const handleInsertImage = ({ assetId, url, alt, caption }) => {
     if (isSafeHttpUrl(url)) {
-      if (assetTarget === 'composition' && compositionAssetRequestRef.current) {
-        compositionAssetRequestRef.current({
-          assetId: assetId || '',
-          title: alt || caption || 'Imagen',
-          url,
-          alt: alt || '',
-          caption: caption || '',
-        });
-        clearCompositionRequest();
-        setOpenModal(null);
-        return;
-      }
       insertBlock('image', {
         assetId: assetId || '',
         file: { url },
@@ -446,34 +415,10 @@ export default function EditorialRichEditor({
   };
 
   const handleInsertModel3D = (data) => {
-    if (assetTarget === 'composition' && compositionAssetRequestRef.current) {
-      compositionAssetRequestRef.current({
-        type: 'model3d',
-        assetId: data.assetId,
-        title: data.title || 'Modelo 3D',
-        caption: data.caption || '',
-        url: data.modelUrl || '',
-      });
-      clearCompositionRequest();
-      setOpenModal(null);
-      return;
-    }
     insertBlock('model3d', { ...data, layout: data.layout || { width: 520, height: 360, align: 'center' } });
     setOpenModal(null);
   };
   const handleInsertMarker = (data) => {
-    if (assetTarget === 'composition' && compositionAssetRequestRef.current) {
-      compositionAssetRequestRef.current({
-        type: 'marker',
-        assetId: data.assetId,
-        title: data.title || 'Marcador',
-        caption: data.caption || '',
-        url: data.imageUrl || '',
-      });
-      clearCompositionRequest();
-      setOpenModal(null);
-      return;
-    }
     insertBlock('leyendaMarker', { ...data, layout: data.layout || { width: 180, height: 'auto', align: 'center' } });
     setOpenModal(null);
   };
@@ -657,7 +602,6 @@ export default function EditorialRichEditor({
           onInline={applyInline}
           onInsertBlock={insertBlock}
           onOpenModal={(modal) => {
-            clearCompositionRequest();
             setOpenModal(modal);
           }}
           showModel3d={modelOptions.length > 0 || Boolean(legendId)}
@@ -734,23 +678,23 @@ export default function EditorialRichEditor({
       {expanded && <button type="button" className="editorial-editor__expand-backdrop" aria-label="Reducir escritura" onClick={() => setExpanded(false)} />}
 
       {openModal === 'link' && (
-        <InsertLinkModal onInsert={handleInsertLink} onClose={() => { clearCompositionRequest(); setOpenModal(null); }} />
+        <InsertLinkModal onInsert={handleInsertLink} onClose={() => setOpenModal(null)} />
       )}
       {openModal === 'image' && (
         <InsertImageModal
           onInsert={handleInsertImage}
-          onClose={() => { clearCompositionRequest(); setOpenModal(null); }}
+          onClose={() => setOpenModal(null)}
           onUploadImage={(onUploadImage || legendId) ? uploadEditorImage : null}
         />
       )}
       {openModal === 'table' && (
-        <InsertTableModal onInsert={handleInsertTable} onClose={() => { clearCompositionRequest(); setOpenModal(null); }} />
+        <InsertTableModal onInsert={handleInsertTable} onClose={() => setOpenModal(null)} />
       )}
       {openModal === 'model3d' && (
         <InsertModel3DModal
           assets={modelOptions}
           onInsert={handleInsertModel3D}
-          onClose={() => { clearCompositionRequest(); setOpenModal(null); }}
+          onClose={() => setOpenModal(null)}
           onUploadAsset={legendId ? uploadEditorModel : null}
         />
       )}
@@ -758,7 +702,7 @@ export default function EditorialRichEditor({
         <InsertMarkerModal
           assets={markerOptions}
           onInsert={handleInsertMarker}
-          onClose={() => { clearCompositionRequest(); setOpenModal(null); }}
+          onClose={() => setOpenModal(null)}
           onUploadAsset={legendId ? uploadEditorMarker : null}
         />
       )}

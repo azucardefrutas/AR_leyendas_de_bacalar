@@ -28,7 +28,7 @@ test('uses image alternative text independently from its caption', () => {
   assert.match(html, /alt="Laguna de Bacalar"/);
 });
 
-test('renders composition layers without raw ids or unsafe image URLs', () => {
+test('migrates legacy composition layers to independent hybrid media', () => {
   const html = editorJsToHtml({
     blocks: [{
       type: 'composition',
@@ -76,7 +76,9 @@ test('renders composition layers without raw ids or unsafe image URLs', () => {
     }],
   });
 
-  assert.match(html, /ejs-composition-preview/);
+  assert.doesNotMatch(html, /ejs-composition-preview/);
+  assert.match(html, /position:absolute/);
+  assert.match(html, /class="ejs-image"/);
   assert.match(html, /https:\/\/example\.com\/cave\.png\?x=1&amp;y=2/);
   assert.match(html, /Oso 3D/);
   assert.match(html, /Marcador/);

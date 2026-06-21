@@ -1,5 +1,7 @@
 // Visual Editor.js tools for manually-authored stories. Every tool stores its
 // layout in editor_data; resources remain in the normal Editor.js document flow.
+import MediaObjectView from './editor-media/MediaObjectView.js';
+import { normalizeCrop, normalizeMediaLayout } from './editor-media/mediaLayoutState.js';
 
 const ICONS = {
   image: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>',
@@ -13,22 +15,9 @@ const ALIGN_ICONS = {
   right: '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 4h14M8 8h9M3 12h14M8 16h9"/></svg>',
 };
 
-const SUPPORTED_ALIGNMENTS = new Set(['left', 'center', 'right']);
-
 export function normalizeBlockLayout(layout = {}, { defaultWidth = 520, defaultHeight = 'auto' } = {}) {
-  const requestedWidth = Number(layout?.width);
-  const width = Number.isFinite(requestedWidth)
-    ? Math.min(1120, Math.max(120, Math.round(requestedWidth)))
-    : defaultWidth;
-  const requestedHeight = layout?.height;
-  const height = requestedHeight === 'auto'
-    ? 'auto'
-    : (Number.isFinite(Number(requestedHeight))
-      ? Math.min(900, Math.max(120, Math.round(Number(requestedHeight))))
-      : defaultHeight);
-  const align = SUPPORTED_ALIGNMENTS.has(layout?.align) ? layout.align : 'center';
-
-  return { width, height, align };
+  const normalized = normalizeMediaLayout(layout, { defaultWidth, defaultHeight });
+  return { width: Math.max(120, normalized.width), height: normalized.height, align: normalized.align };
 }
 
 export function normalizeImageBlockData(data = {}) {
@@ -40,7 +29,8 @@ export function normalizeImageBlockData(data = {}) {
     withBorder: Boolean(data.withBorder),
     withBackground: Boolean(data.withBackground),
     stretched: Boolean(data.stretched),
-    layout: normalizeBlockLayout(data.layout, { defaultWidth: 520, defaultHeight: 'auto' }),
+    layout: normalizeMediaLayout(data.layout, { defaultWidth: 520, defaultHeight: 'auto' }),
+    crop: normalizeCrop(data.crop),
   };
 }
 
@@ -53,10 +43,11 @@ export function normalizeAssetBlockData(data = {}, { kind, toolTitle }) {
     displayMode: isModel ? 'inline-model' : (data.displayMode || 'inline-card'),
     modelUrl: data.modelUrl || '',
     imageUrl: data.imageUrl || data.previewUrl || '',
-    layout: normalizeBlockLayout(data.layout, {
+    layout: normalizeMediaLayout(data.layout, {
       defaultWidth: isModel ? 520 : 180,
       defaultHeight: isModel ? 360 : 'auto',
     }),
+    crop: isModel ? null : normalizeCrop(data.crop),
   };
 }
 
@@ -259,7 +250,13 @@ export class ImageEditorBlockTool {
       figure.appendChild(caption);
     }
     if (this.readOnly) return figure;
-    this.view = new ResizableBlockView({ data: this.data, api: this.api, config: this.config, kind: 'image' });
+    this.view = new MediaObjectView({
+      data: this.data,
+      api: this.api,
+      config: this.config,
+      kind: 'image',
+      allowCrop: true,
+    });
     return this.view.render(figure);
   }
 
@@ -275,8 +272,17 @@ export class ImageEditorBlockTool {
     return {
       assetId: false, file: { url: false }, alt: false, caption: false,
       withBorder: false, withBackground: false, stretched: false,
-      layout: { width: false, height: false, align: false },
+      crop: { x: false, y: false, width: false, height: false, zoom: false },
+      layout: {
+        mode: false, align: false, layer: false, x: false, y: false,
+        width: false, height: false, rotation: false, zIndex: false,
+        locked: false, opacity: false, anchorBlockId: false,
+      },
     };
+  }
+
+  destroy() {
+    this.view?.destroy();
   }
 }
 
@@ -388,12 +394,13 @@ class AssetBlockTool {
       queueMicrotask(() => this.observeInlineModel());
       return content;
     }
-    this.view = new ResizableBlockView({
+    this.view = new MediaObjectView({
       data: this.data,
       api: this.api,
       config: this.config,
       kind: this.kind,
       allowHeight: this.kind === 'model3d',
+      allowCrop: this.kind === 'marker',
     });
     const rendered = this.view.render(content);
     queueMicrotask(() => this.observeInlineModel());
@@ -411,6 +418,7 @@ class AssetBlockTool {
   destroy() {
     this.inlineObserver?.disconnect();
     this.inlineCleanup?.();
+    this.view?.destroy();
     this.inlineObserver = null;
     this.inlineCleanup = null;
   }
@@ -419,7 +427,12 @@ class AssetBlockTool {
     return {
       assetId: false, title: false, caption: false, displayMode: false,
       modelUrl: false, imageUrl: false,
-      layout: { width: false, height: false, align: false },
+      crop: { x: false, y: false, width: false, height: false, zoom: false },
+      layout: {
+        mode: false, align: false, layer: false, x: false, y: false,
+        width: false, height: false, rotation: false, zIndex: false,
+        locked: false, opacity: false, anchorBlockId: false,
+      },
     };
   }
 }
