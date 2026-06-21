@@ -1,0 +1,89 @@
+<h2>¿Cómo debe integrarse el Lienzo visual?</h2>
+<p class="subtitle">Ambas opciones mantienen Editor.js por bloques y reservan la libertad tipo Canva únicamente para el bloque de composición.</p>
+
+<div class="cards" style="grid-template-columns:repeat(2,minmax(0,1fr));gap:24px">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:18px;background:#eef3f8">
+      <div style="height:34px;border:1px solid #d9e1ea;border-radius:8px 8px 0 0;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:600 11px system-ui;color:#334155">
+        <span>La bruja · Página 1</span><span>Editar &nbsp; Vista previa &nbsp; Cerrar</span>
+      </div>
+      <div style="display:flex;min-height:340px;border:1px solid #d9e1ea;border-top:0;background:#fff">
+        <div style="width:48px;border-right:1px solid #e2e8f0;padding:54px 7px 8px;display:grid;align-content:start;gap:8px">
+          <div title="Texto" style="height:34px;border:1px solid #dbe3ec;border-radius:8px;display:grid;place-items:center;color:#475569">T</div>
+          <div title="Imagen" style="height:34px;border:1px solid #a5f3fc;border-radius:8px;display:grid;place-items:center;background:#ecfeff;color:#0e7490">▧</div>
+          <div title="Modelo 3D" style="height:34px;border:1px solid #dbe3ec;border-radius:8px;display:grid;place-items:center;color:#475569">◇</div>
+          <div title="Marcador" style="height:34px;border:1px solid #dbe3ec;border-radius:8px;display:grid;place-items:center;color:#475569">⌑</div>
+        </div>
+        <div style="flex:1;padding:22px">
+          <div style="font:700 15px system-ui;color:#0f172a;margin-bottom:9px">La cueva del Sisimite</div>
+          <div style="height:254px;position:relative;overflow:hidden;border:1px dashed #cbd5e1;border-radius:10px;background:#fafafa">
+            <div style="position:absolute;inset:0;background:linear-gradient(135deg,#d7edf1,#a6c8c1);opacity:.72"></div>
+            <div style="position:absolute;left:104px;top:20px;padding:5px;background:#fff;border:1px solid #dbe3ec;border-radius:8px;box-shadow:0 8px 20px rgba(15,23,42,.12);display:flex;gap:4px;font:600 9px system-ui;color:#334155">
+              <span style="padding:4px 6px">Duplicar</span><span style="padding:4px 6px">Frente</span><span style="padding:4px 6px">Bloquear</span><span style="padding:4px 6px;color:#be123c">Eliminar</span>
+            </div>
+            <div style="position:absolute;left:128px;top:70px;width:120px;height:118px;border:2px solid #06b6d4;background:radial-gradient(circle,#795548 0 18%,#2f261f 45%,transparent 47%)">
+              <i style="position:absolute;width:8px;height:8px;background:#fff;border:2px solid #06b6d4;left:-6px;top:-6px"></i>
+              <i style="position:absolute;width:8px;height:8px;background:#fff;border:2px solid #06b6d4;right:-6px;bottom:-6px"></i>
+              <i style="position:absolute;width:10px;height:10px;border:2px solid #06b6d4;border-radius:50%;left:53px;bottom:-28px;background:#fff"></i>
+            </div>
+          </div>
+          <p style="margin:10px 0 0;font:12px/1.5 system-ui;color:#64748b">El lienzo es un bloque editorial limpio; la barra vertical vive pegada al bloque activo.</p>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>A · Integrado en la página <span style="color:#0891b2;font-size:12px">Recomendado</span></h3>
+      <p>El lienzo conserva contexto con el texto anterior y posterior. La barra vertical aparece solo cuando el bloque está activo.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="padding:18px;background:#e9eef4">
+      <div style="height:44px;border:1px solid #d9e1ea;border-radius:8px 8px 0 0;background:#fff;display:flex;align-items:center;justify-content:space-between;padding:0 14px;font:600 11px system-ui;color:#334155">
+        <span style="font-size:14px;color:#0f172a">La bruja</span><span>Editar &nbsp; Vista previa &nbsp; 130 palabras &nbsp; ×</span>
+      </div>
+      <div style="display:flex;min-height:330px;border:1px solid #d9e1ea;border-top:0;background:#f5f7fa">
+        <div style="width:62px;background:#fff;border-right:1px solid #dbe3ec;padding:18px 10px;display:grid;align-content:start;gap:10px">
+          <div style="height:40px;border-radius:10px;display:grid;place-items:center;background:#0f172a;color:#fff">+</div>
+          <div style="height:40px;border-radius:10px;display:grid;place-items:center;background:#ecfeff;color:#0e7490">▧</div>
+          <div style="height:40px;border-radius:10px;display:grid;place-items:center;color:#475569">◇</div>
+          <div style="height:40px;border-radius:10px;display:grid;place-items:center;color:#475569">⌑</div>
+        </div>
+        <div style="flex:1;padding:14px">
+          <div style="height:285px;position:relative;overflow:hidden;border:1px solid #cbd5e1;border-radius:8px;background:#fff;box-shadow:0 12px 30px rgba(15,23,42,.08)">
+            <div style="position:absolute;inset:20px;background:linear-gradient(135deg,#d7edf1,#a6c8c1);opacity:.72"></div>
+            <div style="position:absolute;right:20px;top:18px;padding:5px;background:#fff;border:1px solid #dbe3ec;border-radius:8px;box-shadow:0 8px 20px rgba(15,23,42,.12);font:600 9px system-ui;color:#334155">Frente · Atrás · Bloquear · Más</div>
+            <div style="position:absolute;left:142px;top:82px;width:112px;height:112px;border:2px solid #06b6d4;background:radial-gradient(circle,#795548 0 18%,#2f261f 45%,transparent 47%)">
+              <i style="position:absolute;width:8px;height:8px;background:#fff;border:2px solid #06b6d4;left:-6px;top:-6px"></i>
+              <i style="position:absolute;width:8px;height:8px;background:#fff;border:2px solid #06b6d4;right:-6px;bottom:-6px"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>B · Modo inmersivo</h3>
+      <p>Al activar el lienzo, ocupa casi todo el editor y oculta el contexto textual. Se siente más Canva, pero introduce un cambio de modo más fuerte.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:22px">
+  <div class="pros-cons">
+    <div class="pros">
+      <h4>Mi recomendación: A</h4>
+      <ul>
+        <li>Mantiene la naturaleza de Editor.js.</li>
+        <li>Evita confundir escritura y composición.</li>
+        <li>Funciona igual en editor normal y fullscreen.</li>
+      </ul>
+    </div>
+    <div class="cons">
+      <h4>Decisión pendiente</h4>
+      <ul>
+        <li>A: bloque integrado y contextual.</li>
+        <li>B: modo inmersivo al activar el lienzo.</li>
+      </ul>
+    </div>
+  </div>
+</div>

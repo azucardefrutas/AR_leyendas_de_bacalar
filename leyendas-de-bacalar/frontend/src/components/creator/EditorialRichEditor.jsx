@@ -12,8 +12,10 @@ import { uploadLegendAsset } from '../../services/assetService.js';
 import { editorJsToHtml, editorJsToPlainText } from '../../utils/editorJsToHtml.js';
 import EditorJsPreview from './EditorJsPreview.jsx';
 import EditorJsToolbar, { EditorIcon } from './EditorJsToolbar.jsx';
+import EditorInsertRail from './EditorInsertRail.jsx';
 import { ImageEditorBlockTool, MarkerBlockTool, Model3DBlockTool } from './editorBlockTools.js';
 import { migrateEditorDataMedia } from './editor-media/compositionMigration.js';
+import { getInitialFreeLayout } from './editor-media/mediaGeometry.js';
 import LegacyCompositionBlockTool from './editor-tools/LegacyCompositionBlockTool.js';
 import InsertLinkModal from './editor-modals/InsertLinkModal.jsx';
 import InsertImageModal from './editor-modals/InsertImageModal.jsx';
@@ -140,6 +142,7 @@ export default function EditorialRichEditor({
   const debounceRef = useRef(0);
   const dirtyRef = useRef(false);
   const openModelRef = useRef(null);
+  const mediaZIndexRef = useRef(1);
   const [activeTab, setActiveTab] = useState('edit');
   const [expanded, setExpanded] = useState(false);
   const [previewData, setPreviewData] = useState(null);
@@ -371,6 +374,22 @@ export default function EditorialRichEditor({
     }
   };
 
+  const createInitialMediaLayout = useCallback((width, height) => {
+    const redactor = holderRef.current?.querySelector('.codex-editor__redactor');
+    const redactorRect = redactor?.getBoundingClientRect();
+    const visibleTop = redactorRect
+      ? Math.max(0, Math.min(redactor.scrollHeight || 0, 120 - redactorRect.top))
+      : 0;
+    const highestZ = mediaZIndexRef.current;
+    mediaZIndexRef.current += 1;
+    return getInitialFreeLayout({
+      width,
+      height,
+      visibleTop,
+      highestZ,
+    });
+  }, []);
+
   // Inline formatting on the current selection inside the contenteditable blocks.
   // execCommand is deprecated but is the simplest reliable way to format a selection
   // from an external toolbar; Editor.js blocks are contenteditable so it applies.
@@ -403,7 +422,7 @@ export default function EditorialRichEditor({
         withBorder: false,
         withBackground: false,
         stretched: false,
-        layout: { width: 520, height: 'auto', align: 'center' },
+        layout: createInitialMediaLayout(520, 320),
       });
     }
     setOpenModal(null);
@@ -415,11 +434,11 @@ export default function EditorialRichEditor({
   };
 
   const handleInsertModel3D = (data) => {
-    insertBlock('model3d', { ...data, layout: data.layout || { width: 520, height: 360, align: 'center' } });
+    insertBlock('model3d', { ...data, layout: data.layout || createInitialMediaLayout(520, 360) });
     setOpenModal(null);
   };
   const handleInsertMarker = (data) => {
-    insertBlock('leyendaMarker', { ...data, layout: data.layout || { width: 180, height: 'auto', align: 'center' } });
+    insertBlock('leyendaMarker', { ...data, layout: data.layout || createInitialMediaLayout(180, 180) });
     setOpenModal(null);
   };
   const handleOpenModel = (data) => {
@@ -662,7 +681,22 @@ export default function EditorialRichEditor({
           </aside>
 
           <div className="editorial-editor__main">
-            {isFullscreen ? <section id="fullscreen-editor-canvas" className="editorial-editor__canvas">{editorCanvas}</section> : editorCanvas}
+            <div className="editorial-editor__canvas-shell">
+              {activeTab === 'edit' && (
+                <EditorInsertRail
+                  onInsertBlock={insertBlock}
+                  onOpenModal={setOpenModal}
+                  showModel3d={modelOptions.length > 0 || Boolean(legendId)}
+                  showMarker={markerOptions.length > 0 || Boolean(legendId)}
+                />
+              )}
+              <section
+                id={isFullscreen ? 'fullscreen-editor-canvas' : undefined}
+                className={`editorial-editor__canvas ${isFullscreen ? '' : 'editorial-editor__canvas--embedded'}`}
+              >
+                {editorCanvas}
+              </section>
+            </div>
             {!isFullscreen && <div className="editorial-editor__footer">{footerActions}</div>}
           </div>
         </div>

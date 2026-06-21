@@ -72,6 +72,28 @@ export function getMediaBlockStyle(layout, availableWidth = MEDIA_SHEET_WIDTH) {
   };
 }
 
+export function refreshMediaSheetHeight(redactor) {
+  if (!redactor) return;
+  const previousMinHeight = redactor.style.minHeight;
+  redactor.style.minHeight = '';
+  const redactorRect = redactor.getBoundingClientRect();
+  let requiredHeight = 680;
+
+  for (const block of redactor.querySelectorAll(':scope > .ce-block')) {
+    const rect = block.getBoundingClientRect();
+    const isFreeMedia = block.classList.contains('ejs-media-block')
+      && block.dataset.mediaMode === 'free';
+    if (isFreeMedia) {
+      requiredHeight = Math.max(requiredHeight, rect.bottom - redactorRect.top + 96);
+    } else {
+      requiredHeight = Math.max(requiredHeight, rect.bottom - redactorRect.top + 120);
+    }
+  }
+
+  const nextMinHeight = `${Math.ceil(requiredHeight)}px`;
+  redactor.style.minHeight = nextMinHeight === previousMinHeight ? previousMinHeight : nextMinHeight;
+}
+
 export function applyMediaBlockLayout(host, layout) {
   const block = host?.closest?.('.ce-block');
   if (!block) return null;
@@ -91,6 +113,7 @@ export function applyMediaBlockLayout(host, layout) {
   block.style.zIndex = String(normalized.layer === 'above-text'
     ? 20 + normalized.zIndex
     : Math.min(9, normalized.zIndex));
+  queueMicrotask(() => refreshMediaSheetHeight(redactor));
   return block;
 }
 
@@ -106,4 +129,5 @@ export function clearMediaBlockLayout(host) {
   ]) {
     block.style[property] = '';
   }
+  queueMicrotask(() => refreshMediaSheetHeight(block.closest('.codex-editor__redactor')));
 }

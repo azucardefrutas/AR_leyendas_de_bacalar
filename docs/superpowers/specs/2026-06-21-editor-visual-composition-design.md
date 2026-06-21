@@ -1,656 +1,882 @@
-# Editor Hybrid Media Layout Design
+# Editor Visual por Páginas — Diseño aprobado
 
 ## Estado
 
-Esta especificación sustituye el diseño anterior basado en un bloque `composition` con canvas visible de 900×560.
+Diseño aprobado el 21 de junio de 2026.
 
-La decisión aprobada es un editor híbrido tipo Word:
+Esta especificación reemplaza las propuestas anteriores de:
 
-- recursos libres superpuestos sobre toda la hoja;
-- recursos anclados con ajuste de texto a izquierda o derecha;
-- sin caja exterior, fondo cuadriculado, toolbar superior permanente ni panel de capas visible;
-- controles únicamente al seleccionar el recurso o abrir su menú contextual.
+- un bloque `composition` con canvas fijo;
+- una caja de composición visible dentro del documento;
+- multimedia limitada al flujo normal de Editor.js.
+
+La decisión final es:
+
+```txt
+Cada página existente de la historia
+→ es una hoja editorial completa
+→ el texto se edita con Editor.js
+→ imágenes, modelos 3D y marcadores se mueven libremente sobre esa hoja
+```
+
+No se crea una pantalla paralela ni un editor distinto.
+
+---
 
 ## Objetivo
 
-Permitir que imágenes, modelos 3D y marcadores insertados en historias creadas desde cero se comporten como objetos editoriales de Word:
-
-- mover libremente sobre la hoja;
-- redimensionar;
-- superponer sobre texto y otros recursos;
-- ajustar texto a izquierda o derecha;
-- cambiar orden visual;
-- bloquear;
-- duplicar;
-- recortar imágenes y marcadores sin modificar el archivo original;
-- guardar y reconstruir el diseño desde `legend_pages.editor_data`.
-
-El texto continúa siendo administrado por Editor.js. No se convierte todo el editor en un canvas absoluto.
-
-## Problema raíz
-
-La implementación anterior trató la composición como una aplicación separada dentro del documento:
+El autor debe poder construir una página como en un documento visual:
 
 ```txt
-Editor.js
-→ bloque composition
-→ canvas fijo 900×560
-→ borde, fondo y toolbar permanente
+Escribe texto
+→ inserta una imagen de una cueva
+→ inserta un modelo 3D encima
+→ mueve y redimensiona ambos con el mouse o touch
+→ cambia el orden de capas
+→ guarda
+→ recarga
+→ la página conserva exactamente la composición
 ```
 
-Esto provoca:
+El mismo comportamiento aplica en:
 
-- una caja visual que no pertenece a la hoja editorial;
-- límites artificiales para mover recursos;
-- exceso de controles siempre visibles;
-- imposibilidad de superponer un recurso sobre texto fuera del bloque;
-- un flujo distinto al de insertar una imagen normal;
-- recorte y ajuste de texto difíciles de integrar.
+- editor normal;
+- editor fullscreen;
+- vista previa.
 
-La solución no es ocultar el borde. Debe cambiar el modelo de interacción y persistencia.
+---
 
-## Arquitectura aprobada
+## Principios obligatorios
 
-Cada imagen, modelo 3D o marcador seguirá siendo un bloque Editor.js real con su propio JSON.
+1. Editor.js continúa siendo el motor de texto y persistencia.
+2. La hoja completa de la página es el sistema de coordenadas visual.
+3. No existe una caja administrativa alrededor de la composición.
+4. Un recurso sin seleccionar muestra únicamente su contenido.
+5. Los controles aparecen al seleccionar o hacer clic derecho.
+6. Cada recurso pertenece a una página concreta.
+7. Se conserva el navegador actual `Pág. X / + Página`.
+8. La hoja tiene una altura mínima editorial y crece cuando el texto lo requiere.
+9. No se guardan blobs ni base64 en JSON.
+10. No se modifica backend, DB, RLS, Storage, PDF, CONALITEG ni deploy.
 
-Los tools existentes evolucionarán:
+---
 
-- `ImageEditorBlockTool`
-- `Model3DBlockTool`
-- `MarkerBlockTool`
+## Arquitectura
 
-No se usará un `CompositionBlockTool` visible.
+### Página como hoja-lienzo
 
-Cada bloque multimedia funcionará como ancla de persistencia. Según su modo:
-
-### Modo libre
-
-El bloque conserva un ancla mínima dentro del orden de Editor.js, pero el recurso se renderiza en una capa absoluta relativa a la hoja editorial.
+Cada `legend_page` mantiene su Editor.js propio:
 
 ```txt
-editorial-editor__surface
-└── codex-editor__redactor (position: relative)
-    ├── bloques de texto
-    ├── ancla invisible del recurso
-    └── recurso libre (position: absolute)
+legend_pages.editor_data
 ```
 
-El recurso puede:
-
-- superponerse al texto;
-- moverse por la hoja;
-- usar z-index;
-- colocarse delante o detrás del texto;
-- conservar una relación lógica con su bloque ancla.
-
-### Modo ajuste de texto
-
-El recurso se renderiza en el flujo del documento desde su bloque ancla.
-
-Modos:
-
-- `wrap-left`: recurso a la izquierda, texto posterior rodeándolo;
-- `wrap-right`: recurso a la derecha, texto posterior rodeándolo;
-- `inline`: recurso centrado en una línea propia, compatible con bloques existentes.
-
-El bloque ancla no tendrá una caja administrativa. El recurso será el contenido visible.
-
-## Alcance
-
-La entrega incluye:
-
-- eliminar visualmente el canvas enmarcado de composición;
-- retirar toolbar superior permanente y panel de capas;
-- insertar imagen, modelo o marcador directamente como objeto híbrido;
-- seleccionar con clic o toque;
-- abrir menú contextual con selección o clic derecho;
-- mover libremente con Pointer Events;
-- redimensionar desde esquinas;
-- cambiar entre `free`, `wrap-left`, `wrap-right` e `inline`;
-- poner delante o detrás del texto;
-- traer al frente o enviar atrás entre recursos;
-- duplicar;
-- bloquear;
-- eliminar;
-- recorte no destructivo de imágenes y marcadores;
-- modo mover/manipular para modelos 3D;
-- persistencia en `editor_data`;
-- preview equivalente sin controles;
-- funcionamiento en editor normal y fullscreen.
-
-La entrega no incluye:
-
-- edición destructiva del archivo en Storage;
-- filtros, eliminación de fondo o retoque fotográfico;
-- texto editable dentro de figuras;
-- rotación gestual de imágenes en esta fase;
-- selección múltiple;
-- guías inteligentes, snapping o reglas;
-- cambios de backend, DB, RLS, Storage o deploy.
-
-## Interfaz
-
-### Estado normal
-
-Un recurso no seleccionado no muestra:
-
-- borde exterior;
-- fondo especial;
-- nombre administrativo;
-- toolbar;
-- handles;
-- caja de composición.
-
-Se ve únicamente la imagen, marcador o modelo.
-
-### Estado seleccionado
-
-Al hacer clic o tocar:
-
-- aparece un borde cyan fino;
-- aparecen cuatro handles de resize;
-- aparece un botón compacto de opciones;
-- se abre una pequeña barra contextual junto al recurso cuando hay espacio.
-
-La barra usa iconos y labels breves. No ocupa todo el ancho de la hoja.
-
-### Clic derecho
-
-`contextmenu` abre el mismo menú contextual en la posición del puntero.
-
-El menú incluye:
+La superficie visual será:
 
 ```txt
-Diseño
-  En línea
-  Ajustar a la izquierda
-  Ajustar a la derecha
-  Flotar libremente
-
-Orden
-  Delante del texto
-  Detrás del texto
-  Traer al frente
-  Enviar atrás
-
-Edición
-  Recortar
-  Duplicar
-  Bloquear / desbloquear
-  Eliminar
+editorial-editor__canvas
+└── editorjs-surface
+    └── codex-editor__redactor
+        ├── bloques de texto Editor.js
+        ├── anclas multimedia
+        └── capa visual de recursos libres
 ```
 
-Para modelos 3D agrega:
+La redactor surface será el contenedor relativo:
+
+```css
+position: relative;
+min-height: var(--editor-page-min-height);
+overflow: visible;
+```
+
+La altura real será:
 
 ```txt
-Mover objeto
-Manipular modelo 3D
+max(altura mínima de hoja, altura del contenido textual, límite inferior de recursos)
 ```
 
-### Menú compacto
+Esto evita cortar texto o multimedia.
 
-El diseño seguirá la referencia proporcionada:
+### Texto
 
-- superficie blanca;
-- borde gris muy suave;
-- radio máximo de 8–10 px;
-- sombra difusa de baja opacidad;
-- texto slate oscuro;
-- cyan solamente para selección y estado activo;
-- sin gradientes;
-- sin barra horizontal sobredimensionada;
-- cerrado al hacer clic fuera, Escape o elegir acción.
+Los bloques normales permanecen en flujo:
+
+- paragraph;
+- header;
+- list;
+- checklist;
+- quote;
+- delimiter;
+- table.
+
+No se convierten a posición absoluta.
+
+### Multimedia
+
+Los tools existentes siguen siendo la fuente de persistencia:
+
+- `image`;
+- `model3d`;
+- `leyendaMarker`.
+
+Cada bloque conserva un ancla Editor.js, pero su vista puede renderizarse libremente sobre la hoja.
+
+No se introduce un `CompositionCanvasBlockTool`.
+
+---
 
 ## Contrato JSON
 
-Los bloques existentes mantienen sus nombres:
-
-```txt
-image
-model3d
-leyendaMarker
-```
-
-Cada bloque extiende `layout`:
+### Imagen
 
 ```json
 {
   "type": "image",
   "data": {
-    "assetId": "asset-uuid",
+    "assetId": "uuid",
     "file": {
       "url": "https://url-resuelta"
     },
-    "alt": "Cueva de Bacalar",
+    "alt": "Entrada de una cueva",
     "caption": "",
+    "link": "",
     "layout": {
       "mode": "free",
-      "anchorBlockId": "editor-block-id",
-      "x": 210,
-      "y": 360,
-      "width": 420,
-      "height": 280,
-      "align": "center",
-      "layer": "above-text",
-      "zIndex": 3,
-      "locked": false,
+      "x": 96,
+      "y": 220,
+      "width": 720,
+      "height": 420,
+      "rotation": 0,
       "opacity": 1,
-      "crop": {
-        "x": 0,
-        "y": 0,
-        "width": 1,
-        "height": 1,
-        "zoom": 1
-      }
+      "zIndex": 1,
+      "locked": false,
+      "anchorBlockId": "editor-block-id"
+    },
+    "crop": {
+      "x": 0,
+      "y": 0,
+      "width": 1,
+      "height": 1,
+      "zoom": 1
     }
   }
 }
 ```
 
-### Campos
-
-- `mode`: `inline | wrap-left | wrap-right | free`.
-- `anchorBlockId`: ID estable del bloque Editor.js que sirve como ancla.
-- `x`, `y`: coordenadas lógicas dentro de la hoja; aplican a `free`.
-- `width`, `height`: tamaño visible.
-- `align`: compatibilidad con layouts anteriores.
-- `layer`: `behind-text | above-text`.
-- `zIndex`: orden entre recursos de la misma capa.
-- `locked`: bloquea movimiento, resize y recorte.
-- `opacity`: `0.1..1`.
-- `crop`: ventana normalizada de recorte.
-
-No se guardarán blobs, base64, elementos DOM, estado React ni objetos Three.js.
-
-## Migración de datos existentes
-
-### Bloques multimedia actuales
-
-Los layouts antiguos:
+### Modelo 3D
 
 ```json
 {
-  "width": 520,
-  "height": "auto",
-  "align": "center"
+  "type": "model3d",
+  "data": {
+    "assetId": "uuid",
+    "modelUrl": "https://url-resuelta",
+    "title": "oso.glb",
+    "caption": "",
+    "layout": {
+      "mode": "free",
+      "x": 410,
+      "y": 300,
+      "width": 280,
+      "height": 280,
+      "rotation": 0,
+      "opacity": 1,
+      "zIndex": 2,
+      "locked": false,
+      "anchorBlockId": "editor-block-id"
+    }
+  }
 }
 ```
 
-se interpretarán como:
+### Marcador
 
-```json
-{
-  "mode": "inline",
-  "width": 520,
-  "height": "auto",
-  "align": "center",
-  "layer": "above-text",
-  "zIndex": 1,
-  "locked": false,
-  "opacity": 1
-}
-```
-
-### Bloques composition creados durante la fase anterior
-
-El tool anterior seguirá pudiendo leer temporalmente `type: composition`.
-
-Al guardar de nuevo:
-
-- cada layer se convertirá en un bloque multimedia independiente;
-- se conservarán asset, posición, tamaño, z-index, opacidad y bloqueo;
-- el bloque `composition` se eliminará después de una conversión exitosa.
-
-La migración será cliente-side y no requiere SQL.
-
-## Coordenadas de hoja
-
-El modo libre usará como referencia la superficie editorial real, no un rectángulo independiente.
-
-La hoja tendrá:
-
-```css
-.editorial-editor__surface,
-.codex-editor__redactor {
-  position: relative;
-  overflow: visible;
-}
-```
-
-Las coordenadas se guardarán en un espacio lógico basado en el ancho editorial canónico:
+Usa el mismo contrato de imagen con:
 
 ```txt
-logicalWidth = 1120
-scale = renderedWidth / logicalWidth
-logicalX = renderedX / scale
-logicalY = renderedY / scale
+type = leyendaMarker
+imageUrl
+assetId
+layout
+crop
 ```
 
-`y` se mide desde el inicio de la redactor surface, por lo que puede abarcar toda la página y no un bloque de 560 px.
+### Coordenadas
 
-En responsive:
-
-- `x`, `width` y `height` se escalan con la hoja;
-- `y` conserva relación con el contenido;
-- los objetos no pueden desaparecer completamente fuera de la hoja;
-- en móvil, los objetos libres se mantienen dentro del ancho visible.
-
-## Ajuste de texto
-
-El modo wrap usa el bloque ancla en el flujo de Editor.js.
-
-### Wrap izquierdo
-
-```css
-float: left;
-margin: 0 24px 16px 0;
-```
-
-### Wrap derecho
-
-```css
-float: right;
-margin: 0 0 16px 24px;
-```
-
-El bloque ancla tendrá altura cero cuando el recurso flote, permitiendo que los bloques de texto posteriores rodeen el objeto.
-
-Se añadirá una limpieza explícita al finalizar el área afectada para impedir que el recurso invada footer o página siguiente.
-
-Si la estructura interna de Editor.js impide que `float` afecte bloques hermanos en algún navegador, se usará un wrapper de flujo compartido alrededor de los bloques afectados. No se simulará el ajuste con márgenes fijos.
-
-## Superposición y texto
-
-`layer` controla la relación:
-
-- `above-text`: recurso sobre texto;
-- `behind-text`: recurso detrás del texto.
-
-La superficie editorial creará dos contextos:
+El ancho lógico canónico será:
 
 ```txt
-behind-media-layer
-text-block-layer
-above-media-layer
+1120 unidades
 ```
 
-Los eventos del recurso detrás del texto se activarán mediante el menú de objetos o una tecla modificadora para que no bloquee la escritura.
+Conversión responsive:
 
-El texto siempre debe conservar cursor, selección y edición cuando el recurso no está seleccionado.
-
-## Recorte no destructivo
-
-El recorte aplica únicamente a imagen y marcador.
-
-Al entrar en modo recorte:
-
-- el marco exterior permanece fijo;
-- la imagen puede desplazarse y hacer zoom dentro del marco;
-- se oscurece sutilmente el área fuera del recorte;
-- Enter o `Aplicar` confirma;
-- Escape o `Cancelar` restaura los valores anteriores.
-
-El archivo original no cambia.
-
-Render:
-
-```css
-overflow: hidden;
+```txt
+scale = renderedSheetWidth / 1120
+renderedX = logicalX * scale
+renderedY = logicalY * scale
 ```
 
-La imagen interior usa los valores normalizados de `crop` para calcular tamaño y desplazamiento.
+La altura lógica es dinámica.
 
-Los límites garantizan que el marco nunca muestre un área vacía.
+Los recursos se limitan para que al menos su área seleccionable permanezca dentro de la hoja.
+
+---
+
+## Inserción de recursos
+
+### Barra vertical minimalista
+
+Se mostrará junto al lateral izquierdo de la hoja activa.
+
+Herramientas visibles:
+
+- agregar;
+- texto;
+- imagen;
+- modelo 3D;
+- marcador;
+- tabla;
+- separador.
+
+El botón `+` abre un panel compacto con búsqueda y herramientas disponibles.
+
+La barra:
+
+- no ocupa el ancho del documento;
+- usa iconos Lucide existentes;
+- muestra tooltip;
+- tiene controles táctiles de al menos 44 px;
+- se oculta o colapsa en móvil;
+- no aparece en preview.
+
+### Inserción inicial
+
+Los recursos nuevos se insertan:
+
+- en modo `free`;
+- dentro del viewport visible de la hoja;
+- con tamaño razonable según tipo;
+- por encima del contenido existente;
+- seleccionados inmediatamente.
+
+Imagen:
+
+```txt
+ancho inicial 520
+alto según proporción natural
+```
+
+Modelo:
+
+```txt
+520 × 360
+```
+
+Marcador:
+
+```txt
+180 × 180
+```
+
+---
+
+## Selección y manipulación
+
+### Estado sin selección
+
+No muestra:
+
+- borde;
+- fondo;
+- tarjeta;
+- título administrativo;
+- handles;
+- toolbar;
+- caja exterior.
+
+### Estado seleccionado
+
+Muestra:
+
+- borde fino cyan/violeta;
+- ocho handles: cuatro esquinas y cuatro laterales;
+- control de rotación bajo el objeto;
+- barra rápida pequeña junto al objeto.
+
+Los handles visuales pueden ser pequeños, pero su área interactiva debe ser de al menos 32–44 px.
+
+### Drag
+
+Pointer Events unificados para mouse y touch:
+
+- umbral mínimo antes de iniciar drag;
+- movimiento en tiempo real mediante `transform`;
+- persistencia lógica al finalizar;
+- clamp dentro de la página;
+- deshabilitado cuando `locked = true`.
+
+### Resize
+
+Esquinas:
+
+- cambian ancho y alto;
+- mantienen proporción con Shift o según configuración del recurso.
+
+Laterales:
+
+- modifican una sola dimensión.
+
+El tamaño mínimo evita que el objeto desaparezca.
+
+### Rotación
+
+El control inferior:
+
+- rota alrededor del centro;
+- guarda grados entre `-180` y `180`;
+- usa transformación visual durante el gesto;
+- persiste al finalizar.
+
+### Z-index
+
+Acciones:
+
+- traer al frente;
+- enviar atrás;
+- subir una capa;
+- bajar una capa.
+
+Los z-index se normalizan para evitar crecimiento ilimitado.
+
+---
+
+## Barra rápida del objeto
+
+Aparece al seleccionar.
+
+Acciones mínimas:
+
+- duplicar;
+- traer al frente;
+- enviar atrás;
+- bloquear/desbloquear;
+- eliminar;
+- más opciones.
+
+Estilo:
+
+```txt
+fondo blanco
+borde slate suave
+radio 10 px
+sombra sutil
+iconos compactos
+sin gradientes
+```
+
+Debe mantenerse dentro del viewport y cambiar de lado si no hay espacio.
+
+---
+
+## Menú contextual
+
+Se abre con:
+
+- clic derecho;
+- botón “Más opciones”;
+- tecla de menú contextual;
+- Shift + F10.
+
+Opciones funcionales:
+
+```txt
+Copiar
+Pegar
+Duplicar
+Eliminar
+Alinear a la página
+Traer al frente
+Enviar atrás
+Bloquear / desbloquear
+Enlace
+Texto alternativo
+Recortar, solo imagen y marcador
+Manipular 3D / Mover capa, solo modelo
+```
+
+No se mostrarán:
+
+- copiar estilo;
+- comentarios;
+- duración;
+- componentes;
+
+salvo que se implementen realmente en una fase posterior.
+
+### Copiar y pegar
+
+Usa un portapapeles interno del editor para metadata:
+
+```txt
+tipo
+assetId
+URL resuelta
+título
+caption
+alt
+crop
+layout
+```
+
+Pegar crea un bloque nuevo que referencia el mismo asset y aplica un desplazamiento visible.
+
+No duplica archivos en Storage.
+
+---
 
 ## Modelo 3D
 
-El modelo conserva carga lazy y `Model3DViewer`.
+El modelo se renderiza con `Model3DViewer` existente:
+
+- fondo transparente;
+- sin tarjeta azul;
+- sin título administrativo;
+- carga lazy;
+- tamaño controlado por el frame del recurso.
 
 Estados:
 
-- `move`: la capa recibe drag y resize;
-- `interact`: OrbitControls recibe rotación y zoom.
+### Mover capa
 
-El modo se selecciona desde el menú contextual. Doble clic puede activar temporalmente `interact`.
+- drag mueve el objeto completo;
+- OrbitControls no recibe eventos.
 
-El modelo:
+### Manipular 3D
 
-- no tendrá tarjeta azul;
-- no tendrá fondo administrativo;
-- podrá estar en `inline`, wrap o free;
-- no admite recorte;
-- mantiene placeholder local si falla la URL.
+- drag rota el modelo;
+- wheel/pinch controla zoom;
+- el frame no se mueve accidentalmente;
+- Escape vuelve a modo mover.
 
-## Integración con toolbar y modales
+La preferencia de interacción es estado de UI, no necesita persistirse.
 
-Los botones existentes:
+---
 
-- Imagen
-- Modelo 3D
-- Marcador
+## Imagen y marcador
 
-insertarán directamente su bloque multimedia.
+Render real mediante `<img>`.
 
-El botón `Composición visual` y su canvas se retirarán de la toolbar.
+Opciones:
 
-Los modales y servicios de assets actuales se reutilizan sin duplicar endpoints.
+- contain;
+- cover/recorte;
+- ajustar al ancho;
+- ajustar a la página;
+- usar como fondo;
+- opacidad;
+- texto alternativo;
+- enlace.
 
-La posición inicial será:
+### Recorte
 
-- modo `inline`;
-- ancho razonable según tipo;
-- autor puede cambiar a wrap o free desde el menú contextual.
+Es no destructivo:
 
-## Componentes
+- no modifica Storage;
+- conserva URL y assetId;
+- guarda crop normalizado;
+- permite mover y hacer zoom dentro del frame;
+- Aplicar confirma;
+- Cancelar o Escape restaura.
 
-### MediaLayoutState
+---
 
-Archivo:
+## Botón `+` de Editor.js
 
-`frontend/src/components/creator/editor-media/mediaLayoutState.js`
+### Causa actual
 
-Funciones puras:
+La combinación de:
 
-- `normalizeMediaLayout`
-- `setMediaMode`
-- `moveFreeMedia`
-- `resizeMedia`
-- `setTextLayer`
-- `bringMediaForward`
-- `sendMediaBackward`
-- `setMediaLocked`
-- `setMediaOpacity`
-- `normalizeCrop`
-- `applyCropPan`
-- `applyCropZoom`
-- `migrateCompositionLayers`
+- ancho del `.ce-block__content`;
+- offsets de `.ce-toolbar`;
+- centrado del contenedor;
+- overrides del fullscreen;
 
-### MediaObjectView
+puede colocar el botón `+` sobre el centro del bloque.
 
-Archivo:
+### Corrección
 
-`frontend/src/components/creator/editor-media/MediaObjectView.jsx`
+El `+` se alinea al margen izquierdo real del contenido:
 
-Responsabilidades:
+```txt
++ texto comienza aquí
+```
 
-- render compartido de imagen, modelo y marcador;
-- selección;
-- drag/resize;
-- modo crop;
-- modo modelo 3D;
-- menú contextual.
+Nunca debe:
 
-### MediaContextMenu
+- aparecer centrado;
+- cubrir texto;
+- colocarse sobre un recurso seleccionado;
+- abrir la toolbar horizontal sobre el lienzo.
 
-Archivo:
+La barra vertical será la vía principal para insertar multimedia.
 
-`frontend/src/components/creator/editor-media/MediaContextMenu.jsx`
+---
 
-Responsabilidades:
+## Toolbar de texto
 
-- abrir por selección, botón o `contextmenu`;
-- posicionarse dentro del viewport;
-- agrupar Diseño, Orden y Edición;
-- cerrar con click fuera o Escape;
-- usar Portal para no quedar cortado por Editor.js.
+La toolbar horizontal superior se conserva para:
 
-### Tools Editor.js
+- H1/H2/H3;
+- párrafo;
+- bold;
+- italic;
+- underline;
+- listas;
+- checklist;
+- quote;
+- tabla;
+- link.
 
-`ImageEditorBlockTool`, `Model3DBlockTool` y `MarkerBlockTool` reutilizarán `MediaObjectView`.
+Cuando hay multimedia seleccionada:
 
-Cada tool:
+- la toolbar textual pierde protagonismo;
+- no se desplaza al centro de la hoja;
+- los controles del recurso se muestran de forma contextual.
 
-- conserva el último JSON;
-- conoce su `anchorBlockId`;
-- alterna modo inline/wrap/free;
-- monta la vista React;
-- devuelve metadata completa en `save()`.
+No se usa una toolbar horizontal gigante encima del objeto.
 
-## Preview y rendered_html
+---
 
-`EditorJsPreview` reproducirá:
+## Fullscreen
 
-- inline y wrap dentro del flujo;
-- free como capas de hoja;
-- z-index y delante/detrás del texto;
-- recorte;
-- imagen y marcador reales;
-- modelo lazy bajo interacción.
+### Header
 
-No mostrará controles, bordes ni menús.
+Barra completa:
 
-`rendered_html` emitirá:
+```txt
+width: 100%
+height: 56–64 px
+sticky top: 0
+background: white/90
+backdrop blur
+border-bottom
+shadow-sm
+```
 
-- figuras inline y wrap seguras;
-- capas libres con estilos numéricos normalizados;
-- `object-position` y wrapper de recorte;
-- placeholder para modelos 3D.
+Contenido:
 
-La fuente de verdad sigue siendo `editor_data`.
+- título de leyenda: 18–20 px;
+- subtítulo: 12 px;
+- editar/vista previa;
+- estadísticas;
+- cerrar.
+
+No debe verse como una tarjeta recortada.
+
+### Workspace
+
+```txt
+header completo
+barra vertical de inserción
+navegador de páginas
+hoja blanca centrada
+footer de guardado
+```
+
+La hoja:
+
+- usa el ancho editorial disponible;
+- tiene sombra tenue;
+- mantiene márgenes de trabajo;
+- crece verticalmente;
+- no tiene un borde de canvas interno.
+
+---
+
+## Páginas
+
+Se conserva el flujo actual:
+
+```txt
+Pág. 1
++ Página
+```
+
+Cambiar de página:
+
+1. guarda el Editor.js actual;
+2. guarda layout multimedia actual;
+3. cambia la hoja;
+4. reconstruye texto y recursos.
+
+Agregar página:
+
+- crea una hoja limpia;
+- mantiene navegador y numeración;
+- no comparte posiciones con otra página.
+
+Quitar página:
+
+- conserva la regla existente de mínimo una página;
+- elimina únicamente la página activa tras la confirmación existente.
+
+---
+
+## Preview
+
+Reproduce:
+
+- texto;
+- posiciones;
+- tamaños;
+- rotaciones;
+- opacidad;
+- z-index;
+- crop;
+- imagen real;
+- marcador real;
+- modelo 3D lazy.
+
+No muestra:
+
+- borde de selección;
+- handles;
+- toolbar;
+- menú contextual;
+- barra vertical.
+
+El preview usa la misma geometría normalizada, sin duplicar reglas.
+
+---
 
 ## Persistencia
 
-El guardado actual no cambia:
+El guardado existente se conserva:
 
 ```txt
 editor.save()
-→ editor_data
-→ saveLegendPages
+→ page.editor_data
+→ Guardar páginas
 → legend_pages.editor_data
 ```
 
-Cada bloque guarda su `layout`.
+Cada tool debe devolver metadata completa.
 
-No se necesitan:
+La página también debe recalcular su altura mínima usando:
+
+```txt
+último bloque textual
+último recurso visual
+padding inferior
+```
+
+No se requieren:
 
 - columnas nuevas;
 - migraciones;
 - endpoints nuevos;
-- cambios de Storage;
+- cambios de bucket;
 - service role en frontend.
+
+---
+
+## Compatibilidad
+
+### Layout multimedia existente
+
+Los modos actuales `inline`, `wrap-left` y `wrap-right` siguen siendo legibles.
+
+Al seleccionar “Libre”, el recurso obtiene coordenadas equivalentes a su posición visual actual.
+
+Los recursos nuevos usarán `free` por defecto.
+
+### Bloques composition antiguos
+
+La migración existente se conserva:
+
+- convierte layers soportados en bloques independientes;
+- mantiene assetId, URL, posición, tamaño, rotación, opacidad y z-index;
+- conserva el bloque original si la conversión no es segura.
+
+No se pierden datos.
+
+---
 
 ## Accesibilidad
 
-- selección visible por borde y handles, no solo color;
-- menú con roles y labels;
-- cierre con Escape;
-- navegación por teclado;
-- flechas mueven recurso libre;
+- selección por borde y handles, no solo color;
+- botones con `aria-label`;
+- toolbar y menú navegables por teclado;
+- Escape cierra menús y modo 3D;
+- flechas mueven el objeto seleccionado;
 - Shift + flechas mueve 10 unidades;
 - Delete elimina si no está bloqueado;
-- handles con área táctil de 44 px;
-- clic derecho no sustituye el acceso mediante teclado o botón;
+- Shift + F10 abre menú contextual;
+- acciones de drag tienen alternativas mediante botones;
 - `prefers-reduced-motion` elimina transiciones no esenciales.
+
+---
+
+## Rendimiento
+
+- no usar `react-rnd`; la solución Pointer Events actual es suficiente;
+- usar `transform` durante drag/resize;
+- persistir en `pointerup`, no en cada pixel;
+- batch de lecturas/escrituras DOM;
+- lazy load de modelos;
+- un solo listener global de selección por editor;
+- cerrar portals y observers en `destroy()`.
+
+No se añade Motion si el proyecto no lo tiene instalado.
+
+Las animaciones necesarias serán CSS, 120–180 ms, transform/opacity.
+
+---
 
 ## Manejo de errores
 
-- URL ausente: placeholder local y opción de eliminar o reemplazar.
-- Fallo 3D: error dentro del objeto sin romper Editor.js.
-- Crop inválido: normalización al último estado válido.
-- Ancla ausente: fallback a `inline`.
-- Posición fuera de hoja: clamp automático.
-- Conversión de composition incompleta: conservar bloque original; no borrar datos.
+- URL ausente: placeholder local con opción eliminar/reemplazar.
+- Modelo inválido: error dentro del frame sin romper Editor.js.
+- Asset sin URL: resolver desde lista existente antes de renderizar.
+- Coordenadas inválidas: normalización y clamp.
+- Recurso fuera de hoja: recuperar al área visible.
+- Ancla ausente: recrear ancla o fallback inline.
+- Migración incompleta: conservar JSON original.
 
-## Archivos previstos
+---
 
-Crear:
+## Componentes previstos
 
+### Crear
+
+- `frontend/src/components/creator/editor-media/MediaSelectionOverlay.js`
+- `frontend/src/components/creator/editor-media/MediaQuickToolbar.js`
+- `frontend/src/components/creator/editor-media/MediaContextMenu.js`
+- `frontend/src/components/creator/editor-media/EditorInsertRail.jsx`
+- `frontend/src/components/creator/editor-media/mediaClipboard.js`
+- pruebas `.test.mjs` para estado, geometría, clipboard y migración.
+
+### Modificar
+
+- `frontend/src/components/creator/editor-media/MediaObjectView.js`
 - `frontend/src/components/creator/editor-media/mediaLayoutState.js`
-- `frontend/src/components/creator/editor-media/mediaLayoutState.test.mjs`
-- `frontend/src/components/creator/editor-media/MediaObjectView.jsx`
-- `frontend/src/components/creator/editor-media/MediaContextMenu.jsx`
-- `frontend/src/components/creator/editor-media/MediaCropOverlay.jsx`
-- `frontend/src/components/creator/editor-media/FreeMediaLayer.jsx`
-
-Modificar:
-
+- `frontend/src/components/creator/editor-media/mediaDomLayout.js`
 - `frontend/src/components/creator/editorBlockTools.js`
-- `frontend/src/components/creator/editorBlockTools.test.mjs`
 - `frontend/src/components/creator/EditorialRichEditor.jsx`
 - `frontend/src/components/creator/EditorJsToolbar.jsx`
 - `frontend/src/components/creator/EditorJsPreview.jsx`
-- `frontend/src/components/3d/Model3DViewer.jsx`
+- `frontend/src/pages/creator/FullscreenEditorialEditorPage.jsx`
 - `frontend/src/utils/editorJsToHtml.js`
-- `frontend/src/utils/editorJsToHtml.test.mjs`
 - `frontend/src/styles/index.css`
 
-Retirar después de migración y pruebas:
+### Reutilizar
 
-- `frontend/src/components/creator/editor-composition/CompositionCanvas.jsx`
-- `frontend/src/components/creator/editor-composition/CompositionLayer.jsx`
-- `frontend/src/components/creator/editor-composition/CompositionPreview.jsx`
-- `frontend/src/components/creator/editor-composition/compositionState.js`
-- `frontend/src/components/creator/editor-tools/CompositionBlockTool.js`
+- modales de imagen, modelo y marcador;
+- servicios reales de assets;
+- `Model3DViewer`;
+- estado real de páginas;
+- guardado actual.
 
-No se prevén cambios backend.
+### No tocar
+
+- backend;
+- SQL/RLS/RPC;
+- Storage;
+- `.env`;
+- deploy;
+- PDF;
+- CONALITEG;
+- hotspots;
+- catálogo;
+- detalle;
+- autenticación y roles.
+
+---
 
 ## Pruebas
 
 ### Unitarias
 
-- normalización de modos;
-- migración de layouts anteriores;
-- migración de layers composition;
-- clamp de posición libre;
-- orden delante/detrás de texto;
-- resize;
+- normalización de geometría;
+- resize por ocho handles;
+- rotación;
+- clamp a la hoja;
+- z-index;
 - bloqueo;
-- crop pan/zoom;
-- cancelación de crop;
-- HTML seguro sin UUID visibles.
+- duplicación;
+- clipboard interno;
+- migración composition;
+- crop;
+- resolución de altura mínima.
 
 ### Manuales
 
-1. Insertar imagen normal.
-2. Seleccionarla sin mostrar caja exterior.
-3. Abrir menú contextual con clic y clic derecho.
-4. Cambiar a `free`.
-5. Moverla sobre texto.
-6. Ponerla detrás y delante del texto.
-7. Cambiar a wrap-left y wrap-right.
-8. Confirmar que el texto rodea realmente la imagen.
-9. Recortar y guardar.
-10. Recargar y verificar crop y posición.
-11. Repetir movimiento y wrap con marcador.
-12. Insertar modelo, moverlo y activar OrbitControls.
-13. Probar editor normal y fullscreen.
-14. Abrir preview.
+1. Crear o abrir página.
+2. Insertar imagen.
+3. Moverla libremente.
+4. Redimensionarla con esquina y lateral.
+5. Rotarla.
+6. Insertar modelo 3D encima.
+7. Alternar mover/manipular.
+8. Insertar marcador.
+9. Cambiar capas.
+10. Abrir menú con clic derecho.
+11. Duplicar, bloquear y eliminar.
+12. Guardar.
+13. Recargar.
+14. Confirmar persistencia.
+15. Agregar una página nueva.
+16. Confirmar que empieza limpia.
+17. Probar preview.
+18. Repetir en fullscreen.
+
+### Responsive
+
+- desktop;
+- tablet;
+- móvil;
+- touch drag/resize;
+- barra vertical colapsada;
+- menú contextual dentro del viewport.
 
 ### Regresión
 
-- bloques paragraph/header/list/checklist/quote/table;
-- imagen/modelo/marcador inline existente;
-- guardado de páginas;
+- editor normal;
+- fullscreen;
+- cambio/agregado/eliminado de páginas;
+- bloques de texto;
+- subida de assets;
 - PDF;
 - CONALITEG;
-- hotspots;
+- hotspots/modelos PDF;
 - catálogo;
-- detalle.
+- detalle;
+- panel creador.
+
+---
 
 ## Criterio de aceptación
 
-La entrega se acepta cuando una imagen insertada se ve integrada en la hoja, sin canvas o caja exterior; puede moverse sobre el texto, colocarse delante o detrás, cambiar a ajuste izquierdo o derecho, redimensionarse, recortarse sin alterar el archivo original, guardarse y reconstruirse después de recargar.
+La entrega se acepta cuando:
 
-El mismo patrón debe funcionar para marcador y, sin recorte, para modelo 3D.
+```txt
+Pág. 1
+→ escribo texto
+→ inserto imagen de una cueva
+→ inserto modelo 3D encima
+→ muevo, redimensiono y roto ambos
+→ clic derecho abre menú contextual
+→ guardo
+→ recargo
+→ todo conserva posición y orden
+→ agrego Pág. 2
+→ obtengo una hoja nueva independiente
+```
 
-No se modifica backend, DB, RLS, Storage, PDF, CONALITEG ni deploy.
+Sin caja de composición.
+Sin tarjeta azul.
+Sin toolbar invasiva.
+Sin botón `+` centrado.
+Sin romper Editor.js ni los flujos protegidos.

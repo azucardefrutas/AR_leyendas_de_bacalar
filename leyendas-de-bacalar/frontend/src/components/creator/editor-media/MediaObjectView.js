@@ -17,8 +17,18 @@ import {
   applyMediaBlockLayout,
   clearMediaBlockLayout,
 } from './mediaDomLayout.js';
+import {
+  clampFreeLayoutToSheet,
+  resizeFromHandle,
+  rotateFromPointer,
+} from './mediaGeometry.js';
+import {
+  copyMediaBlock,
+  hasMediaClipboard,
+  pasteMediaBlock,
+} from './mediaClipboard.js';
 
-function button(label, onClick, { danger = false, active = false } = {}) {
+function button(label, onClick, { danger = false, active = false, disabled = false } = {}) {
   const element = document.createElement('button');
   element.type = 'button';
   element.textContent = label;
@@ -27,6 +37,7 @@ function button(label, onClick, { danger = false, active = false } = {}) {
     danger ? 'is-danger' : '',
     active ? 'is-active' : '',
   ].filter(Boolean).join(' ');
+  element.disabled = disabled;
   element.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -73,24 +84,44 @@ export default class MediaObjectView {
     this.wrapper = null;
     this.frame = null;
     this.menu = null;
+    this.quickToolbar = null;
     this.cropDialog = null;
     this.interacting3d = false;
     this.outsideHandler = (event) => {
-      if (!this.wrapper?.contains(event.target) && !this.menu?.contains(event.target)) {
+      if (
+        !this.wrapper?.contains(event.target)
+        && !this.menu?.contains(event.target)
+        && !this.quickToolbar?.contains(event.target)
+      ) {
         this.deselect();
       }
     };
     this.escapeHandler = (event) => {
-      if (event.key === 'Escape') this.deselect();
+      if (event.key === 'Escape') {
+        if (this.interacting3d) {
+          this.interacting3d = false;
+          this.applyLayout();
+          this.rebuildQuickToolbar();
+          return;
+        }
+        this.deselect();
+      }
     };
-    this.resizeHandler = () => this.applyLayout();
+    this.resizeHandler = () => {
+      this.applyLayout();
+      this.positionQuickToolbar();
+    };
   }
 
   updateLayout(updater, refreshMenu = true) {
     this.data.layout = normalizeMediaLayout(updater(this.data.layout));
     this.applyLayout();
     this.config.onDataChange?.();
-    if (refreshMenu) this.rebuildMenu();
+    this.positionQuickToolbar();
+    if (refreshMenu) {
+      this.rebuildMenu();
+      this.rebuildQuickToolbar();
+    }
   }
 
   setMode(mode) {
@@ -107,6 +138,19 @@ export default class MediaObjectView {
         x: blockRect && redactorRect ? (blockRect.left - redactorRect.left) / scale : current.x,
         y: blockRect && redactorRect ? (blockRect.top - redactorRect.top) / scale : current.y,
       };
+    });
+  }
+
+  alignToPage(align) {
+    this.updateLayout((value) => {
+      const current = normalizeMediaLayout(value);
+      if (current.mode !== 'free') return { ...current, align };
+      const x = align === 'left'
+        ? 0
+        : align === 'right'
+          ? 1120 - current.width
+          : (1120 - current.width) / 2;
+      return { ...current, align, x };
     });
   }
 
@@ -136,6 +180,78 @@ export default class MediaObjectView {
     this.menu.style.top = `${Math.max(8, Math.min(top, window.innerHeight - 180))}px`;
   }
 
+  positionQuickToolbar() {
+    if (!this.quickToolbar || !this.frame) return;
+    const rect = this.frame.getBoundingClientRect();
+    const toolbarRect = this.quickToolbar.getBoundingClientRect();
+    const preferredTop = rect.bottom + 10;
+    const top = preferredTop + toolbarRect.height <= window.innerHeight - 8
+      ? preferredTop
+      : Math.max(8, rect.top - toolbarRect.height - 10);
+    const left = Math.max(8, Math.min(
+      rect.left + ((rect.width - toolbarRect.width) / 2),
+      window.innerWidth - toolbarRect.width - 8,
+    ));
+    this.quickToolbar.style.left = `${left}px`;
+    this.quickToolbar.style.top = `${top}px`;
+  }
+
+  getBlockPayload() {
+    const type = this.kind === 'image'
+      ? 'image'
+      : this.kind === 'model3d'
+        ? 'model3d'
+        : 'leyendaMarker';
+    return { type, data: structuredClone(this.data) };
+  }
+
+  insertBlockPayload(payload) {
+    if (!payload || !this.api?.blocks) return;
+    const blockElement = this.wrapper?.closest('.ce-block');
+    const siblings = blockElement?.parentElement
+      ? [...blockElement.parentElement.children].filter((node) => node.classList.contains('ce-block'))
+      : [];
+    const index = siblings.indexOf(blockElement);
+    this.api.blocks.insert(payload.type, payload.data, undefined, index >= 0 ? index + 1 : undefined, true);
+    this.config.onDataChange?.();
+  }
+
+  copyBlock() {
+    copyMediaBlock(this.getBlockPayload());
+    this.rebuildMenu();
+  }
+
+  pasteBlock() {
+    const pasted = pasteMediaBlock({
+      highestZ: normalizeMediaLayout(this.data.layout).zIndex,
+    });
+    this.insertBlockPayload(pasted);
+    this.deselect();
+  }
+
+  duplicateBlock() {
+    this.copyBlock();
+    this.pasteBlock();
+  }
+
+  rebuildQuickToolbar() {
+    if (!this.quickToolbar) return;
+    const layout = normalizeMediaLayout(this.data.layout);
+    this.quickToolbar.replaceChildren(
+      button('Duplicar', () => this.duplicateBlock()),
+      button('Frente', () => this.updateLayout(bringMediaForward)),
+      button('Atrás', () => this.updateLayout(sendMediaBackward)),
+      button(layout.locked ? 'Desbloquear' : 'Bloquear', () => (
+        this.updateLayout((value) => setMediaLocked(value, !value.locked))
+      ), { active: layout.locked }),
+      button('Eliminar', () => this.deleteBlock(), { danger: true }),
+      button('Más', () => {
+        const rect = this.quickToolbar.getBoundingClientRect();
+        this.openMenu(rect.right, rect.bottom + 6);
+      }),
+    );
+  }
+
   rebuildMenu() {
     if (!this.menu) return;
     const layout = normalizeMediaLayout(this.data.layout);
@@ -151,10 +267,19 @@ export default class MediaObjectView {
     );
     this.menu.appendChild(modeGroup);
 
+    const clipboardGroup = document.createElement('div');
+    clipboardGroup.className = 'ejs-media-menu__group';
+    clipboardGroup.append(
+      button('Copiar', () => this.copyBlock()),
+      button('Pegar', () => this.pasteBlock(), { disabled: !hasMediaClipboard() }),
+      button('Duplicar', () => this.duplicateBlock()),
+    );
+    this.menu.prepend(clipboardGroup, separator());
+
     const alignGroup = document.createElement('div');
     alignGroup.className = 'ejs-media-menu__group';
     for (const [label, align] of [['Izq.', 'left'], ['Centro', 'center'], ['Der.', 'right']]) {
-      alignGroup.appendChild(button(label, () => this.updateLayout((value) => ({ ...value, align })), { active: layout.align === align }));
+      alignGroup.appendChild(button(label, () => this.alignToPage(align), { active: layout.align === align }));
     }
     alignGroup.append(
       button('Frente', () => this.updateLayout(bringMediaForward)),
@@ -201,8 +326,15 @@ export default class MediaObjectView {
     this.menu.append(separator(), opacityLabel);
   }
 
-  select(clientX, clientY) {
+  select() {
     this.wrapper?.classList.add('is-selected');
+    this.rebuildQuickToolbar();
+    this.quickToolbar?.classList.add('is-open');
+    queueMicrotask(() => this.positionQuickToolbar());
+  }
+
+  openMenu(clientX, clientY) {
+    this.select();
     this.rebuildMenu();
     this.menu?.classList.add('is-open');
     this.positionMenu(clientX, clientY);
@@ -211,6 +343,7 @@ export default class MediaObjectView {
   deselect() {
     this.wrapper?.classList.remove('is-selected');
     this.menu?.classList.remove('is-open');
+    this.quickToolbar?.classList.remove('is-open');
   }
 
   attachDrag() {
@@ -236,10 +369,16 @@ export default class MediaObjectView {
           y: start.y + ((moveEvent.clientY - startY) / scale),
         });
         this.applyLayout();
-        this.positionMenu();
+        this.positionQuickToolbar();
         this.config.onDataChange?.();
       };
       const stop = () => {
+        const redactor = this.wrapper.closest('.codex-editor__redactor');
+        this.data.layout = clampFreeLayoutToSheet(this.data.layout, {
+          width: 1120,
+          height: Math.max(800, (redactor?.scrollHeight || 800) / scale),
+        });
+        this.applyLayout();
         window.removeEventListener('pointermove', move);
         window.removeEventListener('pointerup', stop);
       };
@@ -248,34 +387,72 @@ export default class MediaObjectView {
     });
   }
 
-  attachResizeHandle() {
+  attachResizeHandles() {
+    const handles = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
+    for (const direction of handles) {
+      const handle = document.createElement('button');
+      handle.type = 'button';
+      handle.className = `ejs-media-object__resize is-${direction}`;
+      handle.setAttribute('aria-label', `Redimensionar ${direction}`);
+      handle.addEventListener('pointerdown', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const layout = normalizeMediaLayout(this.data.layout);
+        if (layout.locked) return;
+        const startX = event.clientX;
+        const startY = event.clientY;
+        const redactorWidth = this.wrapper.closest('.codex-editor__redactor')?.clientWidth || 1120;
+        const scale = Math.min(1, Math.max(0.1, redactorWidth / 1120));
+        const start = layout.height === 'auto'
+          ? { ...layout, height: this.frame.getBoundingClientRect().height / scale }
+          : layout;
+
+        const move = (moveEvent) => {
+          this.data.layout = resizeFromHandle(start, direction, {
+            x: (moveEvent.clientX - startX) / scale,
+            y: (moveEvent.clientY - startY) / scale,
+          });
+          this.applyLayout();
+          this.positionQuickToolbar();
+        };
+        const stop = () => {
+          this.config.onDataChange?.();
+          window.removeEventListener('pointermove', move);
+          window.removeEventListener('pointerup', stop);
+        };
+        window.addEventListener('pointermove', move);
+        window.addEventListener('pointerup', stop, { once: true });
+      });
+      this.frame.appendChild(handle);
+    }
+  }
+
+  attachRotationHandle() {
     const handle = document.createElement('button');
     handle.type = 'button';
-    handle.className = 'ejs-media-object__resize';
-    handle.setAttribute('aria-label', 'Redimensionar recurso');
+    handle.className = 'ejs-media-object__rotate';
+    handle.setAttribute('aria-label', 'Rotar recurso');
     handle.addEventListener('pointerdown', (event) => {
       event.preventDefault();
       event.stopPropagation();
       const layout = normalizeMediaLayout(this.data.layout);
       if (layout.locked) return;
-      const startX = event.clientX;
-      const startY = event.clientY;
-      const startHeight = layout.height === 'auto'
-        ? this.frame.getBoundingClientRect().height
-        : layout.height;
 
       const move = (moveEvent) => {
-        this.data.layout = resizeMedia(layout, {
-          width: layout.width + (moveEvent.clientX - startX),
-          height: this.allowHeight || this.data.crop
-            ? startHeight + (moveEvent.clientY - startY)
-            : 'auto',
+        const rect = this.frame.getBoundingClientRect();
+        this.data.layout = normalizeMediaLayout({
+          ...layout,
+          rotation: rotateFromPointer(
+            layout,
+            { x: rect.left + (rect.width / 2), y: rect.top + (rect.height / 2) },
+            { x: moveEvent.clientX, y: moveEvent.clientY },
+          ),
         });
         this.applyLayout();
-        this.positionMenu();
-        this.config.onDataChange?.();
+        this.positionQuickToolbar();
       };
       const stop = () => {
+        this.config.onDataChange?.();
         window.removeEventListener('pointermove', move);
         window.removeEventListener('pointerup', stop);
       };
@@ -383,6 +560,7 @@ export default class MediaObjectView {
     const index = siblings.indexOf(blockElement);
     this.destroy();
     if (index >= 0) this.api?.blocks?.delete(index);
+    this.config.onDataChange?.();
   }
 
   render(content) {
@@ -401,18 +579,55 @@ export default class MediaObjectView {
     this.menu.setAttribute('aria-label', 'Herramientas del recurso');
     document.body.appendChild(this.menu);
 
-    this.wrapper.addEventListener('pointerdown', (event) => this.select(event.clientX, event.clientY));
+    this.quickToolbar = document.createElement('div');
+    this.quickToolbar.className = 'ejs-media-quick-toolbar';
+    this.quickToolbar.setAttribute('role', 'toolbar');
+    this.quickToolbar.setAttribute('aria-label', 'Acciones rápidas del recurso');
+    document.body.appendChild(this.quickToolbar);
+
+    this.wrapper.addEventListener('pointerdown', () => this.select());
     this.wrapper.addEventListener('focusin', () => this.select());
     this.wrapper.addEventListener('contextmenu', (event) => {
       event.preventDefault();
-      this.select(event.clientX, event.clientY);
+      this.openMenu(event.clientX, event.clientY);
+    });
+    this.wrapper.addEventListener('keydown', (event) => {
+      const layout = normalizeMediaLayout(this.data.layout);
+      if ((event.shiftKey && event.key === 'F10') || event.key === 'ContextMenu') {
+        event.preventDefault();
+        const rect = this.frame.getBoundingClientRect();
+        this.openMenu(rect.left + 20, rect.top + 20);
+        return;
+      }
+      if (event.key === 'Delete' && !layout.locked) {
+        event.preventDefault();
+        this.deleteBlock();
+        return;
+      }
+      if (layout.mode !== 'free' || layout.locked || !event.key.startsWith('Arrow')) return;
+      event.preventDefault();
+      const step = event.shiftKey ? 10 : 1;
+      const delta = {
+        ArrowLeft: { x: -step, y: 0 },
+        ArrowRight: { x: step, y: 0 },
+        ArrowUp: { x: 0, y: -step },
+        ArrowDown: { x: 0, y: step },
+      }[event.key];
+      this.data.layout = moveFreeMedia(layout, {
+        x: layout.x + delta.x,
+        y: layout.y + delta.y,
+      });
+      this.applyLayout();
+      this.positionQuickToolbar();
+      this.config.onDataChange?.();
     });
     document.addEventListener('pointerdown', this.outsideHandler, true);
     window.addEventListener('keydown', this.escapeHandler, true);
     window.addEventListener('resize', this.resizeHandler);
 
     this.attachDrag();
-    this.attachResizeHandle();
+    this.attachResizeHandles();
+    this.attachRotationHandle();
     setCropImageStyle(this.frame.querySelector('img'), this.data.crop);
     queueMicrotask(() => this.applyLayout());
     return this.wrapper;
@@ -424,8 +639,10 @@ export default class MediaObjectView {
     window.removeEventListener('keydown', this.escapeHandler, true);
     window.removeEventListener('resize', this.resizeHandler);
     this.menu?.remove();
+    this.quickToolbar?.remove();
     this.cropDialog?.remove();
     this.menu = null;
+    this.quickToolbar = null;
     this.cropDialog = null;
   }
 }
