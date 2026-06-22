@@ -9873,7 +9873,9 @@ body.fullscreen-editorial-open .site-header { display: none; }
 
 /* Standalone "Expandir escritura" full-screen editorial page. */
 .fullscreen-editorial {
+  width: 100vw;
   min-height: 100dvh;
+  margin-left: calc(50% - 50vw);
   padding: 0 0 88px;
   overflow-x: clip;
   background: #f4f7fa;
@@ -9890,6 +9892,9 @@ body.fullscreen-editorial-open .site-header { display: none; }
   top: 0;
   z-index: 50;
   display: grid;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   grid-template-columns: minmax(180px, 1fr) auto minmax(280px, 1fr) auto;
   align-items: center;
   gap: 16px;
