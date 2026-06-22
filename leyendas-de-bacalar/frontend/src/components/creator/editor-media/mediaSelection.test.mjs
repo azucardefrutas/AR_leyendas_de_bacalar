@@ -1,7 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { getNextMediaCandidate } from './mediaSelection.js';
+import { getNextMediaCandidate, uniqueMediaCandidates } from './mediaSelection.js';
+
+test('uniqueMediaCandidates preserves the visual stacking order', () => {
+  const background = { id: 'background' };
+  const model = { id: 'model' };
+
+  assert.deepEqual(
+    uniqueMediaCandidates([model, model, background, null]),
+    [model, background],
+  );
+});
 
 test('getNextMediaCandidate selects the resource directly underneath the current one', () => {
   const background = { id: 'background' };

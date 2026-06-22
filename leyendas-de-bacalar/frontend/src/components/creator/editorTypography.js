@@ -1,9 +1,6 @@
-export const FONT_OPTIONS = [
-  { label: 'Inter', value: 'Inter', stack: 'Inter, Arial, sans-serif' },
-  { label: 'Nunito Sans', value: 'Nunito Sans', stack: '"Nunito Sans", Arial, sans-serif' },
-  { label: 'Lora', value: 'Lora', stack: 'Lora, Georgia, serif' },
-  { label: 'Playfair', value: 'Playfair Display', stack: '"Playfair Display", Georgia, serif' },
-];
+import { EDITOR_FONT_OPTIONS } from './editorFonts.js';
+
+export const FONT_OPTIONS = EDITOR_FONT_OPTIONS;
 
 const FONT_NAMES = new Set(FONT_OPTIONS.map((option) => option.value));
 

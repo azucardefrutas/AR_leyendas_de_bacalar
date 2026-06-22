@@ -880,3 +880,105 @@ Sin tarjeta azul.
 Sin toolbar invasiva.
 Sin botón `+` centrado.
 Sin romper Editor.js ni los flujos protegidos.
+
+---
+
+## Refinamiento aprobado: selección superpuesta, movimiento 3D, colores y fuentes
+
+Aprobado visualmente el 21 de junio de 2026.
+
+### Movimiento del modelo 3D
+
+En el modo normal del objeto:
+
+- toda la superficie delimitada del modelo funciona como zona de arrastre;
+- el autor puede tomarlo desde cualquier punto y mover la capa;
+- los elementos internos del visor no interceptan el gesto;
+- el movimiento comienza después de un umbral corto para distinguir clic de drag;
+- el modo `Manipular 3D` se activa mediante un control contextual explícito;
+- en `Manipular 3D`, el visor recibe rotación y zoom;
+- Escape o el botón `Mover` devuelve el objeto al modo de desplazamiento.
+
+El estado predeterminado del modelo es `Mover`, no `Manipular 3D`.
+
+### Selección de objetos superpuestos
+
+La selección usa un comportamiento híbrido:
+
+1. el primer clic selecciona el objeto superior;
+2. arrastrar mueve inmediatamente ese objeto;
+3. un segundo clic, sin desplazamiento y en el mismo punto, recorre la siguiente capa inferior;
+4. los clics posteriores siguen recorriendo las capas ubicadas bajo ese punto;
+5. `Alt + clic` se conserva como atajo;
+6. el menú contextual conserva `Seleccionar debajo`;
+7. el ciclo vuelve a comenzar cuando cambia el punto o se hace clic fuera.
+
+Esto permite seleccionar una imagen cubierta por el rectángulo transparente de un modelo WebGL sin exigir que el autor encuentre una zona expuesta.
+
+### Paletas de color funcionales
+
+Los controles de texto y resaltado usarán popovers compactos con:
+
+- colores recientes o activos;
+- paleta editorial accesible;
+- selector personalizado nativo;
+- indicador visual del color aplicado;
+- restauración de la selección de texto antes de ejecutar `foreColor` o `hiliteColor`;
+- cierre con Escape, clic exterior y selección de color.
+
+No se añaden controles decorativos. Cada muestra aplica el color real al texto seleccionado.
+
+### Catálogo de fuentes independiente
+
+Las fuentes se organizan en dos archivos independientes:
+
+- catálogo JavaScript con nombre, familia, categoría y stack de fallback;
+- hoja CSS dedicada a cargar únicamente las familias gratuitas utilizadas por el editor.
+
+Familias iniciales:
+
+- Nunito Sans;
+- Work Sans;
+- Montserrat;
+- Poppins;
+- Raleway;
+- Lora;
+- Playfair Display;
+- Merriweather;
+- Libre Baskerville;
+- Crimson Pro;
+- Cormorant Garamond;
+- Newsreader.
+
+Se conserva compatibilidad con contenido que ya use `Inter`. No se instala una dependencia npm de tipografía y no se modifica `node_modules`.
+
+### Alcance técnico
+
+Modificar únicamente frontend:
+
+- `MediaObjectView.js`;
+- helpers y pruebas de selección/gestos;
+- `EditorJsToolbar.jsx`;
+- catálogo de fuentes;
+- CSS dedicado de fuentes;
+- estilos del editor.
+
+No tocar:
+
+- backend;
+- `.env`;
+- DB, RLS, RPC o migraciones;
+- Storage;
+- deploy;
+- PDF, CONALITEG y hotspots.
+
+### Validación adicional
+
+- arrastrar modelo desde centro, borde y zona transparente;
+- hacer clic repetido en un punto superpuesto y seleccionar la imagen inferior;
+- comprobar que un drag no cambia accidentalmente de capa;
+- entrar y salir de `Manipular 3D`;
+- aplicar cada paleta a una selección real;
+- cambiar entre todas las fuentes del catálogo;
+- verificar editor normal y fullscreen;
+- ejecutar pruebas unitarias y `npm.cmd run build`.

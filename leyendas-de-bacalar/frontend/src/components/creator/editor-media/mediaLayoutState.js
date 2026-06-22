@@ -59,6 +59,23 @@ export function setMediaMode(layout, mode) {
   return normalizeMediaLayout({ ...normalized, mode: nextMode, align });
 }
 
+export function promoteMediaLayoutToFree(layout, geometry = {}) {
+  const normalized = normalizeMediaLayout(layout);
+  return normalizeMediaLayout({
+    ...normalized,
+    mode: 'free',
+    x: finite(geometry.x, normalized.x),
+    y: finite(geometry.y, normalized.y),
+    width: finite(geometry.width, normalized.width),
+    height: geometry.height === 'auto'
+      ? 'auto'
+      : finite(
+        geometry.height,
+        normalized.height === 'auto' ? MEDIA_MIN_SIZE : normalized.height,
+      ),
+  });
+}
+
 export function moveFreeMedia(layout, position = {}) {
   const normalized = normalizeMediaLayout(layout);
   if (normalized.locked || normalized.mode !== 'free') return normalized;

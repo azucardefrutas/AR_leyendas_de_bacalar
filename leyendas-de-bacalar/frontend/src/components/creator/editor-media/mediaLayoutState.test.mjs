@@ -9,6 +9,7 @@ import {
   moveFreeMedia,
   normalizeCrop,
   normalizeMediaLayout,
+  promoteMediaLayoutToFree,
   resetCrop,
   resizeMedia,
   sendMediaBackward,
@@ -130,6 +131,33 @@ test('media layout operations keep saved geometry normalized', () => {
     y: 90,
     width: 440,
     height: 315,
+  });
+});
+
+test('promoteMediaLayoutToFree preserves the measured visual geometry', () => {
+  assert.deepEqual(promoteMediaLayoutToFree({
+    mode: 'inline',
+    width: 129,
+    height: 192,
+    zIndex: 3,
+  }, {
+    x: 380,
+    y: 120,
+    width: 360,
+    height: 536,
+  }), {
+    mode: 'free',
+    align: 'center',
+    layer: 'above-text',
+    x: 380,
+    y: 120,
+    width: 360,
+    height: 536,
+    rotation: 0,
+    zIndex: 3,
+    locked: false,
+    opacity: 1,
+    anchorBlockId: '',
   });
 });
 

@@ -1,0 +1,80 @@
+export const EDITOR_FONT_OPTIONS = [
+  {
+    label: 'Inter',
+    value: 'Inter',
+    stack: 'Inter, Arial, sans-serif',
+    category: 'sans',
+  },
+  {
+    label: 'Nunito Sans',
+    value: 'Nunito Sans',
+    stack: '"Nunito Sans", Arial, sans-serif',
+    category: 'sans',
+  },
+  {
+    label: 'Work Sans',
+    value: 'Work Sans',
+    stack: '"Work Sans", Arial, sans-serif',
+    category: 'sans',
+  },
+  {
+    label: 'Montserrat',
+    value: 'Montserrat',
+    stack: 'Montserrat, Arial, sans-serif',
+    category: 'sans',
+  },
+  {
+    label: 'Poppins',
+    value: 'Poppins',
+    stack: 'Poppins, Arial, sans-serif',
+    category: 'sans',
+  },
+  {
+    label: 'Raleway',
+    value: 'Raleway',
+    stack: 'Raleway, Arial, sans-serif',
+    category: 'sans',
+  },
+  {
+    label: 'Lora',
+    value: 'Lora',
+    stack: 'Lora, Georgia, serif',
+    category: 'serif',
+  },
+  {
+    label: 'Playfair Display',
+    value: 'Playfair Display',
+    stack: '"Playfair Display", Georgia, serif',
+    category: 'serif',
+  },
+  {
+    label: 'Merriweather',
+    value: 'Merriweather',
+    stack: 'Merriweather, Georgia, serif',
+    category: 'serif',
+  },
+  {
+    label: 'Libre Baskerville',
+    value: 'Libre Baskerville',
+    stack: '"Libre Baskerville", Georgia, serif',
+    category: 'serif',
+  },
+  {
+    label: 'Crimson Pro',
+    value: 'Crimson Pro',
+    stack: '"Crimson Pro", Georgia, serif',
+    category: 'serif',
+  },
+  {
+    label: 'Cormorant Garamond',
+    value: 'Cormorant Garamond',
+    stack: '"Cormorant Garamond", Georgia, serif',
+    category: 'serif',
+  },
+  {
+    label: 'Newsreader',
+    value: 'Newsreader',
+    stack: 'Newsreader, Georgia, serif',
+    category: 'serif',
+  },
+];

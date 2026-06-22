@@ -1,9 +1,14 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   FONT_OPTIONS,
   normalizeFontFamily,
   normalizeFontSize,
 } from './editorTypography.js';
+import {
+  HIGHLIGHT_COLOR_OPTIONS,
+  resolveEditorColor,
+  TEXT_COLOR_OPTIONS,
+} from './editorColorPalette.js';
 
 export function EditorIcon({ name, size = 18, strokeWidth = 1.8, className = '' }) {
   const iconProps = {
@@ -59,6 +64,89 @@ function ToolbarButton({ label, icon, text, onClick, onMouseDown, className = ''
   );
 }
 
+function ColorPopover({
+  label,
+  icon,
+  command,
+  value,
+  options,
+  fallback,
+  onChange,
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef(null);
+  const keepSelection = (event) => event.preventDefault();
+  const applyColor = (color) => {
+    const next = resolveEditorColor(color, fallback);
+    onChange(command, next);
+    setOpen(false);
+  };
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const closeOutside = (event) => {
+      if (!rootRef.current?.contains(event.target)) setOpen(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        setOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', closeOutside, true);
+    window.addEventListener('keydown', closeOnEscape, true);
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside, true);
+      window.removeEventListener('keydown', closeOnEscape, true);
+    };
+  }, [open]);
+
+  return (
+    <div className="editorial-editor__color-popover" ref={rootRef}>
+      <button
+        className="editorial-editor__color-control"
+        type="button"
+        title={label}
+        aria-label={label}
+        aria-expanded={open}
+        style={{ '--editor-color-preview': value }}
+        onMouseDown={keepSelection}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <EditorIcon name={icon} />
+      </button>
+      {open && (
+        <div className="editorial-editor__color-panel" role="dialog" aria-label={label}>
+          <span className="editorial-editor__color-title">{label}</span>
+          <div className="editorial-editor__color-swatches">
+            {options.map((color) => (
+              <button
+                key={color}
+                className={color === value ? 'is-active' : ''}
+                type="button"
+                aria-label={`${label}: ${color}`}
+                title={color}
+                style={{ '--editor-swatch': color }}
+                onMouseDown={keepSelection}
+                onClick={() => applyColor(color)}
+              />
+            ))}
+          </div>
+          <label className="editorial-editor__custom-color">
+            <span>Color personalizado</span>
+            <input
+              type="color"
+              value={value}
+              aria-label={`${label} personalizado`}
+              onChange={(event) => applyColor(event.target.value)}
+            />
+          </label>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function EditorJsToolbar({
   onInline,
   onInsertBlock,
@@ -68,6 +156,8 @@ export default function EditorJsToolbar({
 }) {
   const [fontFamily, setFontFamily] = useState('Inter');
   const [fontSize, setFontSize] = useState(16);
+  const [textColor, setTextColor] = useState('#0f172a');
+  const [highlightColor, setHighlightColor] = useState('#fef08a');
   const keepSelection = (event) => event.preventDefault();
   const changeFont = (value) => {
     const next = normalizeFontFamily(value);
@@ -78,6 +168,14 @@ export default function EditorJsToolbar({
     const next = normalizeFontSize(value);
     setFontSize(next);
     onInline('fontSize', next);
+  };
+  const changeTextColor = (command, value) => {
+    setTextColor(value);
+    onInline(command, value);
+  };
+  const changeHighlightColor = (command, value) => {
+    setHighlightColor(value);
+    onInline(command, value);
   };
 
   return (
@@ -114,14 +212,24 @@ export default function EditorJsToolbar({
         </div>
 
         <div className="editorial-editor__toolbar-group editorial-editor__toolbar-group--colors" aria-label="Colores">
-          <label className="editorial-editor__color-control" title="Color del texto">
-            <EditorIcon name="textColor" />
-            <input type="color" defaultValue="#0f172a" aria-label="Color del texto" onChange={(event) => onInline('foreColor', event.target.value)} />
-          </label>
-          <label className="editorial-editor__color-control" title="Resaltado">
-            <EditorIcon name="highlight" />
-            <input type="color" defaultValue="#fef08a" aria-label="Color de resaltado" onChange={(event) => onInline('hiliteColor', event.target.value)} />
-          </label>
+          <ColorPopover
+            label="Color del texto"
+            icon="textColor"
+            command="foreColor"
+            value={textColor}
+            fallback="#0f172a"
+            options={TEXT_COLOR_OPTIONS}
+            onChange={changeTextColor}
+          />
+          <ColorPopover
+            label="Color de resaltado"
+            icon="highlight"
+            command="hiliteColor"
+            value={highlightColor}
+            fallback="#fef08a"
+            options={HIGHLIGHT_COLOR_OPTIONS}
+            onChange={changeHighlightColor}
+          />
         </div>
 
         <span className="editorial-editor__toolbar-sep" aria-hidden="true" />

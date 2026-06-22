@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400..700,0..1,0');
-@import url('https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;800&family=Lora:wght@400;500;600;700&family=Nunito+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Anton&display=swap');
+@import './editor-fonts.css';
 
 :root {
   color-scheme: dark;
@@ -8454,6 +8455,10 @@ body.model3d-open .site-header {
 .editorial-editor__size-control input::-webkit-inner-spin-button,
 .editorial-editor__size-control input::-webkit-outer-spin-button { margin: 0; appearance: none; }
 
+.editorial-editor__color-popover {
+  position: relative;
+}
+
 .editorial-editor__color-control {
   position: relative;
   display: grid;
@@ -8474,16 +8479,78 @@ body.model3d-open .site-header {
   content: '';
 }
 
-.editorial-editor__color-control input {
+.editorial-editor__color-panel {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  opacity: 0;
+  top: calc(100% + 8px);
+  left: 50%;
+  z-index: 230;
+  display: grid;
+  width: 228px;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #dbe3ec;
+  border-radius: 12px;
+  background: #ffffff;
+  box-shadow: 0 16px 38px rgba(15, 23, 42, 0.16);
+  transform: translateX(-50%);
+}
+
+.editorial-editor__color-title {
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.editorial-editor__color-swatches {
+  display: grid;
+  grid-template-columns: repeat(6, 28px);
+  gap: 6px;
+}
+
+.editorial-editor__toolbar .editorial-editor__color-swatches button,
+.editorial-editor--fullscreen .editorial-editor__color-panel button {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: var(--editor-swatch);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.44);
+}
+
+.editorial-editor__toolbar .editorial-editor__color-swatches button:hover,
+.editorial-editor__toolbar .editorial-editor__color-swatches button:focus-visible,
+.editorial-editor__toolbar .editorial-editor__color-swatches button.is-active {
+  border-color: #0891b2;
+  outline: 2px solid rgba(8, 145, 178, 0.2);
+  outline-offset: 1px;
+  transform: none;
+}
+
+.editorial-editor__custom-color {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 9px;
+  border-top: 1px solid #eef2f7;
+  color: #64748b;
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.editorial-editor__custom-color input {
+  width: 42px;
+  height: 28px;
+  padding: 2px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #ffffff;
   cursor: pointer;
 }
-.editorial-editor__toolbar-group--colors .editorial-editor__color-control:first-child::after { background: #0f172a; }
-.editorial-editor__toolbar-group--colors .editorial-editor__color-control:last-child::after { background: #facc15; }
+
 .editorial-editor__error { margin: 0; color: #b42318; font-size: 0.82rem; font-weight: 750; }
 .editorial-editor__toolbar button b,
 .editorial-editor__toolbar button i,
@@ -10160,8 +10227,17 @@ body.fullscreen-editorial-open .site-header { display: none; }
 
 .editorial-content font[face='Inter'] { font-family: Inter, Arial, sans-serif; }
 .editorial-content font[face='Nunito Sans'] { font-family: 'Nunito Sans', Arial, sans-serif; }
+.editorial-content font[face='Work Sans'] { font-family: 'Work Sans', Arial, sans-serif; }
+.editorial-content font[face='Montserrat'] { font-family: Montserrat, Arial, sans-serif; }
+.editorial-content font[face='Poppins'] { font-family: Poppins, Arial, sans-serif; }
+.editorial-content font[face='Raleway'] { font-family: Raleway, Arial, sans-serif; }
 .editorial-content font[face='Lora'] { font-family: Lora, Georgia, serif; }
 .editorial-content font[face='Playfair Display'] { font-family: 'Playfair Display', Georgia, serif; }
+.editorial-content font[face='Merriweather'] { font-family: Merriweather, Georgia, serif; }
+.editorial-content font[face='Libre Baskerville'] { font-family: 'Libre Baskerville', Georgia, serif; }
+.editorial-content font[face='Crimson Pro'] { font-family: 'Crimson Pro', Georgia, serif; }
+.editorial-content font[face='Cormorant Garamond'] { font-family: 'Cormorant Garamond', Georgia, serif; }
+.editorial-content font[face='Newsreader'] { font-family: Newsreader, Georgia, serif; }
 .editorial-content font[size='1'] { font-size: 10px; }
 .editorial-content font[size='2'] { font-size: 12px; }
 .editorial-content font[size='3'] { font-size: 16px; }
@@ -10213,11 +10289,28 @@ body.fullscreen-editorial-open .site-header { display: none; }
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
+.ejs-media-object__hit-area {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: block;
+  background: transparent;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.ejs-media-object.is-manipulating-3d .ejs-media-object__hit-area {
+  pointer-events: none;
+}
+
 .ejs-media-object__frame[data-align='left'] { margin-left: 0; margin-right: auto; }
 .ejs-media-object__frame[data-align='center'] { margin-left: auto; margin-right: auto; }
 .ejs-media-object__frame[data-align='right'] { margin-left: auto; margin-right: 0; }
 
-.ejs-media-object[data-media-mode='free']:not(.is-locked) .ejs-media-object__frame { cursor: grab; }
+.ejs-media-object[data-media-mode='free']:not(.is-locked) .ejs-media-object__frame {
+  cursor: grab;
+  touch-action: none;
+}
 .ejs-media-object[data-media-mode='free']:not(.is-locked) .ejs-media-object__frame:active { cursor: grabbing; }
 
 .ejs-media-object.is-selected .ejs-media-object__frame,
@@ -10691,6 +10784,9 @@ body.fullscreen-editorial-open .site-header { display: none; }
     justify-content: flex-start;
     overflow-x: auto;
     scrollbar-width: thin;
+  }
+  .editorial-editor__toolbar-row:has(.editorial-editor__color-panel) {
+    overflow: visible;
   }
   .editorial-editor__toolbar-group { flex-wrap: nowrap; }
   .editorial-editor__font-field select { width: 126px; }

@@ -13,9 +13,24 @@ test('font options expose the approved free editorial families', () => {
   assert.deepEqual(FONT_OPTIONS.map((option) => option.value), [
     'Inter',
     'Nunito Sans',
+    'Work Sans',
+    'Montserrat',
+    'Poppins',
+    'Raleway',
     'Lora',
     'Playfair Display',
+    'Merriweather',
+    'Libre Baskerville',
+    'Crimson Pro',
+    'Cormorant Garamond',
+    'Newsreader',
   ]);
+  assert.equal(FONT_OPTIONS.every((option) => (
+    option.label
+    && option.value
+    && option.stack
+    && ['sans', 'serif'].includes(option.category)
+  )), true);
 });
 
 test('normalizeFontFamily rejects arbitrary injected font names', () => {

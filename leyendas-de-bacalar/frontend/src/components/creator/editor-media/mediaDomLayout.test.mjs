@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  getMediaFrameStyle,
   getMediaBlockStyle,
   getScaledMediaGeometry,
 } from './mediaDomLayout.js';
@@ -62,4 +63,23 @@ test('free mode positions the Editor.js block across the editorial sheet', () =>
   assert.equal(style.zIndex, '4');
   assert.equal(style.opacity, '0.7');
   assert.equal(style.transform, 'rotate(8deg)');
+});
+
+test('free and wrapped media frames fill the already-scaled block dimensions', () => {
+  assert.deepEqual(getMediaFrameStyle({
+    mode: 'free',
+    width: 520,
+    height: 360,
+  }), {
+    width: '100%',
+    height: '100%',
+  });
+  assert.deepEqual(getMediaFrameStyle({
+    mode: 'inline',
+    width: 520,
+    height: 360,
+  }), {
+    width: '520px',
+    height: '360px',
+  });
 });

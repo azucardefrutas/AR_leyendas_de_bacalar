@@ -5,6 +5,7 @@ import {
   moveFreeMedia,
   normalizeCrop,
   normalizeMediaLayout,
+  promoteMediaLayoutToFree,
   resetCrop,
   resizeMedia,
   sendMediaBackward,
@@ -16,6 +17,7 @@ import {
 import {
   applyMediaBlockLayout,
   clearMediaBlockLayout,
+  getMediaFrameStyle,
 } from './mediaDomLayout.js';
 import {
   clampFreeLayoutToSheet,
@@ -28,8 +30,16 @@ import {
   pasteMediaBlock,
 } from './mediaClipboard.js';
 import { getNextMediaCandidate, uniqueMediaCandidates } from './mediaSelection.js';
+import {
+  canStartMediaPointerGesture,
+  hasExceededDragThreshold,
+  shouldPromoteMediaToFree,
+  shouldResetMediaSelectionCycle,
+  shouldCycleMediaSelection,
+} from './mediaPointerGesture.js';
 
 let activeMediaView = null;
+let lastMediaSelectionPoint = null;
 
 function button(label, onClick, { danger = false, active = false, disabled = false } = {}) {
   const element = document.createElement('button');
@@ -86,6 +96,7 @@ export default class MediaObjectView {
     this.allowCrop = allowCrop;
     this.wrapper = null;
     this.frame = null;
+    this.hitArea = null;
     this.menu = null;
     this.quickToolbar = null;
     this.cropDialog = null;
@@ -97,6 +108,11 @@ export default class MediaObjectView {
         && !this.menu?.contains(event.target)
         && !this.quickToolbar?.contains(event.target)
       ) {
+        if (shouldResetMediaSelectionCycle({
+          clickedMedia: Boolean(event.target.closest?.('.ejs-media-object')),
+        })) {
+          lastMediaSelectionPoint = null;
+        }
         this.deselect();
       }
     };
@@ -132,16 +148,24 @@ export default class MediaObjectView {
     this.updateLayout((value) => {
       const current = normalizeMediaLayout(value);
       if (mode !== 'free' || current.mode === 'free') return setMediaMode(current, mode);
-      const block = this.wrapper?.closest('.ce-block');
-      const redactor = block?.closest('.codex-editor__redactor');
-      const blockRect = block?.getBoundingClientRect();
-      const redactorRect = redactor?.getBoundingClientRect();
-      const scale = Math.min(1, Math.max(0.1, (redactor?.clientWidth || 1120) / 1120));
-      return {
-        ...setMediaMode(current, mode),
-        x: blockRect && redactorRect ? (blockRect.left - redactorRect.left) / scale : current.x,
-        y: blockRect && redactorRect ? (blockRect.top - redactorRect.top) / scale : current.y,
-      };
+      return this.promoteLayoutToFree(current);
+    });
+  }
+
+  promoteLayoutToFree(layout) {
+    const current = normalizeMediaLayout(layout);
+    if (!shouldPromoteMediaToFree(current.mode)) return current;
+    const block = this.wrapper?.closest('.ce-block');
+    const redactor = block?.closest('.codex-editor__redactor');
+    const blockRect = block?.getBoundingClientRect();
+    const redactorRect = redactor?.getBoundingClientRect();
+    const frameRect = this.frame?.getBoundingClientRect();
+    const scale = Math.min(1, Math.max(0.1, (redactor?.clientWidth || 1120) / 1120));
+    return promoteMediaLayoutToFree(current, {
+      x: blockRect && redactorRect ? (blockRect.left - redactorRect.left) / scale : current.x,
+      y: blockRect && redactorRect ? (blockRect.top - redactorRect.top) / scale : current.y,
+      width: frameRect ? frameRect.width / scale : current.width,
+      height: frameRect ? frameRect.height / scale : current.height,
     });
   }
 
@@ -164,10 +188,10 @@ export default class MediaObjectView {
     this.data.layout = layout;
     applyMediaBlockLayout(this.wrapper, layout);
 
-    const blockOwnsSize = layout.mode !== 'inline';
-    this.frame.style.width = blockOwnsSize ? '100%' : `${layout.width}px`;
+    const frameStyle = getMediaFrameStyle(layout);
+    this.frame.style.width = frameStyle.width;
     this.frame.style.maxWidth = '100%';
-    this.frame.style.height = layout.height === 'auto' ? 'auto' : `${layout.height}px`;
+    this.frame.style.height = frameStyle.height;
     this.frame.dataset.align = layout.align;
     this.wrapper.dataset.mediaMode = layout.mode;
     this.wrapper.dataset.mediaLayer = layout.layer;
@@ -402,22 +426,38 @@ export default class MediaObjectView {
 
   attachDrag() {
     this.frame.addEventListener('pointerdown', (event) => {
-      const layout = normalizeMediaLayout(this.data.layout);
-      if (
-        layout.mode !== 'free'
-        || layout.locked
-        || this.interacting3d
-        || event.button !== 0
-        || event.target.closest('button, input, a')
-      ) return;
+      let layout = normalizeMediaLayout(this.data.layout);
+      if (!canStartMediaPointerGesture({
+        button: event.button,
+        locked: layout.locked,
+        interacting3d: this.interacting3d,
+        interactiveTarget: Boolean(event.target.closest?.('button, input, a')),
+      })) return;
       event.preventDefault();
+      if (shouldPromoteMediaToFree(layout.mode)) {
+        layout = normalizeMediaLayout(this.promoteLayoutToFree(layout));
+        this.data.layout = layout;
+        this.applyLayout();
+        this.config.onDataChange?.();
+      }
+      const wasSelected = activeMediaView === this;
       const startX = event.clientX;
       const startY = event.clientY;
+      const pointerStart = { x: startX, y: startY };
       const start = layout;
+      let moved = false;
       const redactorWidth = this.wrapper.closest('.codex-editor__redactor')?.clientWidth || 1120;
       const scale = Math.min(1, Math.max(0.1, redactorWidth / 1120));
+      this.frame.setPointerCapture?.(event.pointerId);
 
       const move = (moveEvent) => {
+        if (!moved) {
+          moved = hasExceededDragThreshold(pointerStart, {
+            x: moveEvent.clientX,
+            y: moveEvent.clientY,
+          });
+        }
+        if (!moved) return;
         this.data.layout = moveFreeMedia(start, {
           x: start.x + ((moveEvent.clientX - startX) / scale),
           y: start.y + ((moveEvent.clientY - startY) / scale),
@@ -426,18 +466,37 @@ export default class MediaObjectView {
         this.positionQuickToolbar();
         this.config.onDataChange?.();
       };
-      const stop = () => {
-        const redactor = this.wrapper.closest('.codex-editor__redactor');
-        this.data.layout = clampFreeLayoutToSheet(this.data.layout, {
-          width: 1120,
-          height: Math.max(800, (redactor?.scrollHeight || 800) / scale),
-        });
-        this.applyLayout();
+      const stop = (stopEvent) => {
+        const point = {
+          x: stopEvent?.clientX ?? startX,
+          y: stopEvent?.clientY ?? startY,
+        };
+        if (moved) {
+          const redactor = this.wrapper.closest('.codex-editor__redactor');
+          this.data.layout = clampFreeLayoutToSheet(this.data.layout, {
+            width: 1120,
+            height: Math.max(800, (redactor?.scrollHeight || 800) / scale),
+          });
+          this.applyLayout();
+        } else if (shouldCycleMediaSelection({
+          isCurrentSelected: wasSelected,
+          moved,
+          previousPoint: lastMediaSelectionPoint,
+          point,
+        })) {
+          this.selectBelow(point.x, point.y);
+        }
+        lastMediaSelectionPoint = point;
+        if (this.frame.hasPointerCapture?.(event.pointerId)) {
+          this.frame.releasePointerCapture(event.pointerId);
+        }
         window.removeEventListener('pointermove', move);
         window.removeEventListener('pointerup', stop);
+        window.removeEventListener('pointercancel', stop);
       };
       window.addEventListener('pointermove', move);
-      window.addEventListener('pointerup', stop, { once: true });
+      window.addEventListener('pointerup', stop);
+      window.addEventListener('pointercancel', stop);
     });
   }
 
@@ -626,6 +685,10 @@ export default class MediaObjectView {
     this.frame = document.createElement('div');
     this.frame.className = 'ejs-media-object__frame';
     this.frame.appendChild(content);
+    this.hitArea = document.createElement('span');
+    this.hitArea.className = 'ejs-media-object__hit-area';
+    this.hitArea.setAttribute('aria-hidden', 'true');
+    this.frame.appendChild(this.hitArea);
     this.wrapper.appendChild(this.frame);
 
     this.menu = document.createElement('div');
@@ -644,6 +707,7 @@ export default class MediaObjectView {
       if (!event.altKey || event.button !== 0) return;
       event.preventDefault();
       event.stopImmediatePropagation();
+      lastMediaSelectionPoint = { x: event.clientX, y: event.clientY };
       this.selectBelow(event.clientX, event.clientY);
     }, true);
     this.wrapper.addEventListener('pointerdown', () => this.select());
@@ -707,6 +771,7 @@ export default class MediaObjectView {
     this.menu = null;
     this.quickToolbar = null;
     this.cropDialog = null;
+    this.hitArea = null;
   }
 }
 

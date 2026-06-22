@@ -72,6 +72,19 @@ export function getMediaBlockStyle(layout, availableWidth = MEDIA_SHEET_WIDTH) {
   };
 }
 
+export function getMediaFrameStyle(layout) {
+  const normalized = normalizeMediaLayout(layout);
+  const blockOwnsSize = normalized.mode !== 'inline';
+  return {
+    width: blockOwnsSize ? '100%' : `${normalized.width}px`,
+    height: normalized.height === 'auto'
+      ? 'auto'
+      : blockOwnsSize
+        ? '100%'
+        : `${normalized.height}px`,
+  };
+}
+
 export function refreshMediaSheetHeight(redactor) {
   if (!redactor) return;
   const previousMinHeight = redactor.style.minHeight;
