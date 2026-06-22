@@ -11,8 +11,8 @@ const InlineModel3DViewer = lazy(() => import('../3d/Model3DViewer.jsx'));
 // We render blocks as React elements and sanitize only the inline HTML with a strict
 // allowlist, so the author never sees raw tags and no unsafe markup can run.
 const INLINE_CONFIG = {
-  ALLOWED_TAGS: ['b', 'strong', 'i', 'em', 'u', 's', 'strike', 'a', 'mark', 'code', 'br', 'sup', 'sub', 'span'],
-  ALLOWED_ATTR: ['href', 'target', 'rel', 'class'],
+  ALLOWED_TAGS: ['b', 'strong', 'i', 'em', 'u', 's', 'strike', 'a', 'font', 'mark', 'code', 'br', 'sup', 'sub', 'span'],
+  ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'style', 'face', 'size', 'color'],
 };
 
 const stripTags = (value = '') => String(value ?? '').replace(/<[^>]*>/g, '');

@@ -27,6 +27,9 @@ import {
   hasMediaClipboard,
   pasteMediaBlock,
 } from './mediaClipboard.js';
+import { getNextMediaCandidate, uniqueMediaCandidates } from './mediaSelection.js';
+
+let activeMediaView = null;
 
 function button(label, onClick, { danger = false, active = false, disabled = false } = {}) {
   const element = document.createElement('button');
@@ -87,6 +90,7 @@ export default class MediaObjectView {
     this.quickToolbar = null;
     this.cropDialog = null;
     this.interacting3d = false;
+    this.lastPointer = null;
     this.outsideHandler = (event) => {
       if (
         !this.wrapper?.contains(event.target)
@@ -234,10 +238,46 @@ export default class MediaObjectView {
     this.pasteBlock();
   }
 
+  getMediaCandidatesAtPoint(clientX, clientY) {
+    if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) return [];
+    const redactor = this.wrapper?.closest('.codex-editor__redactor');
+    const candidates = document.elementsFromPoint(clientX, clientY)
+      .map((element) => element.closest?.('.ejs-media-object'))
+      .filter((element) => element && (!redactor || element.closest('.codex-editor__redactor') === redactor));
+    return uniqueMediaCandidates(candidates);
+  }
+
+  selectBelow(clientX, clientY) {
+    const candidates = this.getMediaCandidatesAtPoint(clientX, clientY);
+    const nextWrapper = getNextMediaCandidate(candidates, this.wrapper);
+    const nextView = nextWrapper?.__ejsMediaView;
+    if (!nextView || nextView === this) return false;
+    this.deselect();
+    nextView.select();
+    nextView.wrapper?.focus({ preventScroll: true });
+    return true;
+  }
+
+  toggleModelInteraction() {
+    if (this.kind !== 'model3d') return;
+    this.interacting3d = !this.interacting3d;
+    this.applyLayout();
+    this.rebuildMenu();
+    this.rebuildQuickToolbar();
+  }
+
   rebuildQuickToolbar() {
     if (!this.quickToolbar) return;
     const layout = normalizeMediaLayout(this.data.layout);
-    this.quickToolbar.replaceChildren(
+    const actions = [];
+    if (this.kind === 'model3d') {
+      actions.push(button(
+        this.interacting3d ? 'Mover capa' : 'Manipular 3D',
+        () => this.toggleModelInteraction(),
+        { active: this.interacting3d },
+      ));
+    }
+    actions.push(
       button('Duplicar', () => this.duplicateBlock()),
       button('Frente', () => this.updateLayout(bringMediaForward)),
       button('Atrás', () => this.updateLayout(sendMediaBackward)),
@@ -247,9 +287,15 @@ export default class MediaObjectView {
       button('Eliminar', () => this.deleteBlock(), { danger: true }),
       button('Más', () => {
         const rect = this.quickToolbar.getBoundingClientRect();
-        this.openMenu(rect.right, rect.bottom + 6);
+        const frameRect = this.frame.getBoundingClientRect();
+        this.openMenu(
+          rect.right,
+          rect.bottom + 6,
+          { x: frameRect.left + (frameRect.width / 2), y: frameRect.top + (frameRect.height / 2) },
+        );
       }),
     );
+    this.quickToolbar.replaceChildren(...actions);
   }
 
   rebuildMenu() {
@@ -290,6 +336,14 @@ export default class MediaObjectView {
     const layerGroup = document.createElement('div');
     layerGroup.className = 'ejs-media-menu__group';
     layerGroup.append(
+      button('Seleccionar debajo', () => {
+        const point = this.lastPointer || {
+          x: this.frame.getBoundingClientRect().left + 12,
+          y: this.frame.getBoundingClientRect().top + 12,
+        };
+        this.selectBelow(point.x, point.y);
+        this.menu?.classList.remove('is-open');
+      }),
       button(
         layout.layer === 'behind-text' ? 'Detrás del texto' : 'Sobre el texto',
         () => this.updateLayout((value) => setTextLayer(value, value.layer === 'behind-text' ? 'above-text' : 'behind-text')),
@@ -299,12 +353,8 @@ export default class MediaObjectView {
     );
     if (this.kind === 'model3d') {
       layerGroup.appendChild(button(
-        this.interacting3d ? 'Mover objeto' : 'Manipular 3D',
-        () => {
-          this.interacting3d = !this.interacting3d;
-          this.applyLayout();
-          this.rebuildMenu();
-        },
+        this.interacting3d ? 'Mover capa' : 'Manipular 3D',
+        () => this.toggleModelInteraction(),
         { active: this.interacting3d },
       ));
     }
@@ -327,13 +377,16 @@ export default class MediaObjectView {
   }
 
   select() {
+    if (activeMediaView && activeMediaView !== this) activeMediaView.deselect();
+    activeMediaView = this;
     this.wrapper?.classList.add('is-selected');
     this.rebuildQuickToolbar();
     this.quickToolbar?.classList.add('is-open');
     queueMicrotask(() => this.positionQuickToolbar());
   }
 
-  openMenu(clientX, clientY) {
+  openMenu(clientX, clientY, selectionPoint = null) {
+    this.lastPointer = selectionPoint || { x: clientX, y: clientY };
     this.select();
     this.rebuildMenu();
     this.menu?.classList.add('is-open');
@@ -341,6 +394,7 @@ export default class MediaObjectView {
   }
 
   deselect() {
+    if (activeMediaView === this) activeMediaView = null;
     this.wrapper?.classList.remove('is-selected');
     this.menu?.classList.remove('is-open');
     this.quickToolbar?.classList.remove('is-open');
@@ -567,6 +621,7 @@ export default class MediaObjectView {
     this.wrapper = document.createElement('div');
     this.wrapper.className = `ejs-media-object ejs-media-object--${this.kind}`;
     this.wrapper.tabIndex = 0;
+    this.wrapper.__ejsMediaView = this;
 
     this.frame = document.createElement('div');
     this.frame.className = 'ejs-media-object__frame';
@@ -585,6 +640,12 @@ export default class MediaObjectView {
     this.quickToolbar.setAttribute('aria-label', 'Acciones rápidas del recurso');
     document.body.appendChild(this.quickToolbar);
 
+    this.wrapper.addEventListener('pointerdown', (event) => {
+      if (!event.altKey || event.button !== 0) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      this.selectBelow(event.clientX, event.clientY);
+    }, true);
     this.wrapper.addEventListener('pointerdown', () => this.select());
     this.wrapper.addEventListener('focusin', () => this.select());
     this.wrapper.addEventListener('contextmenu', (event) => {
@@ -634,6 +695,8 @@ export default class MediaObjectView {
   }
 
   destroy() {
+    if (activeMediaView === this) activeMediaView = null;
+    if (this.wrapper) delete this.wrapper.__ejsMediaView;
     clearMediaBlockLayout(this.wrapper);
     document.removeEventListener('pointerdown', this.outsideHandler, true);
     window.removeEventListener('keydown', this.escapeHandler, true);

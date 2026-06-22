@@ -16,6 +16,11 @@ import EditorInsertRail from './EditorInsertRail.jsx';
 import { ImageEditorBlockTool, MarkerBlockTool, Model3DBlockTool } from './editorBlockTools.js';
 import { migrateEditorDataMedia } from './editor-media/compositionMigration.js';
 import { getInitialFreeLayout } from './editor-media/mediaGeometry.js';
+import {
+  fontSizeToLegacyValue,
+  normalizeFontFamily,
+  normalizeHexColor,
+} from './editorTypography.js';
 import LegacyCompositionBlockTool from './editor-tools/LegacyCompositionBlockTool.js';
 import InsertLinkModal from './editor-modals/InsertLinkModal.jsx';
 import InsertImageModal from './editor-modals/InsertImageModal.jsx';
@@ -143,6 +148,7 @@ export default function EditorialRichEditor({
   const dirtyRef = useRef(false);
   const openModelRef = useRef(null);
   const mediaZIndexRef = useRef(1);
+  const savedSelectionRef = useRef(null);
   const [activeTab, setActiveTab] = useState('edit');
   const [expanded, setExpanded] = useState(false);
   const [previewData, setPreviewData] = useState(null);
@@ -213,8 +219,8 @@ export default function EditorialRichEditor({
     try {
       const data = await editor.save();
       const html = DOMPurify.sanitize(editorJsToHtml(data), {
-        ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'strong', 'b', 'em', 'i', 'u', 's', 'a', 'ul', 'ol', 'li', 'blockquote', 'cite', 'hr', 'table', 'tbody', 'tr', 'th', 'td', 'figure', 'figcaption', 'img', 'article', 'section', 'div', 'span', 'br'],
-        ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'src', 'alt', 'style'],
+        ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'strong', 'b', 'em', 'i', 'u', 's', 'a', 'font', 'mark', 'ul', 'ol', 'li', 'blockquote', 'cite', 'hr', 'table', 'tbody', 'tr', 'th', 'td', 'figure', 'figcaption', 'img', 'article', 'section', 'div', 'span', 'br'],
+        ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'src', 'alt', 'style', 'face', 'size', 'color'],
         ALLOW_DATA_ATTR: false,
       });
       const text = editorJsToPlainText(data);
@@ -303,6 +309,18 @@ export default function EditorialRichEditor({
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPageId]);
+
+  useEffect(() => {
+    const rememberSelection = () => {
+      const selection = window.getSelection();
+      if (!selection?.rangeCount) return;
+      const range = selection.getRangeAt(0);
+      if (!holderRef.current?.contains(range.commonAncestorContainer)) return;
+      savedSelectionRef.current = range.cloneRange();
+    };
+    document.addEventListener('selectionchange', rememberSelection);
+    return () => document.removeEventListener('selectionchange', rememberSelection);
+  }, []);
 
   const requestSelect = async (pageId) => {
     if (pageId === currentPageIdRef.current) return;
@@ -396,7 +414,17 @@ export default function EditorialRichEditor({
   const applyInline = (command, value = null) => {
     if (activeTab !== 'edit') return;
     try {
-      document.execCommand(command, false, value);
+      const selection = window.getSelection();
+      if (savedSelectionRef.current && selection) {
+        selection.removeAllRanges();
+        selection.addRange(savedSelectionRef.current);
+      }
+      let commandValue = value;
+      if (command === 'fontName') commandValue = normalizeFontFamily(value);
+      if (command === 'fontSize') commandValue = String(fontSizeToLegacyValue(value));
+      if (command === 'foreColor') commandValue = normalizeHexColor(value);
+      if (command === 'hiliteColor') commandValue = normalizeHexColor(value, '#fef08a');
+      document.execCommand(command, false, commandValue);
       dirtyRef.current = true;
       setDirty(true);
     } catch { /* ignore */ }

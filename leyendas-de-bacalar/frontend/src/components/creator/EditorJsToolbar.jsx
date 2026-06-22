@@ -1,4 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
+import {
+  FONT_OPTIONS,
+  normalizeFontFamily,
+  normalizeFontSize,
+} from './editorTypography.js';
 
 export function EditorIcon({ name, size = 18, strokeWidth = 1.8, className = '' }) {
   const iconProps = {
@@ -36,14 +41,19 @@ export function EditorIcon({ name, size = 18, strokeWidth = 1.8, className = '' 
     trash: <><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 15H6L5 6" /><path d="M10 11v6" /><path d="M14 11v6" /></>,
     pages: <><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" /><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" /></>,
     text: <><path d="M5 5h14" /><path d="M12 5v14" /><path d="M8 19h8" /></>,
+    alignLeft: <><path d="M4 6h16" /><path d="M4 10h10" /><path d="M4 14h16" /><path d="M4 18h10" /></>,
+    alignCenter: <><path d="M4 6h16" /><path d="M7 10h10" /><path d="M4 14h16" /><path d="M7 18h10" /></>,
+    alignRight: <><path d="M4 6h16" /><path d="M10 10h10" /><path d="M4 14h16" /><path d="M10 18h10" /></>,
+    textColor: <><path d="M5 20h14" /><path d="m8 16 4-12 4 12" /><path d="M9.5 12h5" /></>,
+    highlight: <><path d="m9 11 4 4" /><path d="m14 4 6 6-9 9H5v-6z" /><path d="M3 21h18" /></>,
   };
 
   return <svg {...iconProps}>{paths[name]}</svg>;
 }
 
-function ToolbarButton({ label, icon, text, onClick, onMouseDown }) {
+function ToolbarButton({ label, icon, text, onClick, onMouseDown, className = '' }) {
   return (
-    <button type="button" aria-label={label} title={label} onClick={onClick} onMouseDown={onMouseDown}>
+    <button className={className} type="button" aria-label={label} title={label} onClick={onClick} onMouseDown={onMouseDown}>
       {icon ? <EditorIcon name={icon} /> : <span className="editor-toolbar-text-icon">{text}</span>}
     </button>
   );
@@ -56,31 +66,98 @@ export default function EditorJsToolbar({
   showModel3d = false,
   showMarker = false,
 }) {
+  const [fontFamily, setFontFamily] = useState('Inter');
+  const [fontSize, setFontSize] = useState(16);
   const keepSelection = (event) => event.preventDefault();
+  const changeFont = (value) => {
+    const next = normalizeFontFamily(value);
+    setFontFamily(next);
+    onInline('fontName', next);
+  };
+  const changeSize = (value) => {
+    const next = normalizeFontSize(value);
+    setFontSize(next);
+    onInline('fontSize', next);
+  };
 
   return (
     <div className="editorial-editor__toolbar" role="toolbar" aria-label="Herramientas de formato">
-      <div className="editorial-editor__toolbar-group" aria-label="Formato de texto">
+      <div className="editorial-editor__toolbar-row editorial-editor__toolbar-row--type">
+        <div className="editorial-editor__toolbar-group editorial-editor__toolbar-group--headings" aria-label="Jerarquía de texto">
+          <ToolbarButton label="Título H1" text="H1" onClick={() => onInsertBlock('header', { text: '', level: 1 })} />
+          <ToolbarButton label="Título H2" text="H2" onClick={() => onInsertBlock('header', { text: '', level: 2 })} />
+          <ToolbarButton label="Subtítulo H3" text="H3" onClick={() => onInsertBlock('header', { text: '', level: 3 })} />
+        </div>
+
+        <label className="editorial-editor__font-field">
+          <span className="sr-only">Fuente</span>
+          <select value={fontFamily} onChange={(event) => changeFont(event.target.value)} title="Fuente">
+            {FONT_OPTIONS.map((font) => (
+              <option key={font.value} value={font.value} style={{ fontFamily: font.stack }}>
+                {font.label}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="editorial-editor__size-control" aria-label="Tamaño de fuente">
+          <ToolbarButton label="Reducir tamaño" text="−" onMouseDown={keepSelection} onClick={() => changeSize(fontSize - 2)} />
+          <input
+            type="number"
+            min="10"
+            max="72"
+            value={fontSize}
+            aria-label="Tamaño de fuente en píxeles"
+            onChange={(event) => changeSize(event.target.value)}
+          />
+          <ToolbarButton label="Aumentar tamaño" text="+" onMouseDown={keepSelection} onClick={() => changeSize(fontSize + 2)} />
+        </div>
+
+        <div className="editorial-editor__toolbar-group editorial-editor__toolbar-group--colors" aria-label="Colores">
+          <label className="editorial-editor__color-control" title="Color del texto">
+            <EditorIcon name="textColor" />
+            <input type="color" defaultValue="#0f172a" aria-label="Color del texto" onChange={(event) => onInline('foreColor', event.target.value)} />
+          </label>
+          <label className="editorial-editor__color-control" title="Resaltado">
+            <EditorIcon name="highlight" />
+            <input type="color" defaultValue="#fef08a" aria-label="Color de resaltado" onChange={(event) => onInline('hiliteColor', event.target.value)} />
+          </label>
+        </div>
+
+        <span className="editorial-editor__toolbar-sep" aria-hidden="true" />
+
+        <div className="editorial-editor__toolbar-group" aria-label="Formato de texto">
         <ToolbarButton label="Negrita" icon="bold" onMouseDown={keepSelection} onClick={() => onInline('bold')} />
         <ToolbarButton label="Cursiva" icon="italic" onMouseDown={keepSelection} onClick={() => onInline('italic')} />
         <ToolbarButton label="Subrayado" icon="underline" onMouseDown={keepSelection} onClick={() => onInline('underline')} />
         <ToolbarButton label="Tachado" icon="strikethrough" onMouseDown={keepSelection} onClick={() => onInline('strikeThrough')} />
         <ToolbarButton label="Insertar enlace" icon="link" onClick={() => onOpenModal('link')} />
-      </div>
+        </div>
 
-      <span className="editorial-editor__toolbar-sep" aria-hidden="true" />
+        <span className="editorial-editor__toolbar-sep" aria-hidden="true" />
 
-      <div className="editorial-editor__toolbar-group" aria-label="Bloques">
-        <ToolbarButton label="Título H2" text="H2" onClick={() => onInsertBlock('header', { text: '', level: 2 })} />
-        <ToolbarButton label="Subtítulo H3" text="H3" onClick={() => onInsertBlock('header', { text: '', level: 3 })} />
+        <div className="editorial-editor__toolbar-group" aria-label="Alineación">
+          <ToolbarButton label="Alinear a la izquierda" icon="alignLeft" onMouseDown={keepSelection} onClick={() => onInline('justifyLeft')} />
+          <ToolbarButton label="Centrar" icon="alignCenter" onMouseDown={keepSelection} onClick={() => onInline('justifyCenter')} />
+          <ToolbarButton label="Alinear a la derecha" icon="alignRight" onMouseDown={keepSelection} onClick={() => onInline('justifyRight')} />
+        </div>
+
+        <div className="editorial-editor__toolbar-group" aria-label="Listas">
         <ToolbarButton label="Lista" icon="list" onClick={() => onInsertBlock('list', { style: 'unordered', items: [] })} />
         <ToolbarButton label="Checklist" icon="checklist" onClick={() => onInsertBlock('checklist', { items: [] })} />
         <ToolbarButton label="Cita" icon="quote" onClick={() => onInsertBlock('quote', { text: '', caption: '' })} />
         <ToolbarButton label="Separador" icon="minus" onClick={() => onInsertBlock('delimiter', {})} />
+        </div>
+      </div>
+
+      <div className="editorial-editor__toolbar-row editorial-editor__toolbar-row--insert">
+        <span className="editorial-editor__toolbar-label">Insertar</span>
+        <div className="editorial-editor__toolbar-group" aria-label="Recursos">
         <ToolbarButton label="Tabla" icon="table" onClick={() => onOpenModal('table')} />
         <ToolbarButton label="Imagen" icon="image" onClick={() => onOpenModal('image')} />
         {showModel3d && <ToolbarButton label="Modelo 3D" icon="box" onClick={() => onOpenModal('model3d')} />}
         {showMarker && <ToolbarButton label="Marcador" icon="bookmark" onClick={() => onOpenModal('marker')} />}
+        </div>
       </div>
     </div>
   );
