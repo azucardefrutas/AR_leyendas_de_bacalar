@@ -1,5 +1,10 @@
 import { STORAGE_BUCKETS } from './assetService.js';
 import { getAdminClient } from './adminService.js';
+import { BackendApiError, getAdminLegendsBackend, getContentReviewsBackend } from './backendApiService.js';
+
+function isBackendUnavailable(error) {
+  return error instanceof BackendApiError && (error.status === 0 || !error.status);
+}
 
 function invalidIdError() {
   return new Error('No pudimos completar la accion. Faltan datos para procesarla.');
@@ -233,6 +238,18 @@ async function enrichAdminLegends(client, legends = []) {
 }
 
 export async function getLegends() {
+  // Backend-first: server enriches media + genres + versions + reviews in one call.
+  try {
+    const response = await getAdminLegendsBackend();
+    if (Array.isArray(response?.legends)) {
+      return { data: response.legends, error: null };
+    }
+  } catch (backendError) {
+    if (import.meta.env.DEV && !isBackendUnavailable(backendError)) {
+      console.error('[AdminLegends] backend legends fallback:', backendError?.message || backendError);
+    }
+  }
+
   const { data: client, error: clientError } = getAdminClient();
   if (clientError) return { data: [], error: clientError };
 
@@ -282,6 +299,19 @@ export async function getLegendById(id) {
 }
 
 export async function getContentReviews() {
+  // Backend-first: server joins reviews + versions + legends + creators in one call.
+  // Array guard + fallback keep the panel working if the backend is unreachable.
+  try {
+    const response = await getContentReviewsBackend();
+    if (Array.isArray(response?.reviews)) {
+      return { data: response.reviews, error: null };
+    }
+  } catch (backendError) {
+    if (import.meta.env.DEV && !isBackendUnavailable(backendError)) {
+      console.error('[AdminReviews] backend reviews fallback:', backendError?.message || backendError);
+    }
+  }
+
   const { data: client, error: clientError } = getAdminClient();
   if (clientError) return { data: [], error: clientError };
 

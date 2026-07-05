@@ -190,6 +190,57 @@ export function prepareLegendUpload({ legendId, filename, mimeType, sizeBytes, p
   });
 }
 
+// Creator write path moved to the backend (single call, server-side orchestration).
+// Callers fall back to the Supabase-direct path when the backend is unreachable.
+export function createLegendDraftBackend(legend) {
+  return requestBackend('/api/v1/legends', {
+    method: 'POST',
+    operation: 'create-legend-draft',
+    body: { legend },
+  });
+}
+
+export function updateLegendGeneralBackend(legendId, legend) {
+  return requestBackend(`/api/v1/legends/${encodeURIComponent(legendId)}`, {
+    method: 'PATCH',
+    operation: 'update-legend-general',
+    body: { legend },
+  });
+}
+
+export function duplicateLegendBackend(legendId) {
+  return requestBackend(`/api/v1/legends/${encodeURIComponent(legendId)}/duplicate`, {
+    method: 'POST',
+    operation: 'duplicate-legend',
+  });
+}
+
+// Admin dashboard counters aggregated server-side (one call vs ~10 from the browser).
+export function getAdminStatsBackend() {
+  return requestBackend('/api/v1/admin/stats', { operation: 'admin-stats' });
+}
+
+// Full editor payload (legend + version + pages + genres + resources) in one call.
+export function getEditorDataBackend(legendId) {
+  return requestBackend(`/api/v1/legends/${encodeURIComponent(legendId)}/editor`, { operation: 'editor-load' });
+}
+
+// Content reviews list joined server-side (one call vs 4 round-trips).
+export function getContentReviewsBackend() {
+  return requestBackend('/api/v1/admin/reviews', { operation: 'admin-reviews' });
+}
+
+// Admin legends list enriched server-side (one call vs many parallel queries).
+export function getAdminLegendsBackend() {
+  return requestBackend('/api/v1/admin/legends', { operation: 'admin-legends' });
+}
+
+// Enriched creator legend list aggregated server-side (one call vs ~5 + client loops).
+export function getCreatorLegendsBackend(limit) {
+  const qs = Number.isFinite(Number(limit)) && Number(limit) > 0 ? `?limit=${encodeURIComponent(limit)}` : '';
+  return requestBackend(`/api/v1/creator/legends${qs}`, { operation: 'creator-legends' });
+}
+
 // Backend-sanitized HTML + stats for an Editor.js page. Use on save so stored
 // rendered_html is sanitized server-side (no scripts / unsafe markup).
 export function renderEditorHtml(legendId, editorData) {

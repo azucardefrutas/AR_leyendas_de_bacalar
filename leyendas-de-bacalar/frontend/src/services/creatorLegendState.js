@@ -107,7 +107,7 @@ export function getCreatorLegendPrimaryAction(legend = {}) {
     return {
       key: 'edit',
       type: 'edit',
-      label: statusKey === 'rejected' || statusKey === 'changes_requested' ? 'Editar correcciones' : 'Editar',
+      label: statusKey === 'rejected' || statusKey === 'changes_requested' ? 'Editar correcciones' : 'Continuar',
       variant: 'ghost',
     };
   }
@@ -164,8 +164,18 @@ export function getLegendGenreNames(legend = {}) {
     .slice(0, 3);
 }
 
-export function getLegendCardActions(legend = {}, { allowDelete = true } = {}) {
+export function getLegendCardActions(legend = {}, { allowDelete = true, allowDuplicate = true } = {}) {
   const actions = [getCreatorLegendPrimaryAction(legend)];
+
+  if (allowDuplicate) {
+    actions.push({
+      key: 'duplicate',
+      type: 'duplicate',
+      label: 'Duplicar',
+      loadingLabel: 'Duplicando...',
+      variant: 'ghost',
+    });
+  }
 
   if (allowDelete && canDeleteCreatorLegend(legend)) {
     actions.push({

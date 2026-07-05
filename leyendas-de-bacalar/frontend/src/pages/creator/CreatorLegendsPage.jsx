@@ -7,6 +7,7 @@ import EmptyState from '../../components/ui/EmptyState.jsx';
 import {
   canDeleteCreatorLegend,
   deleteCreatorLegend,
+  duplicateLegend,
   getCreatorLegendCardData,
   getCreatorLegendStatusKey,
   getCreatorLegends,
@@ -20,6 +21,7 @@ function CreatorLegendsPage() {
   const [legends, setLegends] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
+  const [duplicatingId, setDuplicatingId] = useState(null);
   const [deleteErrors, setDeleteErrors] = useState({});
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
@@ -66,6 +68,23 @@ function CreatorLegendsPage() {
       return;
     }
     navigate(`/creator/legends/${legend.id}/edit`);
+  }
+
+  async function handleDuplicateLegend(legend) {
+    if (!legend?.id) return;
+    setDuplicatingId(legend.id);
+    setMessage(null);
+    setError(null);
+    const { data, error: duplicateError } = await duplicateLegend(legend.id);
+    setDuplicatingId(null);
+    if (duplicateError) {
+      setError(duplicateError);
+      return;
+    }
+    // Refresh the list so the new draft appears in "Mis leyendas".
+    const { data: refreshed, error: refreshError } = await getCreatorLegends();
+    if (!refreshError) setLegends(refreshed ?? []);
+    setMessage(data?.legend?.title ? `Copia creada: "${data.legend.title}".` : 'Copia creada como borrador.');
   }
 
   async function handleDeleteLegend(legend) {
@@ -146,10 +165,12 @@ function CreatorLegendsPage() {
             <CreatorLegendCard
               key={legend.id}
               legend={legend}
-              {...getCreatorLegendCardData(legend, { allowDelete: true })}
+              {...getCreatorLegendCardData(legend, { allowDelete: true, allowDuplicate: true })}
               onEdit={openEditor}
               onDelete={handleDeleteLegend}
+              onDuplicate={handleDuplicateLegend}
               deleting={deletingId === legend.id}
+              duplicating={duplicatingId === legend.id}
               deleteError={deleteErrors[legend.id]}
             />
           ))}

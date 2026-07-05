@@ -1,4 +1,10 @@
 import { getSupabaseConfigError, supabase } from '../lib/supabaseClient.js';
+import { BackendApiError, getAdminStatsBackend } from './backendApiService.js';
+
+// Only fall back to the Supabase-direct counts when the backend is unreachable.
+function isBackendUnavailable(error) {
+  return error instanceof BackendApiError && (error.status === 0 || !error.status);
+}
 
 export function getAdminClient() {
   if (!supabase) return { data: null, error: getSupabaseConfigError() };
@@ -84,6 +90,20 @@ function getNumericValue(row, keys = []) {
 }
 
 export async function getAdminDashboardStats() {
+  // Backend-first: server aggregates the 10 counters in one call. A shape guard +
+  // status-0 check make it fall back to the Supabase-direct counts if anything is off.
+  try {
+    const response = await getAdminStatsBackend();
+    if (response?.stats && typeof response.stats.users === 'number') {
+      return { data: response.stats, error: null, warnings: [] };
+    }
+  } catch (backendError) {
+    if (!isBackendUnavailable(backendError)) {
+      // Non-availability backend error: still fall back to keep the dashboard working.
+      logAdminServiceError({ functionName: 'getAdminDashboardStats', step: 'backend stats', operation: 'admin-stats', table: 'backend', error: backendError });
+    }
+  }
+
   const { data: client, error: clientError } = getAdminClient();
   if (clientError) return { data: null, error: clientError };
 

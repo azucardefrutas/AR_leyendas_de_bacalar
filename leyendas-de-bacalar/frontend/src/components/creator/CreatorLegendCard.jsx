@@ -9,14 +9,30 @@ import StatusBadge from './StatusBadge.jsx';
 function renderAction(action, {
   legend,
   deleting,
+  duplicating,
   onEdit,
   onDelete,
   onDeleteDraft,
+  onDuplicate,
 }) {
   const label = deleting && action.type === 'delete'
     ? action.loadingLabel || 'Eliminando...'
     : action.label;
   const className = `creator-card-action${action.danger ? ' danger-action' : ''}`;
+
+  if (action.type === 'duplicate') {
+    return (
+      <Button
+        key={action.key}
+        variant={action.variant || 'ghost'}
+        className={className}
+        onClick={() => onDuplicate?.(legend)}
+        disabled={duplicating}
+      >
+        {duplicating ? (action.loadingLabel || 'Duplicando...') : action.label}
+      </Button>
+    );
+  }
 
   if (action.type === 'link') {
     return (
@@ -65,7 +81,9 @@ function CreatorLegendCard({
   onEdit,
   onDelete,
   onDeleteDraft,
+  onDuplicate,
   deleting = false,
+  duplicating = false,
   deleteError = '',
 }) {
   const hasMediaWithoutUrl = Boolean(legend?.media?.length && !coverUrl);
@@ -123,9 +141,11 @@ function CreatorLegendCard({
         {actions.map((action) => renderAction(action, {
           legend,
           deleting,
+          duplicating,
           onEdit,
           onDelete,
           onDeleteDraft,
+          onDuplicate,
         }))}
       </div>
     </Card>

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
 import BookSpreadPreview from '../../components/editor/BookSpreadPreview.jsx';
@@ -570,6 +570,7 @@ function CreateLegendPage() {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!selectedPageKey && pages.length) setSelectedPageKey(pages[0].client_id);
@@ -754,6 +755,16 @@ function CreateLegendPage() {
       const genreError = result.genreError || result.data?.genreError;
       if (genreError) setMessage(genreError.message);
       return { ok: true, draft: nextDraft };
+    }
+  }
+
+  // Fase 1: compact "crear desde cero" flow. Creates the real draft (reusing
+  // ensureDraft) and lands the author straight in the full editor, where cover,
+  // pages, AR and review live. Upload mode keeps its full wizard untouched.
+  async function handleCreateBook() {
+    const result = await ensureDraft();
+    if (result.ok && result.draft?.legend?.id) {
+      navigate(`/creator/legends/${result.draft.legend.id}/edit`);
     }
   }
 
@@ -1048,6 +1059,105 @@ function CreateLegendPage() {
             <Button variant="ghost" onClick={() => selectSourceMode('upload')}>Subir documento fuente</Button>
           </Card>
         </div>
+      </section>
+    );
+  }
+
+  // Fase 1 — Pantalla inicial compacta (crear desde cero): Titulo, Autor (auto),
+  // Categoria/Etiquetas y Sinopsis. "Crear libro" crea el borrador y abre el editor.
+  if (sourceMode === 'scratch' && !hasDraft) {
+    const authorName = creatorSummary?.penName
+      || creatorSummary?.profile?.pen_name
+      || creatorSummary?.userLabel
+      || 'Autor autenticado';
+    const synopsisLength = form.synopsis.trim().length;
+    const canCreateBook = Boolean(form.title.trim()) && synopsisLength >= 30 && !saving;
+
+    return (
+      <section className="page-stack creator-panel creator-create-flow">
+        <div className="creator-editor-header">
+          <div>
+            <p className="creator-kicker">Nueva leyenda</p>
+            <h1>Empecemos tu libro</h1>
+            <p>Define lo esencial y entra directo al editor. El resto (portada, recursos, revision) lo completas dentro.</p>
+          </div>
+          <div className="creator-editor-actions">
+            <Button variant="ghost" onClick={() => selectSourceMode(null)} disabled={saving}>Cambiar modo</Button>
+          </div>
+        </div>
+
+        <Card className="creator-wizard-card creator-start-card">
+          {error && <p className="error-message">{error.message}</p>}
+
+          <div className="creator-start-form">
+            <label className="field form-span-2" htmlFor="start-title">
+              <span>Titulo del libro</span>
+              <input
+                id="start-title"
+                className="standalone-input"
+                value={form.title}
+                onChange={(event) => updateField('title', event.target.value)}
+                placeholder="Ej. La leyenda del Cenote Azul"
+                autoFocus
+                required
+              />
+            </label>
+
+            <label className="field" htmlFor="start-author">
+              <span>Autor</span>
+              <input id="start-author" className="standalone-input" value={authorName} readOnly disabled />
+              <small>Se toma automaticamente de tu perfil.</small>
+            </label>
+
+            <label className="field" htmlFor="start-genre-input">
+              <span>Categoria y etiquetas</span>
+              <input
+                id="start-genre-input"
+                className="standalone-input"
+                value={genreInput}
+                onChange={(event) => setGenreInput(event.target.value)}
+                onKeyDown={handleGenreKeyDown}
+                onBlur={() => addGenreChip()}
+                placeholder="Terror, Misterio, Historico... (Enter o coma)"
+              />
+            </label>
+
+            {genres.length > 0 && (
+              <div className="creator-selected-chips form-span-2">
+                {genres.map((genre) => (
+                  <button type="button" key={genre} onClick={() => removeGenreChip(genre)}>
+                    {genre}<span aria-hidden="true">x</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <label className="field form-span-2" htmlFor="start-synopsis">
+              <span>Sinopsis</span>
+              <textarea
+                id="start-synopsis"
+                className="textarea"
+                value={form.synopsis}
+                onChange={(event) => updateField('synopsis', event.target.value)}
+                rows={5}
+                placeholder="Un resumen breve de la leyenda (minimo 30 caracteres)."
+                required
+              />
+              <small className={synopsisLength >= 30 ? 'is-ready' : ''}>{synopsisLength}/30 caracteres minimos</small>
+            </label>
+          </div>
+
+          <p className="creator-muted">
+            Al crear el libro se guarda un borrador real y se abre el editor. Podras editar todos los datos despues.
+          </p>
+
+          <div className="creator-wizard-actions">
+            <Button type="button" variant="ghost" onClick={() => selectSourceMode(null)} disabled={saving}>Atras</Button>
+            <Button type="button" onClick={handleCreateBook} disabled={!canCreateBook}>
+              {saving ? 'Creando...' : 'Crear libro'}
+            </Button>
+          </div>
+        </Card>
       </section>
     );
   }

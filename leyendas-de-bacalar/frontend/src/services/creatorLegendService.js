@@ -4,7 +4,23 @@ import {
   getCreatorIdCandidates,
 } from './creatorAccessService.js';
 import { getLegendResources, STORAGE_BUCKETS } from './assetService.js';
-import { saveEditorPagesBackend } from './backendApiService.js';
+import {
+  BackendApiError,
+  createLegendDraftBackend,
+  duplicateLegendBackend,
+  getCreatorLegendsBackend,
+  getEditorDataBackend,
+  saveEditorPagesBackend,
+  updateLegendGeneralBackend,
+} from './backendApiService.js';
+
+// The backend is the source of truth for the creator write path, but we keep the
+// Supabase-direct path as a fallback so nothing breaks if the backend is unreachable
+// or VITE_BACKEND_URL is unset. Only "backend down / not configured" (status 0)
+// triggers the fallback; real business errors (400/403/409) are surfaced as-is.
+function isBackendUnavailable(error) {
+  return error instanceof BackendApiError && (error.status === 0 || !error.status);
+}
 import {
   canDeleteCreatorLegend,
   getCreatorLegendCardData,
@@ -1078,6 +1094,22 @@ async function enrichCreatorLegends(client, legends = [], creatorProfile = null)
 }
 
 export async function createLegendDraft(payload, pages = []) {
+  // Backend-first: one call orchestrates slug + legend + version + genres.
+  // Only when no inline pages are supplied (those still use the direct path below).
+  if (!pages.length) {
+    try {
+      const response = await createLegendDraftBackend({ ...payload, genres: payload.genres ?? [] });
+      if (response?.legend?.id && response?.version?.id) {
+        return { data: { legend: response.legend, version: response.version, pages: response.pages ?? [] }, error: null };
+      }
+    } catch (backendError) {
+      if (!isBackendUnavailable(backendError)) {
+        return { data: null, error: friendlyLegendError(backendError.message || 'No pudimos guardar la leyenda.') };
+      }
+      // backend unreachable → fall through to the Supabase-direct path
+    }
+  }
+
   let cleanedPayload = cleanLegendPayload(payload);
   const genres = normalizeGenres(payload.genres ?? []);
   const validationError = validateLegendPayload(cleanedPayload);
@@ -1214,10 +1246,47 @@ export async function updateLegendDraft(legendId, payload) {
 }
 
 export async function updateLegendGeneralData(legendId, payload) {
+  // Backend-first: update metadata + genres in one call; fall back to Supabase-direct.
+  try {
+    const response = await updateLegendGeneralBackend(legendId, payload);
+    if (response?.legend?.id) return { data: response.legend, error: null };
+  } catch (backendError) {
+    if (!isBackendUnavailable(backendError)) {
+      return { data: null, error: friendlyLegendError(backendError.message || 'No pudimos actualizar la leyenda.') };
+    }
+  }
   return updateLegendDraft(legendId, payload);
 }
 
 export async function getCreatorLegends({ limit = CREATOR_LEGENDS_DEFAULT_LIMIT } = {}) {
+  // Backend-first: server does the heavy enrichment (genres + media + page count +
+  // review state). We only apply the light label/permission shaping locally. A shape
+  // guard (array of legends) + fallback keep the list working if the backend is off.
+  try {
+    const response = await getCreatorLegendsBackend(limit);
+    if (Array.isArray(response?.legends)) {
+      const enriched = response.legends.map((item) => {
+        const cardData = getCreatorLegendCardData(item);
+        return {
+          ...item,
+          feedback: cardData.feedback,
+          canEdit: cardData.canEdit,
+          canDelete: cardData.canDelete,
+          canSubmit: cardData.canSubmit,
+          canView: cardData.canView,
+          primaryActionLabel: cardData.primaryActionLabel,
+          deleteActionLabel: cardData.deleteActionLabel,
+        };
+      });
+      return { data: enriched, error: null };
+    }
+  } catch (backendError) {
+    // read path: any backend problem falls through to the Supabase-direct enrichment
+    if (isDev() && !isBackendUnavailable(backendError)) {
+      console.error('[CreatorLegendService] backend list fallback:', backendError?.message || backendError);
+    }
+  }
+
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: [], error: clientError };
 
@@ -1445,6 +1514,35 @@ export async function getCurrentDraftVersion(legendId) {
 
 export async function getLegendEditorData(legendId) {
   if (isInvalidId(legendId)) return { data: null, error: friendlyLegendError('No pudimos cargar la leyenda.') };
+
+  // Backend-first: one call returns legend + version + pages + genres + resources.
+  // Strict shape guard — only use it when the full editor payload is present;
+  // otherwise fall through to the Supabase-direct aggregation below.
+  try {
+    const r = await getEditorDataBackend(legendId);
+    if (r?.legend?.id && r?.version?.id && Array.isArray(r.pages) && Array.isArray(r.genres) && r.resources && Array.isArray(r.media)) {
+      return {
+        data: {
+          legend: r.legend,
+          version: r.version,
+          pages: r.pages,
+          genres: r.genres,
+          media: r.media,
+          sourceDocuments: r.sourceDocuments ?? [],
+          modelAssets: r.modelAssets ?? [],
+          arScenes: r.arScenes ?? [],
+          arMarkers: r.arMarkers ?? [],
+          resources: r.resources,
+        },
+        error: null,
+      };
+    }
+  } catch (backendError) {
+    if (isDev() && !isBackendUnavailable(backendError)) {
+      console.error('[CreatorLegendService] backend editor-load fallback:', backendError?.message || backendError);
+    }
+  }
+
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: null, error: clientError };
 
@@ -1551,6 +1649,80 @@ export async function getLegendEditorData(legendId) {
     console.error('getLegendEditorData error', error);
     return { data: null, error: friendlyLegendError('No pudimos cargar la leyenda.') };
   }
+}
+
+// Fase 5 — Duplicar borrador. Reuses the same create + save-pages path as manual
+// creation (Supabase + RLS), so no new backend/DDL. Copies metadata, genres and
+// pages into a brand-new draft owned by the current creator. Cover/media are not
+// copied (kept minimal); the author can set a cover in the new draft.
+export async function duplicateLegend(legendId) {
+  if (isInvalidId(legendId)) return { data: null, error: friendlyLegendError('Leyenda invalida.') };
+
+  // Backend-first: server-side copy (legend + version + pages + genres) in one call.
+  try {
+    const response = await duplicateLegendBackend(legendId);
+    if (response?.legend?.id) {
+      return { data: { legend: response.legend, version: response.version ?? null }, error: null };
+    }
+  } catch (backendError) {
+    if (!isBackendUnavailable(backendError)) {
+      return { data: null, error: friendlyLegendError(backendError.message || 'No pudimos duplicar la leyenda.') };
+    }
+    // backend unreachable → fall through to the Supabase-direct copy below
+  }
+
+  const { data: source, error: loadError } = await getLegendEditorData(legendId);
+  if (loadError || !source?.legend) {
+    return { data: null, error: loadError || friendlyLegendError('No pudimos cargar la leyenda a duplicar.') };
+  }
+
+  const legend = source.legend;
+  const genreNames = (source.genres ?? [])
+    .map((genre) => (typeof genre === 'string' ? genre : genre?.name))
+    .filter(Boolean);
+  const synopsis = legend.synopsis || legend.description || '';
+
+  const payload = {
+    title: `${legend.title || 'Leyenda'} (copia)`,
+    slug: `${legend.slug || 'leyenda'}-copia`,
+    synopsis,
+    short_synopsis: legend.short_synopsis || synopsis.slice(0, 220),
+    origin_place: legend.origin_place || 'Bacalar, Quintana Roo',
+    language: legend.language || 'es',
+    age_rating: legend.age_rating || 'general',
+    access_type: legend.access_type || 'free',
+    is_featured: false,
+    genres: genreNames,
+    creation_mode: legend.creation_mode || 'manual',
+  };
+
+  const created = await createLegendDraft(payload);
+  if (created.error || !created.data?.legend?.id || !created.data?.version?.id) {
+    return { data: null, error: created.error || friendlyLegendError('No pudimos crear la copia.') };
+  }
+
+  const sourcePages = (source.pages ?? []).filter((page) => (page.text_content?.trim() || page.editor_data?.blocks?.length));
+  if (sourcePages.length) {
+    const clonedPages = sourcePages.map((page, index) => ({
+      page_number: index + 1,
+      title: page.title || '',
+      text_content: page.text_content || '',
+      editor_data: page.editor_data?.blocks ? page.editor_data : { blocks: [] },
+      rendered_html: page.rendered_html || '',
+      content_format: page.content_format || 'editorjs',
+    }));
+    const pagesResult = await saveLegendPages({
+      versionId: created.data.version.id,
+      pages: clonedPages,
+      legendId: created.data.legend.id,
+    });
+    if (pagesResult.error) {
+      // The copy exists; report a soft warning so the UI can still open it.
+      return { data: created.data, error: null, warning: pagesResult.error };
+    }
+  }
+
+  return { data: created.data, error: null };
 }
 
 export async function saveLegendPages({ versionId, pages = [], legendId = '' }) {

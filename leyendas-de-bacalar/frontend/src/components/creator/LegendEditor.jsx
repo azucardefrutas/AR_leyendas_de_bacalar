@@ -27,6 +27,7 @@ import {
   startDocumentExtraction,
 } from '../../services/backendApiService.js';
 import ArSceneModal from '../3d/ArSceneModal.jsx';
+import CoverDesigner from './CoverDesigner.jsx';
 
 const tabs = [
   { key: 'general', label: 'Datos de historia', icon: 'contract_edit' },
@@ -1079,10 +1080,26 @@ function LegendEditor({ legendId }) {
         <div className="page-stack">
           <Card className="creator-editor-card">
             <div className="creator-editor-card-title">
+              <span>1</span>
+              <div>
+                <h2>Diseña tu portada</h2>
+                <p>Elige una plantilla editable, personaliza texto, color y tipografía, y aplícala como portada. También puedes guardar tus propias plantillas.</p>
+              </div>
+            </div>
+            <CoverDesigner
+              legendId={legendId}
+              defaultTitle={form.title || legend?.title || ''}
+              defaultAuthor={form.author || legend?.author_name || ''}
+              onApplied={loadEditor}
+            />
+          </Card>
+
+          <Card className="creator-editor-card">
+            <div className="creator-editor-card-title">
               <span>2</span>
               <div>
                 <h2>Portada y banner</h2>
-                <p>Sube las imagenes visibles en catalogo y detalle antes de preparar la publicacion.</p>
+                <p>O sube tus propias imagenes visibles en catalogo y detalle antes de preparar la publicacion.</p>
               </div>
             </div>
             <div className="creator-resource-grid creator-resource-grid-roomy">

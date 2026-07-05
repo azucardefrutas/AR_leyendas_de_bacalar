@@ -14,6 +14,7 @@ import {
   createLegendDraft,
   deleteCreatorLegend as deleteEditorCreatorLegend,
   deleteLegendDraft as deleteEditorLegendDraft,
+  duplicateLegend as duplicateEditorLegend,
   getCreatorLegendCardData as getEditorCreatorLegendCardData,
   getCreatorLegendDeleteLabel as getEditorCreatorLegendDeleteLabel,
   getCreatorLegendPrimaryAction as getEditorCreatorLegendPrimaryAction,
@@ -91,6 +92,10 @@ export async function deleteLegendDraft(legendId) {
 
 export async function deleteCreatorLegend(legendId, options = {}) {
   return deleteEditorCreatorLegend(legendId, options);
+}
+
+export async function duplicateLegend(legendId) {
+  return duplicateEditorLegend(legendId);
 }
 
 export function getCreatorLegendStatusKey(legendOrStatus) {

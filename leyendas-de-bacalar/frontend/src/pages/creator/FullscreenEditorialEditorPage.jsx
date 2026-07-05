@@ -1,10 +1,16 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import LoadingState from '../../components/ui/LoadingState.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import EditorialRichEditor from '../../components/creator/EditorialRichEditor.jsx';
+import BookPreviewOverlay from '../../components/creator/BookPreviewOverlay.jsx';
 import { getLegendEditorData, saveLegendPages } from '../../services/creatorLegendService.js';
 import { plainTextToEditorData } from '../../utils/editorJsToHtml.js';
+
+function findCoverUrl(media = []) {
+  const cover = (media || []).find((item) => (item.media_type === 'cover' || item.type === 'cover') && (item.url || item.file_url || item.assets?.file_url));
+  return cover?.url || cover?.file_url || cover?.assets?.file_url || '';
+}
 
 function createPage(pageNumber = 1) {
   return {
@@ -37,6 +43,14 @@ export default function FullscreenEditorialEditorPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [saveError, setSaveError] = useState('');
+  const [coverUrl, setCoverUrl] = useState('');
+  const [showPreview, setShowPreview] = useState(false);
+  // Fase 4 — autosave a BD. 'saved' | 'dirty' | 'saving'.
+  const [autoSaveState, setAutoSaveState] = useState('saved');
+  const dirtyRef = useRef(false);
+  const autosaveTimerRef = useRef(null);
+  const savingRef = useRef(false);
+  const savePagesRef = useRef(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -54,6 +68,7 @@ export default function FullscreenEditorialEditorPage() {
       arScenes: data.arScenes ?? data.resources?.arScenes ?? [],
       arMarkers: data.arMarkers ?? data.resources?.arMarkers ?? [],
     });
+    setCoverUrl(findCoverUrl(data.media ?? data.resources?.media ?? []));
     const loaded = (data.pages || []).map((page) => ({
       ...page,
       client_id: page.id,
@@ -76,8 +91,36 @@ export default function FullscreenEditorialEditorPage() {
 
   const selectedPage = pages.find((page) => page.client_id === selectedPageKey) ?? pages[0];
 
-  const patchPageById = (clientId, patch) =>
+  // Keep the latest pages in a ref so debounced autosave never persists a stale snapshot.
+  const pagesRef = useRef(pages);
+  useEffect(() => { pagesRef.current = pages; }, [pages]);
+
+  // Fase 4 — debounced DB autosave. Fires ~3.5s after the last change; each save
+  // reuses the proven savePages path, so nothing is lost while typing.
+  const scheduleAutosave = useCallback(() => {
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    autosaveTimerRef.current = setTimeout(() => {
+      if (dirtyRef.current && !savingRef.current && version?.id) {
+        savePagesRef.current?.(pagesRef.current);
+      }
+    }, 3500);
+  }, [version?.id]);
+
+  const patchPageById = (clientId, patch) => {
+    dirtyRef.current = true;
+    setAutoSaveState('dirty');
+    scheduleAutosave();
     setPages((current) => current.map((page) => (page.client_id === clientId ? { ...page, ...patch } : page)));
+  };
+
+  // Cambio de página: guarda pronto (deja que persistCurrent asiente el estado primero).
+  const handleSelectPage = (id) => {
+    setSelectedPageKey(id);
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    autosaveTimerRef.current = setTimeout(() => {
+      if (dirtyRef.current && !savingRef.current && version?.id) savePagesRef.current?.(pagesRef.current);
+    }, 400);
+  };
 
   const addPage = () => {
     const next = createPage(pages.length + 1);
@@ -101,12 +144,15 @@ export default function FullscreenEditorialEditorPage() {
     const pagesToSave = [...visiblePagesToSave, ...removedPages];
     const selectedPageNumber = visiblePagesToSave.find((page) => page.client_id === selectedPageKey)?.page_number;
     setSaving(true);
+    savingRef.current = true;
+    setAutoSaveState('saving');
     setMessage('');
     setSaveError('');
     try {
       const { data, error: savePagesError } = await saveLegendPages({ versionId: version?.id, pages: pagesToSave, legendId });
       if (savePagesError) {
         setSaveError(savePagesError.message || 'No se pudieron guardar las páginas. Intenta de nuevo.');
+        setAutoSaveState('dirty');
         return false;
       }
       const saved = Array.isArray(data) && data.length
@@ -117,29 +163,57 @@ export default function FullscreenEditorialEditorPage() {
       const stillSelected = saved.find((page) => page.page_number === selectedPageNumber) ?? saved[0];
       setSelectedPageKey(stillSelected?.client_id ?? null);
       setMessage('Páginas guardadas.');
+      dirtyRef.current = false;
+      setAutoSaveState('saved');
       return true;
     } catch (unexpectedError) {
       setSaveError(unexpectedError?.message || 'No se pudieron guardar las páginas. Intenta de nuevo.');
+      setAutoSaveState('dirty');
       return false;
     } finally {
       setSaving(false);
+      savingRef.current = false;
     }
   };
+
+  // Always call the latest savePages from the debounced autosave.
+  useEffect(() => { savePagesRef.current = savePages; });
+
+  // Flush any pending autosave and clear the timer when leaving the editor (Salir del editor).
+  useEffect(() => () => {
+    if (autosaveTimerRef.current) clearTimeout(autosaveTimerRef.current);
+    if (dirtyRef.current && !savingRef.current) savePagesRef.current?.(pagesRef.current);
+  }, []);
 
   const closeEditor = () => {
     window.close();
     if (!window.closed) navigate(`/creator/legends/${legendId}/edit`, { replace: true });
   };
 
+  // Fase 3 + 4: opening the reading preview autosaves the draft first, so the
+  // preview shows the persisted state and no changes are lost.
+  const openPreview = async () => {
+    if (version?.id) await savePages();
+    setShowPreview(true);
+  };
+
   if (loading) return <LoadingState message="Abriendo editor..." />;
   if (error) return <EmptyState title="No se pudo abrir el editor" message={error.message} />;
+
+  const autoSaveLabel = saveError
+    ? ''
+    : autoSaveState === 'saving'
+      ? 'Guardando…'
+      : autoSaveState === 'dirty'
+        ? 'Cambios sin guardar'
+        : (message || 'Guardado');
 
   return (
     <div className="fullscreen-editorial">
       <EditorialRichEditor
         pages={pages}
         selectedPageId={selectedPage?.client_id}
-        onSelectPage={setSelectedPageKey}
+        onSelectPage={handleSelectPage}
         onPageDataChange={patchPageById}
         onTitleChange={(id, title) => patchPageById(id, { title })}
         onAddPage={addPage}
@@ -150,13 +224,28 @@ export default function FullscreenEditorialEditorPage() {
         hideExpand
         variant="fullscreen"
         legendTitle={legend?.title || 'Historia'}
-        statusMessage={message}
+        statusMessage={autoSaveLabel}
         statusError={saveError}
         onClose={closeEditor}
         legendId={legendId}
         availableModels={[...(resources.modelAssets ?? []), ...(resources.arScenes ?? [])]}
         availableMarkers={resources.arMarkers ?? []}
       />
+
+      <button type="button" className="book-preview-fab" onClick={openPreview}>
+        <span className="material-symbols-rounded" aria-hidden="true">visibility</span>
+        Vista previa
+      </button>
+
+      {showPreview && (
+        <BookPreviewOverlay
+          pages={pages}
+          coverUrl={coverUrl}
+          title={legend?.title || ''}
+          author={legend?.author_name || ''}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </div>
   );
 }
