@@ -6,6 +6,22 @@ import AccessBadge from './AccessBadge.jsx';
 import GenreChips from './GenreChips.jsx';
 import StatusBadge from './StatusBadge.jsx';
 
+const ACTION_ICONS = {
+  view: 'visibility',
+  status: 'schedule',
+  edit: 'edit',
+  duplicate: 'content_copy',
+  delete: 'delete',
+};
+
+function actionIcon(action) {
+  return ACTION_ICONS[action.key] || ACTION_ICONS[action.type] || 'chevron_right';
+}
+
+function ActionIcon({ name }) {
+  return <span className="material-symbols-rounded" aria-hidden="true">{name}</span>;
+}
+
 function renderAction(action, {
   legend,
   deleting,
@@ -15,37 +31,22 @@ function renderAction(action, {
   onDeleteDraft,
   onDuplicate,
 }) {
-  const label = deleting && action.type === 'delete'
-    ? action.loadingLabel || 'Eliminando...'
-    : action.label;
-  const className = `creator-card-action${action.danger ? ' danger-action' : ''}`;
+  const icon = <ActionIcon name={actionIcon(action)} />;
 
+  // Secondary actions (duplicate/delete) render as compact, square icon-only
+  // buttons so the row stays tidy; the full label lives in the tooltip / aria-label.
   if (action.type === 'duplicate') {
     return (
       <Button
         key={action.key}
         variant={action.variant || 'ghost'}
-        className={className}
+        className="creator-card-action creator-card-action--icon"
         onClick={() => onDuplicate?.(legend)}
         disabled={duplicating}
+        title={action.label}
+        aria-label={action.label}
       >
-        {duplicating ? (action.loadingLabel || 'Duplicando...') : action.label}
-      </Button>
-    );
-  }
-
-  if (action.type === 'link') {
-    return (
-      <Link key={action.key} className={`btn btn-${action.variant || 'ghost'} ${className}`} to={action.to}>
-        {label}
-      </Link>
-    );
-  }
-
-  if (action.type === 'edit') {
-    return (
-      <Button key={action.key} variant={action.variant || 'ghost'} className={className} onClick={() => onEdit?.(legend)}>
-        {label}
+        {duplicating ? <ActionIcon name="hourglass_top" /> : icon}
       </Button>
     );
   }
@@ -55,11 +56,41 @@ function renderAction(action, {
       <Button
         key={action.key}
         variant={action.variant || 'ghost'}
-        className={className}
+        className={`creator-card-action creator-card-action--icon${action.danger ? ' danger-action' : ''}`}
         onClick={() => (onDelete || onDeleteDraft)?.(legend)}
         disabled={deleting}
+        title={action.label}
+        aria-label={action.label}
       >
-        {label}
+        {deleting ? <ActionIcon name="hourglass_top" /> : icon}
+      </Button>
+    );
+  }
+
+  // Primary action (continue / view / status) keeps icon + short label and grows.
+  if (action.type === 'link') {
+    return (
+      <Link
+        key={action.key}
+        className={`btn btn-${action.variant || 'ghost'} creator-card-action creator-card-action--primary`}
+        to={action.to}
+      >
+        {icon}
+        <span>{action.label}</span>
+      </Link>
+    );
+  }
+
+  if (action.type === 'edit') {
+    return (
+      <Button
+        key={action.key}
+        variant={action.variant || 'ghost'}
+        className="creator-card-action creator-card-action--primary"
+        onClick={() => onEdit?.(legend)}
+      >
+        {icon}
+        <span>{action.label}</span>
       </Button>
     );
   }
@@ -102,7 +133,10 @@ function CreatorLegendCard({
 
   return (
     <Card className="creator-editorial-card creator-legend-card">
-      <div className={`creator-legend-cover ${hasMediaWithoutUrl ? 'missing-url' : ''}`}>
+      <div
+        className={`creator-legend-cover ${hasMediaWithoutUrl ? 'missing-url' : ''}`}
+        style={coverUrl ? { '--cover-image': `url("${coverUrl}")` } : undefined}
+      >
         {coverUrl ? (
           <img src={coverUrl} alt={`Portada de ${legend.title || 'leyenda'}`} />
         ) : hasMediaWithoutUrl ? (

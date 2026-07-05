@@ -166,21 +166,27 @@ export async function updateCreatorProfile(userId, payload = {}) {
   if (profileResult.error) return { data: null, error: profileResult.error };
 
   const creatorPayload = { ...creatorBasePayload, ...creatorExtendedPayload };
-  let creatorResult = await client
-    .from('creator_profiles')
-    .update(creatorPayload)
-    .eq('user_id', userId)
-    .select()
-    .single();
+  let creatorResult = { data: null, error: null };
 
-  if (creatorResult.error && Object.keys(creatorExtendedPayload).length && isMissingColumnError(creatorResult.error)) {
-    warning = 'Campos extendidos pendientes de migracion; se guardaron los datos basicos del perfil.';
+  if (Object.keys(creatorPayload).length) {
     creatorResult = await client
       .from('creator_profiles')
-      .update(creatorBasePayload)
+      .update(creatorPayload)
       .eq('user_id', userId)
       .select()
       .single();
+
+    if (creatorResult.error && Object.keys(creatorExtendedPayload).length && isMissingColumnError(creatorResult.error)) {
+      warning = 'Los cambios principales se guardaron. Algunos datos nuevos quedaran listos cuando el perfil este actualizado.';
+      creatorResult = Object.keys(creatorBasePayload).length
+        ? await client
+          .from('creator_profiles')
+          .update(creatorBasePayload)
+          .eq('user_id', userId)
+          .select()
+          .single()
+        : { data: null, error: null };
+    }
   }
 
   if (creatorResult.error) return { data: null, error: creatorResult.error };
@@ -268,7 +274,7 @@ export async function uploadCreatorCover(file) {
     .from('assets')
     .insert({
       uploaded_by: user.id,
-      asset_type: 'banner',
+      asset_type: 'cover',
       source_type: 'upload',
       file_url: uploadResult.data.publicUrl || null,
       storage_path: uploadResult.data.path,
@@ -277,6 +283,7 @@ export async function uploadCreatorCover(file) {
       metadata: {
         bucket: uploadResult.data.bucket,
         kind: 'creator_cover',
+        context: 'creator_profile',
         original_name: file.name,
       },
     })

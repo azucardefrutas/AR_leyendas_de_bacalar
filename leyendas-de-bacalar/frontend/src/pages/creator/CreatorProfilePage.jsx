@@ -61,6 +61,7 @@ function CreatorProfilePage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState('');
   const [message, setMessage] = useState('');
+  const [worksOpen, setWorksOpen] = useState(false);
   const [form, setForm] = useState({
     full_name: '',
     username: '',
@@ -163,6 +164,7 @@ function CreatorProfilePage() {
 
     setSaving(true);
     setMessage('');
+    setCreatorError(null);
     const { data, error } = await updateCreatorProfile(activeProfile.id, {
       full_name: form.full_name,
       username: form.username,
@@ -194,29 +196,69 @@ function CreatorProfilePage() {
     const file = event.target.files?.[0];
     if (!file) return;
     setUploading('avatar');
+    setMessage('');
+    setCreatorError(null);
     const { data, error } = await uploadCreatorAvatar(file);
     setUploading('');
+    event.target.value = '';
     if (error) {
       setCreatorError(error);
       return;
     }
     updateField('avatar_url', data.publicUrl);
-    setMessage('Avatar cargado. Guarda el perfil para confirmar el cambio.');
+    if (!activeProfile?.id) {
+      setMessage('Imagen cargada. Guarda el perfil para conservarla.');
+      return;
+    }
+
+    const { data: savedProfile, error: saveError } = await updateCreatorProfile(activeProfile.id, {
+      avatar_url: data.publicUrl,
+    });
+
+    if (saveError) {
+      setCreatorError(saveError);
+      return;
+    }
+
+    await refreshProfile();
+    if (savedProfile?.profile) setAccountProfile(savedProfile.profile);
+    setMessage('Imagen de perfil actualizada.');
   }
 
   async function handleCoverUpload(event) {
     const file = event.target.files?.[0];
     if (!file) return;
     setUploading('cover');
+    setMessage('');
+    setCreatorError(null);
     const { data, error } = await uploadCreatorCover(file);
     setUploading('');
+    event.target.value = '';
     if (error) {
       setCreatorError(error);
       return;
     }
     updateField('cover_url', data.publicUrl);
     updateField('cover_asset_id', data.asset?.id || '');
-    setMessage('Portada cargada. Guarda el perfil para confirmar el cambio.');
+    if (!activeProfile?.id || !data.asset?.id) {
+      setMessage('Portada cargada. Guarda el perfil para conservarla.');
+      return;
+    }
+
+    const { data: savedProfile, error: saveError } = await updateCreatorProfile(activeProfile.id, {
+      cover_asset_id: data.asset.id,
+    });
+
+    if (saveError) {
+      setCreatorError(saveError);
+      return;
+    }
+
+    setCreatorProfile({
+      ...(savedProfile?.creatorProfile || creatorProfile || {}),
+      coverAsset: data.asset,
+    });
+    setMessage('Portada del perfil actualizada.');
   }
 
   return (
@@ -303,10 +345,6 @@ function CreatorProfilePage() {
                 <input className="standalone-input" value={form.pen_name} onChange={(event) => updateField('pen_name', event.target.value)} />
               </label>
               <label className="field">
-                <span>Avatar URL</span>
-                <input className="standalone-input" value={form.avatar_url} onChange={(event) => updateField('avatar_url', event.target.value)} />
-              </label>
-              <label className="field">
                 <span>Frase corta</span>
                 <input className="standalone-input" value={form.headline} onChange={(event) => updateField('headline', event.target.value)} placeholder="Creador(a) digital / Autor Leyendas Bacalar" />
               </label>
@@ -330,9 +368,6 @@ function CreatorProfilePage() {
                 <textarea className="textarea" rows={5} value={form.biography} onChange={(event) => updateField('biography', event.target.value)} />
               </label>
             </div>
-            <p className="admin-muted">
-              Los campos portada, frase corta, ubicacion, sitio web y visibilidad requieren la migracion local incluida si aun no existen en Supabase.
-            </p>
             <div className="creator-profile-actions">
               <button className="btn btn-ghost" type="button" onClick={() => setIsEditing(false)} disabled={saving}>Cancelar</button>
               <button className="btn btn-primary" type="submit" disabled={saving}>{saving ? 'Guardando...' : 'Guardar cambios'}</button>
@@ -345,27 +380,35 @@ function CreatorProfilePage() {
         <div>
           <p className="creator-kicker">Obras del autor</p>
           <h2>Biblioteca del creador</h2>
+          <p className="admin-muted">{legends.length} obra{legends.length === 1 ? '' : 's'} registrada{legends.length === 1 ? '' : 's'}.</p>
         </div>
-        <Link to="/creator/legends" className="btn btn-ghost">Ver todas</Link>
+        <div className="creator-profile-actions">
+          <button className="btn btn-ghost" type="button" onClick={() => setWorksOpen((open) => !open)}>
+            {worksOpen ? 'Ocultar obras' : 'Mostrar obras'}
+          </button>
+          <Link to="/creator/legends" className="btn btn-ghost">Ver todas</Link>
+        </div>
       </div>
 
-      <div className="creator-profile-works">
-        {legends.slice(0, 6).map((legend) => (
-          <article key={legend.id}>
-            <div>
-              <strong>{legend.title || 'Leyenda sin titulo'}</strong>
-              <span>{legend.short_synopsis || legend.synopsis || 'Sin sinopsis registrada.'}</span>
-            </div>
-            <StatusBadge status={legend.status || 'draft'} context="legend" size="small" />
-          </article>
-        ))}
-        {legends.length === 0 && (
-          <Card className="creator-empty-card">
-            <h2>Aun no hay obras registradas</h2>
-            <p>Cuando crees leyendas, apareceran en esta seccion del perfil.</p>
-          </Card>
-        )}
-      </div>
+      {(worksOpen || legends.length === 0) && (
+        <div className="creator-profile-works">
+          {legends.slice(0, 6).map((legend) => (
+            <article key={legend.id}>
+              <div>
+                <strong>{legend.title || 'Leyenda sin titulo'}</strong>
+                <span>{legend.short_synopsis || legend.synopsis || 'Sin sinopsis registrada.'}</span>
+              </div>
+              <StatusBadge status={legend.status || 'draft'} context="legend" size="small" />
+            </article>
+          ))}
+          {legends.length === 0 && (
+            <Card className="creator-empty-card">
+              <h2>Aun no hay obras registradas</h2>
+              <p>Cuando crees leyendas, apareceran en esta seccion del perfil.</p>
+            </Card>
+          )}
+        </div>
+      )}
     </section>
   );
 }
