@@ -300,12 +300,48 @@ export async function createCodeRequest(legendId, quantity, reason) {
     .insert({
       creator_id: creatorCandidates[0],
       legend_id: legendId,
-      quantity: Number(quantity),
+      quantity_requested: Number(quantity),
       reason,
       status: 'pending',
     })
-    .select()
+    .select('*, legends(title, slug)')
     .single();
+}
+
+function attachCodeBatchesToRequests(requests = [], batches = [], codes = []) {
+  const batchesByRequestId = new Map();
+  for (const batch of batches) {
+    const requestId = batch.code_request_id;
+    if (!requestId) continue;
+    const current = batchesByRequestId.get(String(requestId)) || [];
+    current.push(batch);
+    batchesByRequestId.set(String(requestId), current);
+  }
+
+  const codesByBatchId = new Map();
+  for (const code of codes) {
+    const batchId = code.batch_id;
+    if (!batchId) continue;
+    const current = codesByBatchId.get(String(batchId)) || [];
+    current.push(code);
+    codesByBatchId.set(String(batchId), current);
+  }
+
+  return requests.map((request) => {
+    const requestBatches = batchesByRequestId.get(String(request.id)) || [];
+    const requestCodes = requestBatches.flatMap((batch) =>
+      (codesByBatchId.get(String(batch.id)) || []).map((code) => ({
+        ...code,
+        batch,
+      }))
+    );
+
+    return {
+      ...request,
+      codeBatches: requestBatches,
+      accessCodes: requestCodes,
+    };
+  });
 }
 
 export async function getMyCodeRequests() {
@@ -324,8 +360,37 @@ export async function getMyCodeRequests() {
     ? query.eq('creator_id', creatorCandidates[0])
     : query.in('creator_id', creatorCandidates);
   const { data, error } = await query.order('created_at', { ascending: false });
+  if (error) return { data: data ?? [], error };
 
-  return { data: data ?? [], error };
+  const requests = data ?? [];
+  const requestIds = requests.map((request) => request.id).filter(Boolean);
+  if (!requestIds.length) return { data: requests, error: null };
+
+  const { data: batches, error: batchesError } = await client
+    .from('code_batches')
+    .select('id, code_request_id, edition_id, quantity, status, prefix, created_at, physical_editions(edition_name, edition_number)')
+    .in('code_request_id', requestIds);
+
+  if (batchesError) {
+    if (import.meta.env.DEV) console.error('getMyCodeRequests batches error', batchesError);
+    return { data: requests, error: null };
+  }
+
+  const batchIds = (batches ?? []).map((batch) => batch.id).filter(Boolean);
+  if (!batchIds.length) return { data: attachCodeBatchesToRequests(requests, batches ?? [], []), error: null };
+
+  const { data: codes, error: codesError } = await client
+    .from('access_codes')
+    .select('id, batch_id, display_code, status, assigned_to_user_id, assigned_at, expires_at, created_at')
+    .in('batch_id', batchIds)
+    .order('created_at', { ascending: false });
+
+  if (codesError) {
+    if (import.meta.env.DEV) console.error('getMyCodeRequests codes error', codesError);
+    return { data: attachCodeBatchesToRequests(requests, batches ?? [], []), error: null };
+  }
+
+  return { data: attachCodeBatchesToRequests(requests, batches ?? [], codes ?? []), error: null };
 }
 
 export async function submitVersionForReview(versionId) {

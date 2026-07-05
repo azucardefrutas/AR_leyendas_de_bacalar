@@ -304,16 +304,23 @@ function CreatorProfilePage() {
           </div>
 
           <div className="creator-profile-main">
-            <StatusBadge status={profileStatus} context="creator_profile" className="creator-profile-status" />
-            <h2>{displayName}</h2>
-            <p className="creator-profile-alias">{form.pen_name || activeProfile?.username || 'Autor sin alias'}</p>
+            <div className="creator-profile-namerow">
+              <h2>{displayName}</h2>
+              <StatusBadge status={profileStatus} context="creator_profile" className="creator-profile-status" />
+            </div>
             {activeProfile?.username && <p className="creator-profile-username">@{activeProfile.username}</p>}
             <p className="creator-profile-headline">{headline}</p>
             <p className="creator-profile-bio">{biography}</p>
             <div className="creator-profile-meta">
-              {location && <span>{location}</span>}
-              {websiteUrl && <a href={websiteUrl} target="_blank" rel="noreferrer">{formatWebsite(websiteUrl)}</a>}
-              <span>Registro: {formatDate(creatorProfile?.created_at)}</span>
+              {location && (
+                <span><span className="material-symbols-rounded" aria-hidden="true">location_on</span>{location}</span>
+              )}
+              {websiteUrl && (
+                <a href={websiteUrl} target="_blank" rel="noreferrer">
+                  <span className="material-symbols-rounded" aria-hidden="true">link</span>{formatWebsite(websiteUrl)}
+                </a>
+              )}
+              <span><span className="material-symbols-rounded" aria-hidden="true">calendar_month</span>Se unió el {formatDate(creatorProfile?.created_at)}</span>
             </div>
           </div>
         </div>

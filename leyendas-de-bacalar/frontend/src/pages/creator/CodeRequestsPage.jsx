@@ -1,12 +1,44 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
+import StatusBadge from '../../shared/status/StatusBadge.jsx';
 import {
   createCodeRequest,
   getMyCodeRequests,
   getMyLegends,
 } from '../../services/creatorService.js';
+
+function getRequestQuantity(request) {
+  return request.quantity_requested ?? request.quantity ?? 0;
+}
+
+function getVisibleCodes(requests = []) {
+  return requests.flatMap((request) =>
+    (request.accessCodes || [])
+      .filter((code) => code.display_code)
+      .map((code) => ({
+        ...code,
+        request,
+      }))
+  );
+}
+
+function escapeCsv(value = '') {
+  return `"${String(value ?? '').replaceAll('"', '""')}"`;
+}
+
+function downloadCsv(filename, rows = []) {
+  if (!rows.length) return;
+  const csv = rows.map((row) => row.map(escapeCsv).join(',')).join('\n');
+  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
 
 function CodeRequestsPage() {
   const [legends, setLegends] = useState([]);
@@ -38,6 +70,35 @@ function CodeRequestsPage() {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
+  const visibleCodes = useMemo(() => getVisibleCodes(requests), [requests]);
+
+  function exportRequestCodes(request) {
+    const codes = getVisibleCodes([request]);
+    downloadCsv(`codigos-${request.legends?.slug || request.id}.csv`, [
+      ['codigo', 'estado', 'leyenda', 'solicitud', 'lote'],
+      ...codes.map((code) => [
+        code.display_code,
+        code.status || 'unused',
+        request.legends?.title || '',
+        request.id,
+        code.batch_id || '',
+      ]),
+    ]);
+  }
+
+  function exportAllCodes() {
+    downloadCsv('codigos-del-autor.csv', [
+      ['codigo', 'estado', 'leyenda', 'solicitud', 'lote'],
+      ...visibleCodes.map((code) => [
+        code.display_code,
+        code.status || 'unused',
+        code.request?.legends?.title || '',
+        code.request?.id || '',
+        code.batch_id || '',
+      ]),
+    ]);
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
     setSubmitting(true);
@@ -59,7 +120,7 @@ function CodeRequestsPage() {
 
     setRequests((current) => [data, ...current]);
     setForm((current) => ({ ...current, quantity: 25, reason: '' }));
-    setMessage('Solicitud enviada a administracion.');
+    setMessage('Solicitud enviada. Cuando se generen los codigos, apareceran aqui.');
   }
 
   if (loading) return <LoadingState message="Cargando solicitudes..." />;
@@ -69,7 +130,7 @@ function CodeRequestsPage() {
       <div>
         <p className="eyebrow">Edicion fisica</p>
         <h1>Solicitudes de codigos</h1>
-        <p className="state-message">Los creadores solicitan codigos; solo administracion puede generar lotes.</p>
+        <p className="state-message">Solicita codigos para tus ediciones fisicas y consulta aqui los codigos generados.</p>
       </div>
 
       {error && <p className="error-message">{error.message}</p>}
@@ -122,18 +183,82 @@ function CodeRequestsPage() {
         </form>
       </Card>
 
-      <div className="creator-list-grid">
-        {requests.length === 0 ? (
-          <Card><h2>Sin solicitudes</h2><p>Aun no has solicitado codigos para ediciones fisicas.</p></Card>
-        ) : requests.map((request) => (
-          <Card key={request.id}>
-            <span className="badge">{request.status || 'pending'}</span>
-            <h2>{request.legends?.title || 'Leyenda'}</h2>
-            <p>Cantidad solicitada: {request.quantity}</p>
-            <p>{request.reason}</p>
-          </Card>
-        ))}
+      <div className="page-heading-row">
+        <div>
+          <p className="eyebrow">Historial</p>
+          <h2>Solicitudes y codigos generados</h2>
+        </div>
+        <Button type="button" variant="ghost" onClick={exportAllCodes} disabled={visibleCodes.length === 0}>
+          Exportar codigos
+        </Button>
       </div>
+
+      <div className="admin-table-wrap">
+        <table className="admin-table">
+          <thead>
+            <tr>
+              <th>Leyenda</th>
+              <th>Cantidad</th>
+              <th>Estado</th>
+              <th>Codigos visibles</th>
+              <th>Motivo</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {requests.length === 0 ? (
+              <tr>
+                <td colSpan={6}>Aun no has solicitado codigos para ediciones fisicas.</td>
+              </tr>
+            ) : requests.map((request) => {
+              const requestCodes = getVisibleCodes([request]);
+              return (
+                <tr key={request.id}>
+                  <td>{request.legends?.title || 'Leyenda'}</td>
+                  <td>{getRequestQuantity(request)}</td>
+                  <td><StatusBadge status={request.status || 'pending'} context="code" size="small" /></td>
+                  <td>{requestCodes.length}</td>
+                  <td>{request.reason || '-'}</td>
+                  <td>
+                    <Button type="button" variant="ghost" onClick={() => exportRequestCodes(request)} disabled={requestCodes.length === 0}>
+                      Exportar
+                    </Button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {visibleCodes.length > 0 && (
+        <Card>
+          <h2>Codigos disponibles</h2>
+          <div className="admin-table-wrap">
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Codigo</th>
+                  <th>Leyenda</th>
+                  <th>Estado</th>
+                  <th>Lote</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleCodes.map((code) => (
+                  <tr key={code.id}>
+                    <td><strong>{code.display_code}</strong></td>
+                    <td>{code.request?.legends?.title || 'Leyenda'}</td>
+                    <td><StatusBadge status={code.status || 'unused'} context="code" size="small" /></td>
+                    <td>{String(code.batch_id || '').slice(0, 8)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+
     </section>
   );
 }

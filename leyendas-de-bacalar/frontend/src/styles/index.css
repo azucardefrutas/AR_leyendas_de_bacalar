@@ -3261,6 +3261,158 @@ pre {
   white-space: nowrap;
 }
 
+/* ============ Perfil editorial — rediseño IG/FB minimalista ============ */
+.creator-profile-social {
+  border: 1px solid #e9eef6;
+  border-radius: 24px;
+  box-shadow: 0 1px 2px rgba(21, 38, 89, 0.05), 0 24px 48px -28px rgba(21, 38, 89, 0.24);
+  animation: profileFadeUp 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes profileFadeUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .creator-profile-social { animation: none; }
+}
+
+.creator-profile-cover { min-height: 216px; }
+.creator-profile-cover img,
+.creator-profile-cover-fallback { min-height: 216px; }
+
+.creator-profile-summary {
+  grid-template-columns: auto 1fr;
+  gap: 24px;
+  padding: 0 30px 24px;
+  align-items: start;
+}
+
+.creator-profile-avatar-large {
+  width: 126px;
+  height: 126px;
+  margin-top: -62px;
+  border: 4px solid #ffffff;
+  border-radius: 999px;
+  box-shadow: 0 14px 32px -10px rgba(15, 23, 42, 0.34);
+}
+
+.creator-profile-main {
+  padding-top: 16px;
+  gap: 7px;
+}
+
+.creator-profile-namerow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.creator-profile-main h2 {
+  font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+  font-optical-sizing: auto;
+  font-weight: 600;
+  font-size: 1.72rem;
+  letter-spacing: -0.015em;
+  line-height: 1.1;
+  color: #0e1830;
+}
+
+.creator-profile-username {
+  color: #6b7688;
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.creator-profile-headline {
+  color: #0f766e;
+  font-weight: 700;
+  font-size: 0.98rem;
+}
+
+.creator-profile-bio {
+  color: #4a5568;
+  line-height: 1.6;
+  max-width: 66ch;
+}
+
+/* Meta como texto con iconos sutiles (no chips) */
+.creator-profile-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-top: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.creator-profile-meta a,
+.creator-profile-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: #64748b;
+  text-decoration: none;
+}
+
+.creator-profile-meta a { color: #0284c7; font-weight: 700; }
+.creator-profile-meta a:hover { text-decoration: underline; }
+.creator-profile-meta .material-symbols-rounded { font-size: 1.15rem; color: #9aa7b8; }
+
+/* Stats tipo Instagram — número editorial, sin cajas de color */
+.creator-profile-stats {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0;
+  border-top: 1px solid #eef2f7;
+  background: transparent;
+}
+
+.creator-profile-status-stats article {
+  padding: 18px 22px;
+  background: transparent;
+  border-top: none;
+  border-right: 1px solid #eef2f7;
+}
+
+.creator-profile-status-stats article:last-child { border-right: none; }
+
+.creator-profile-stats strong {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 600;
+  font-size: 1.85rem;
+  line-height: 1;
+  color: #0e1830;
+  font-variant-numeric: tabular-nums;
+}
+
+.creator-profile-stats span { color: #6b7688; font-weight: 600; font-size: 0.84rem; }
+.creator-profile-stat-success strong { color: #16a34a; }
+.creator-profile-stat-warning strong { color: #d97706; }
+.creator-profile-stat-info strong { color: #0284c7; }
+.creator-profile-stat-danger strong { color: #dc2626; }
+.creator-profile-stat-neutral strong { color: #0e1830; }
+
+/* Biblioteca — filas limpias con hover */
+.creator-profile-works article {
+  border: 1px solid #eaeff6;
+  border-radius: 16px;
+  box-shadow: none;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.creator-profile-works article:hover {
+  border-color: #cfe0f2;
+  box-shadow: 0 14px 30px -18px rgba(21, 38, 89, 0.28);
+  transform: translateY(-2px);
+}
+
+.creator-profile-works strong { font-weight: 800; color: #101a33; }
+
 @media (max-width: 760px) {
   .creator-profile-actions {
     width: 100%;
