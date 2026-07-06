@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import TemplateSurface from './TemplateSurface.jsx';
 import { getTemplateById, listTemplates } from '../templateRegistry.js';
 import { getBookTemplate, saveBookTemplate } from '../services/bookTemplateService.js';
@@ -25,28 +25,56 @@ function assetUrl(result) {
   return asset?.public_url || asset?.file_url || asset?.url || asset?.external_url || '';
 }
 
+// Canva-style collapsible color picker: a compact trigger (swatch + label) that
+// opens a popover with the palette + a custom RGB picker. Keeps the panel tidy
+// instead of showing dozens of swatches at once.
 function ColorField({ label, value, onChange }) {
   const current = String(value || '').toLowerCase();
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDoc = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDoc); document.removeEventListener('keydown', onKey); };
+  }, [open]);
+
   return (
-    <div className="cover-studio__color">
-      <span className="cover-studio__color-label">{label}</span>
-      <div className="cover-studio__swatches">
-        {PALETTE.map((c) => (
-          <button
-            type="button"
-            key={c}
-            className={`cover-studio__swatch${current === c ? ' is-active' : ''}`}
-            style={{ background: c }}
-            onClick={() => onChange(c)}
-            aria-label={c}
-            title={c}
-          />
-        ))}
-        <label className="cover-studio__swatch cover-studio__swatch--custom" title="Color personalizado (RGB)">
-          <span aria-hidden="true">+</span>
-          <input type="color" value={value || '#000000'} onChange={(e) => onChange(e.target.value)} />
-        </label>
-      </div>
+    <div className={`cover-studio__color${open ? ' is-open' : ''}`} ref={ref}>
+      <button type="button" className="cover-studio__color-trigger" onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-haspopup="dialog">
+        <span className="cover-studio__color-chip" style={{ background: value || '#ffffff' }} />
+        <span className="cover-studio__color-text">
+          <span className="cover-studio__color-label">{label}</span>
+          <span className="cover-studio__color-hex">{current || '—'}</span>
+        </span>
+        <span className="cover-studio__color-caret" aria-hidden="true">expand_more</span>
+      </button>
+      {open && (
+        <div className="cover-studio__color-pop" role="dialog" aria-label={`Color de ${label}`}>
+          <div className="cover-studio__swatches">
+            {PALETTE.map((c) => (
+              <button
+                type="button"
+                key={c}
+                className={`cover-studio__swatch${current === c ? ' is-active' : ''}`}
+                style={{ background: c }}
+                onClick={() => { onChange(c); setOpen(false); }}
+                aria-label={c}
+                title={c}
+              />
+            ))}
+          </div>
+          <label className="cover-studio__color-custom" title="Color personalizado (RGB)">
+            <span className="cover-studio__color-chip" style={{ background: value || '#000000' }} />
+            <span className="cover-studio__color-custom-label">Personalizado</span>
+            <span className="cover-studio__color-hex">{current || '—'}</span>
+            <input type="color" value={value || '#000000'} onChange={(e) => onChange(e.target.value)} />
+          </label>
+        </div>
+      )}
     </div>
   );
 }
@@ -184,10 +212,15 @@ export default function CoverStudio({ legendId, meta = {} }) {
             ))}
 
             {isCover && (
-              <label className="field cs-span-2">
-                <span>Imagen dentro del diseño</span>
-                <input type="file" accept=".png,.jpg,.jpeg,.webp" onChange={handleImage} disabled={uploading} />
-                <small>{uploading ? 'Subiendo imagen...' : 'Va dentro de la portada. No es la portada del catálogo (esa es este diseño).'}</small>
+              <label className={`field cover-studio__image-field${uploading ? ' is-uploading' : ''}`}>
+                <span>Imagen del diseño</span>
+                <div className="cover-studio__image-drop">
+                  {activeData.content?.imageUrl
+                    ? <img className="cover-studio__image-thumb" src={activeData.content.imageUrl} alt="" />
+                    : <span className="cover-studio__image-ico" aria-hidden="true">add_photo_alternate</span>}
+                  <em>{uploading ? 'Subiendo…' : (activeData.content?.imageUrl ? 'Cambiar imagen' : 'Subir imagen')}</em>
+                </div>
+                <input className="cover-studio__image-input" type="file" accept=".png,.jpg,.jpeg,.webp" onChange={handleImage} disabled={uploading} />
               </label>
             )}
 

@@ -139,6 +139,7 @@ export default function EditorialRichEditor({
   statusMessage = '',
   statusError = '',
   onClose = null,
+  headerActions = null,
 }) {
   const holderRef = useRef(null);
   const editorRef = useRef(null);
@@ -615,7 +616,10 @@ export default function EditorialRichEditor({
             <strong>{legendTitle || 'Historia'}</strong>
             <span>Escritura a pantalla completa</span>
           </div>
-          <div className="fullscreen-editorial__modes">{modeTabs}</div>
+          <div className="fullscreen-editorial__modes">
+            {modeTabs}
+            {headerActions && <div className="fullscreen-editorial__actions">{headerActions}</div>}
+          </div>
           <div className="fullscreen-editorial__meta">
             {statsPanel}
             {(statusMessage || statusError || editorError) && (

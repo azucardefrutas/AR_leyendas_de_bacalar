@@ -239,18 +239,19 @@ export default function FullscreenEditorialEditorPage() {
         legendId={legendId}
         availableModels={[...(resources.modelAssets ?? []), ...(resources.arScenes ?? [])]}
         availableMarkers={resources.arMarkers ?? []}
+        headerActions={(
+          <>
+            <button type="button" className="fs-action fs-action--reader" onClick={openReader}>
+              <span className="material-symbols-rounded" aria-hidden="true">menu_book</span>
+              <span>Ver como lector</span>
+            </button>
+            <button type="button" className="fs-action" onClick={openPreview}>
+              <span className="material-symbols-rounded" aria-hidden="true">visibility</span>
+              <span>Vista previa</span>
+            </button>
+          </>
+        )}
       />
-
-      <div className="book-preview-fab-group">
-        <button type="button" className="book-preview-fab book-preview-fab--reader" onClick={openReader}>
-          <span className="material-symbols-rounded" aria-hidden="true">menu_book</span>
-          Ver como lector
-        </button>
-        <button type="button" className="book-preview-fab" onClick={openPreview}>
-          <span className="material-symbols-rounded" aria-hidden="true">visibility</span>
-          Vista previa
-        </button>
-      </div>
 
       {showReader && (
         <EditorReaderRender legendId={legendId} onClose={() => setShowReader(false)} />
