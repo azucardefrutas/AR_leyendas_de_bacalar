@@ -206,10 +206,22 @@ export async function updateCreatorProfile(userId, payload = {}) {
 
   if (creatorResult.error) return { data: null, error: creatorResult.error };
 
+  // Hydrate the cover asset (file_url) so the saved profile keeps showing the
+  // uploaded cover — the update only returns cover_asset_id, not the resolved URL.
+  let creatorProfile = creatorResult.data;
+  if (creatorProfile?.cover_asset_id) {
+    const { data: coverAsset } = await client
+      .from('assets')
+      .select('*')
+      .eq('id', creatorProfile.cover_asset_id)
+      .maybeSingle();
+    creatorProfile = { ...creatorProfile, coverAsset: coverAsset ?? null };
+  }
+
   return {
     data: {
       profile: profileResult.data,
-      creatorProfile: creatorResult.data,
+      creatorProfile,
       warning,
     },
     error: null,
