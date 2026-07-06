@@ -3,10 +3,9 @@ import { animate } from 'animejs';
 import ConalitegStyleReader from '../reader/ConalitegStyleReader.jsx';
 import { buildPreviewPages } from '../../utils/readerPages.js';
 
-// "Vista previa" — the book with the SAME CONALITEG page-flip physics as the reader
-// (react-pageflip), but built from the editor's LIVE local state (unsaved), so the
-// author sees the book take shape instantly: portada → páginas → contraportada.
-// Distinct from "Ver como lector", which renders the saved reader-bundle.
+// "Ver como lector" — the book exactly as the audience reads it, with the CONALITEG
+// page-flip physics (react-pageflip), built from the editor's LIVE local state so
+// the author sees it instantly: portada → páginas (con modelos 3D) → contraportada.
 export default function BookPreviewOverlay({
   pages = [], title = '', author = '', onClose,
   templateId = '', coverData = null, backCoverData = null,
@@ -47,15 +46,15 @@ export default function BookPreviewOverlay({
       className="book-preview-reader reader-stage"
       role="dialog"
       aria-modal="true"
-      aria-label="Vista previa del libro"
+      aria-label="Ver el libro como lector"
       ref={rootRef}
     >
       <div className="book-preview-reader__bar">
         <span className="book-preview-reader__brand">
           <span className="material-symbols-rounded" aria-hidden="true">auto_stories</span>
           <span className="book-preview-reader__brand-text">
-            <strong>Vista previa</strong>
-            <em>{title || 'Cómo va quedando tu libro'}</em>
+            <strong>Ver como lector</strong>
+            <em>{title || 'Así se verá tu libro'}</em>
           </span>
         </span>
         {author && <span className="book-preview-reader__meta">{author}</span>}

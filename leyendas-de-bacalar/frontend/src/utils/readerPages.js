@@ -38,6 +38,9 @@ function buildContentPages(bundle) {
     title: page.title ?? null,
     textContent: page.textContent ?? '',
     renderedHtml: page.renderedHtml ?? page.rendered_html ?? null,
+    // Live Editor.js data (only present for the local preview); lets the reader
+    // render real inline 3D models. The public reader (bundle) leaves this null.
+    editorData: page.editorData ?? null,
     width: null,
     height: null,
     sourceDocumentId: null,
@@ -88,6 +91,8 @@ export function buildPreviewPages(localPages = [], meta = {}) {
     title: page.title || null,
     textContent: '',
     renderedHtml: page.editor_data?.blocks?.length ? editorJsToHtml(page.editor_data) : '',
+    // Keep the live blocks so the reader can render real inline 3D models/markers.
+    editorData: page.editor_data?.blocks?.length ? page.editor_data : null,
   }));
   return buildReaderPagesFromBundle({
     legend: {

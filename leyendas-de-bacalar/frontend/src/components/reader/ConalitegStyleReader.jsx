@@ -9,6 +9,10 @@ import { READER_THEMES, READER_THEME_IDS, getContrastText, buildReaderThemeVars 
 import TemplateSurface from '../../features/templates/components/TemplateSurface.jsx';
 import { getTemplateById } from '../../features/templates/templateRegistry.js';
 
+// Live-content renderer (real inline 3D models + marker images). Lazy so the public
+// reader — which renders pre-rendered HTML — never pays for three.js up front.
+const EditorJsPreview = lazy(() => import('../creator/EditorJsPreview.jsx'));
+
 const MIN_PAGE_WIDTH = 260;
 const READER_STORAGE_KEY = 'leyendas.reader.preferences';
 const DEFAULT_READER_SETTINGS = {
@@ -210,7 +214,15 @@ const FlipPage = React.forwardRef(({
       ) : page.type === 'manual' ? (
         <div className="reader-paper">
           {page.title && <h3 className="reader-paper-title">{page.title}</h3>}
-          {page.renderedHtml
+          {page.editorData?.blocks?.length ? (
+            // Local preview ("Ver como lector"): render the live blocks so real 3D
+            // models and marker images appear, auto-fitted by the reader CSS below.
+            <div className="reader-paper-text reader-paper-html editorial-content">
+              <Suspense fallback={<div className="reader-paper-loading">Cargando contenido…</div>}>
+                <EditorJsPreview data={page.editorData} />
+              </Suspense>
+            </div>
+          ) : page.renderedHtml
             ? <div className="reader-paper-text reader-paper-html editorial-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(page.renderedHtml) }} />
             : <div className="reader-paper-text">{page.textContent}</div>}
         </div>

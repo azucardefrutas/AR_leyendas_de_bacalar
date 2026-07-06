@@ -28,7 +28,7 @@ import {
 } from '../../services/backendApiService.js';
 import ArSceneModal from '../3d/ArSceneModal.jsx';
 import { CoverStudio } from '../../features/templates/index.js';
-import EditorReaderRender from '../reader/EditorReaderRender.jsx';
+import BookPreviewOverlay from './BookPreviewOverlay.jsx';
 
 const tabs = [
   { key: 'general', label: 'Datos de historia', icon: 'contract_edit' },
@@ -796,7 +796,15 @@ function LegendEditor({ legendId }) {
   return (
     <section className="page-stack creator-panel creator-editor-page">
       {showReader && (
-        <EditorReaderRender legendId={legendId} onClose={() => setShowReader(false)} />
+        <BookPreviewOverlay
+          pages={pages}
+          title={legend.title || ''}
+          author={legend.author_name || ''}
+          templateId={legend.cover_template_id || ''}
+          coverData={legend.cover_data || null}
+          backCoverData={legend.back_cover_data || null}
+          onClose={() => setShowReader(false)}
+        />
       )}
       <div className="creator-editor-header">
         <div>

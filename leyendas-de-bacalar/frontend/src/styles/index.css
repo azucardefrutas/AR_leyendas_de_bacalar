@@ -4105,6 +4105,11 @@ pre {
   flex-direction: column;
   background: #0b1220;
 }
+/* El overlay usa .reader-stage (para el tema del lector), pero ese estilo trae
+   padding-top y min-height:100dvh pensados para el lector público; aquí se anulan
+   para que la barra quede pegada arriba (sin franja) y el libro llene el hueco. */
+.book-preview-reader.reader-stage { padding-top: 0; min-height: 0; }
+.book-preview-reader .pdf-flipbook { min-height: 0; }
 .book-preview-reader__bar {
   position: relative;
   z-index: 95;
@@ -4113,9 +4118,8 @@ pre {
   gap: 14px;
   padding: 10px clamp(14px, 2.4vw, 26px);
   background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.9));
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   color: #e2e8f0;
-  box-shadow: 0 6px 20px rgba(2, 6, 23, 0.35);
 }
 .book-preview-reader__brand { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
 .book-preview-reader__brand > .material-symbols-rounded { font-size: 1.55rem; color: #fbbf24; flex: none; }
@@ -4141,58 +4145,11 @@ pre {
 .book-preview-reader__stage { flex: 1; min-height: 0; position: relative; overflow: hidden; }
 .book-preview-reader__msg { color: #cbd5e1; text-align: center; padding: 64px 24px; font-weight: 600; }
 
-/* Ambos overlays del editor tienen barra superior: baja el engrane de ajustes y su
-   panel para que no se solapen con el botón "Cerrar" (bug del recorte "Ce…"). */
-.editor-reader-render .reader-settings-button,
+/* El overlay del lector tiene barra superior: baja el engrane de ajustes y su
+   panel para que no se solapen con el botón "Cerrar". */
 .book-preview-reader .reader-settings-button { top: clamp(64px, 9vh, 78px); }
-.editor-reader-render .reader-settings-panel,
 .book-preview-reader .reader-settings-panel { top: clamp(110px, 16vh, 128px); }
 
-/* Render del lector (CONALITEG) abierto desde el editor */
-.editor-reader-render {
-  position: fixed;
-  inset: 0;
-  z-index: 1200;
-  display: flex;
-  flex-direction: column;
-  background: #0b1220;
-}
-.editor-reader-render__bar {
-  position: relative;
-  z-index: 95;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 10px clamp(14px, 2.4vw, 26px);
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.9));
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  color: #e2e8f0;
-  box-shadow: 0 6px 20px rgba(2, 6, 23, 0.35);
-}
-.editor-reader-render__brand { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
-.editor-reader-render__brand > .material-symbols-rounded { font-size: 1.55rem; color: #38bdf8; flex: none; }
-.editor-reader-render__brand-text { display: grid; gap: 1px; min-width: 0; line-height: 1.15; }
-.editor-reader-render__brand-text strong { font-weight: 850; font-size: 0.98rem; letter-spacing: 0.01em; }
-.editor-reader-render__brand-text em {
-  font-style: normal; font-size: 0.75rem; font-weight: 600; color: #94a3b8;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 52vw;
-}
-.editor-reader-render__close {
-  display: inline-flex; align-items: center; gap: 7px; flex: none; margin-left: auto;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  border-radius: 999px;
-  padding: 8px 16px;
-  font-weight: 800;
-  cursor: pointer;
-  transition: background 160ms ease, border-color 160ms ease, transform 120ms ease;
-}
-.editor-reader-render__close > .material-symbols-rounded { font-size: 1.05rem; }
-.editor-reader-render__close:hover { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.5); transform: translateY(-1px); }
-.editor-reader-render__stage { flex: 1; min-height: 0; position: relative; overflow: hidden; }
-.editor-reader-render__msg { color: #cbd5e1; text-align: center; padding: 60px 24px; font-weight: 600; }
-.editor-reader-render__msg--err { color: #fca5a5; }
 /* Rich Editor.js content inside a reader manual page.
    El HTML guardado trae posiciones/tamaños en px de la LONA del editor (absolutas,
    floats, anchos fijos). En el libro la página es de otro tamaño, así que se
@@ -4255,6 +4212,38 @@ pre {
   font-weight: 800;
   color: #0e7490;
 }
+
+/* Modelos 3D REALES inline (vista "Ver como lector"): se integran y se auto-ajustan
+   al ancho de la página con una altura cómoda; nada se desborda. */
+.reader-paper-html .ejs-inline-model,
+.reader-paper-html .ejs-inline-model-fallback {
+  position: static !important;
+  float: none !important;
+  inset: auto !important;
+  width: auto !important;
+  max-width: 100% !important;
+  height: auto !important;
+  transform: none !important;
+  margin: 1em auto !important;
+}
+.reader-paper-html .ejs-inline-model__stage {
+  width: 100% !important;
+  height: clamp(220px, 40vh, 420px) !important;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.16);
+}
+.reader-paper-html .ejs-inline-model figcaption { margin-top: 6px; text-align: center; color: #64748b; font-size: 0.85rem; }
+/* Modelo sin 3D renderizable: tarjeta limpia con etiqueta, no el nombre del archivo. */
+.reader-paper-html .ejs-inline-model-fallback {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  min-height: 120px; padding: 22px; border: 1px solid #cffafe; border-radius: 14px;
+  background: linear-gradient(135deg, #ecfeff, #f0f9ff); color: #0e7490;
+}
+.reader-paper-html .ejs-inline-model-fallback strong,
+.reader-paper-html .ejs-inline-model-fallback button { display: none !important; }
+.reader-paper-html .ejs-inline-model-fallback::after { content: 'Modelo 3D'; font-weight: 800; color: #0e7490; }
+.reader-paper-loading { padding: 22px; text-align: center; color: #64748b; }
 
 .creator-editor-shell-grid {
   display: grid;
