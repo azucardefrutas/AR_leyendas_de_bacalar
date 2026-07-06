@@ -58,9 +58,8 @@ export default function BookPreviewOverlay({
           </span>
         </span>
         {author && <span className="book-preview-reader__meta">{author}</span>}
-        <button type="button" className="book-preview-reader__close" onClick={onClose}>
+        <button type="button" className="book-preview-reader__close" onClick={onClose} aria-label="Cerrar" title="Cerrar">
           <span className="material-symbols-rounded" aria-hidden="true">close</span>
-          Cerrar
         </button>
       </div>
 

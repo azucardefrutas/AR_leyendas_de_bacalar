@@ -4101,48 +4101,54 @@ pre {
   position: fixed;
   inset: 0;
   z-index: 1000;
-  display: flex;
-  flex-direction: column;
   background: #0b1220;
 }
 /* El overlay usa .reader-stage (para el tema del lector), pero ese estilo trae
-   padding-top y min-height:100dvh pensados para el lector público; aquí se anulan
-   para que la barra quede pegada arriba (sin franja) y el libro llene el hueco. */
+   padding-top y min-height:100dvh pensados para el lector público; se anulan aquí. */
 .book-preview-reader.reader-stage { padding-top: 0; min-height: 0; }
 .book-preview-reader .pdf-flipbook { min-height: 0; }
+/* El libro ocupa TODO el overlay; la barra flota translúcida (glass) encima,
+   así el libro se ve a través de ella. */
+.book-preview-reader__stage { position: absolute; inset: 0; overflow: hidden; }
 .book-preview-reader__bar {
-  position: relative;
+  position: absolute;
+  top: 0; left: 0; right: 0;
   z-index: 95;
   display: flex;
   align-items: center;
   gap: 14px;
   padding: 10px clamp(14px, 2.4vw, 26px);
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.9));
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  color: #e2e8f0;
+  background: rgba(11, 18, 32, 0.34);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  backdrop-filter: blur(18px) saturate(150%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
 }
-.book-preview-reader__brand { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
-.book-preview-reader__brand > .material-symbols-rounded { font-size: 1.55rem; color: #fbbf24; flex: none; }
+.book-preview-reader__brand { display: inline-flex; align-items: center; gap: 10px; min-width: 0; margin-right: auto; }
+.book-preview-reader__brand > .material-symbols-rounded { font-size: 1.6rem; color: #fbbf24; flex: none; filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.45)); }
 .book-preview-reader__brand-text { display: grid; gap: 1px; min-width: 0; line-height: 1.15; }
-.book-preview-reader__brand-text strong { font-weight: 850; font-size: 0.98rem; letter-spacing: 0.01em; }
+.book-preview-reader__brand-text strong { font-weight: 850; font-size: 0.98rem; letter-spacing: 0.01em; text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45); }
 .book-preview-reader__brand-text em {
-  font-style: normal; font-size: 0.75rem; font-weight: 600; color: #94a3b8;
+  font-style: normal; font-size: 0.75rem; font-weight: 600; color: #dbe4f0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 42vw;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
 }
 .book-preview-reader__meta {
-  margin-left: auto; color: #cbd5e1; font-weight: 700; font-size: 0.82rem;
+  color: #e9eef6; font-weight: 700; font-size: 0.82rem;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 22vw;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
 }
 .book-preview-reader__close {
-  display: inline-flex; align-items: center; gap: 7px; flex: none; margin-left: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff; border-radius: 999px; padding: 8px 16px; font-weight: 800; cursor: pointer;
+  display: inline-grid; place-items: center; flex: none; margin-left: 6px;
+  width: 42px; height: 42px; padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff; border-radius: 999px; cursor: pointer;
   transition: background 160ms ease, border-color 160ms ease, transform 120ms ease;
 }
-.book-preview-reader__close > .material-symbols-rounded { font-size: 1.05rem; }
-.book-preview-reader__close:hover { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.5); transform: translateY(-1px); }
-.book-preview-reader__stage { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+.book-preview-reader__close > .material-symbols-rounded { font-size: 1.4rem; }
+.book-preview-reader__close:hover { background: rgba(255, 255, 255, 0.24); border-color: rgba(255, 255, 255, 0.58); transform: scale(1.07); }
+.book-preview-reader__close:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
 .book-preview-reader__msg { color: #cbd5e1; text-align: center; padding: 64px 24px; font-weight: 600; }
 
 /* El overlay del lector tiene barra superior: baja el engrane de ajustes y su
@@ -10660,6 +10666,7 @@ body.fullscreen-editorial-open .site-header { display: none; }
   border: 1px solid #eef2f7;
   border-radius: 12px;
   background: #fcfdff;
+  overflow-x: clip;
 }
 
 .editorial-editor__preview-empty { color: #94a3b8; }
@@ -10741,7 +10748,8 @@ body.fullscreen-editorial-open .site-header { display: none; }
 }
 
 /* Rendered editorial HTML (preview + reader). */
-.editorial-content { color: #1f2937; line-height: 1.7; }
+.editorial-content { color: #1f2937; line-height: 1.7; overflow-wrap: anywhere; word-break: break-word; }
+.editorial-content img { max-width: 100%; height: auto; }
 .editorial-content h2 { font-size: 1.5rem; margin: 0.8em 0 0.3em; color: #0f172a; }
 .editorial-content h3 { font-size: 1.2rem; margin: 0.8em 0 0.3em; color: #0f172a; }
 .editorial-content p { margin: 0 0 0.8em; }
