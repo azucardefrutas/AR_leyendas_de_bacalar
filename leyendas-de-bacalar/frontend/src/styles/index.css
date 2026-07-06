@@ -4193,9 +4193,68 @@ pre {
 .editor-reader-render__stage { flex: 1; min-height: 0; position: relative; overflow: hidden; }
 .editor-reader-render__msg { color: #cbd5e1; text-align: center; padding: 60px 24px; font-weight: 600; }
 .editor-reader-render__msg--err { color: #fca5a5; }
-/* Rich Editor.js content inside a reader manual page */
-.reader-paper-html { text-align: left; }
+/* Rich Editor.js content inside a reader manual page.
+   El HTML guardado trae posiciones/tamaños en px de la LONA del editor (absolutas,
+   floats, anchos fijos). En el libro la página es de otro tamaño, así que se
+   neutralizan para que el contenido FLUYA dentro de la página y nada se desborde. */
+.reader-paper-html { text-align: left; overflow-wrap: break-word; word-break: break-word; }
+.reader-paper-html p,
+.reader-paper-html li { text-align: left; }
 .reader-paper-html img { max-width: 100%; height: auto; border-radius: 8px; }
+
+.reader-paper-html .ejs-image,
+.reader-paper-html .ejs-model3d {
+  position: static !important;
+  float: none !important;
+  inset: auto !important;
+  width: auto !important;
+  max-width: 100% !important;
+  height: auto !important;
+  transform: none !important;
+  margin: 0.9em auto !important;
+}
+.reader-paper-html .ejs-image { text-align: center; }
+.reader-paper-html .ejs-image img {
+  width: auto !important;
+  max-width: 100% !important;
+  height: auto !important;
+  max-height: 44vh;
+  object-fit: contain !important;
+  transform: none !important;
+}
+.reader-paper-html .ejs-image figcaption { text-align: center; }
+
+/* "Solo el archivo, no su nombre": marcadores/modelos muestran únicamente su
+   imagen (miniatura), no el nombre del archivo ni el caption autogenerado. */
+.reader-paper-html .ejs-model3d > strong,
+.reader-paper-html .ejs-model3d > p,
+.reader-paper-html .ejs-model3d__info { display: none !important; }
+.reader-paper-html .ejs-marker {
+  border: 0 !important;
+  background: transparent !important;
+  padding: 0 !important;
+  gap: 0 !important;
+  justify-content: center !important;
+}
+.reader-paper-html .ejs-marker__thumbnail {
+  width: auto !important;
+  height: auto !important;
+  max-width: 100% !important;
+  max-height: 44vh !important;
+  flex: none !important;
+  border: 0 !important;
+  border-radius: 12px !important;
+  object-fit: contain !important;
+  transform: none !important;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.14);
+}
+/* Modelo 3D sin imagen: chip discreto en lugar del nombre del archivo. */
+.reader-paper-html .ejs-model3d:not(.ejs-marker) { justify-content: center !important; min-height: 54px; }
+.reader-paper-html .ejs-model3d:not(.ejs-marker)::before {
+  content: 'Modelo 3D';
+  font-weight: 800;
+  color: #0e7490;
+}
 
 .creator-editor-shell-grid {
   display: grid;
