@@ -28,6 +28,7 @@ import {
 } from '../../services/backendApiService.js';
 import ArSceneModal from '../3d/ArSceneModal.jsx';
 import { CoverStudio } from '../../features/templates/index.js';
+import EditorReaderRender from '../reader/EditorReaderRender.jsx';
 
 const tabs = [
   { key: 'general', label: 'Datos de historia', icon: 'contract_edit' },
@@ -343,6 +344,7 @@ function getDocumentProcessingErrorMessage(error, fallbackMessage) {
 function LegendEditor({ legendId }) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('content');
+  const [showReader, setShowReader] = useState(false);
   const [legend, setLegend] = useState(null);
   const [version, setVersion] = useState(null);
   const [form, setForm] = useState(getInitialForm);
@@ -780,8 +782,22 @@ function LegendEditor({ legendId }) {
     );
   }
 
+  // Open the public-style reader (CONALITEG) from the editor. Saves first so the
+  // render reflects the latest content (works for written and uploaded books).
+  async function openReaderRender() {
+    try {
+      if (activeTab === 'content') await handleSavePages();
+    } catch {
+      // Saving is best-effort; still open the render with the persisted state.
+    }
+    setShowReader(true);
+  }
+
   return (
     <section className="page-stack creator-panel creator-editor-page">
+      {showReader && (
+        <EditorReaderRender legendId={legendId} onClose={() => setShowReader(false)} />
+      )}
       <div className="creator-editor-header">
         <div>
           <p className="creator-kicker">Editor editorial</p>
@@ -789,6 +805,10 @@ function LegendEditor({ legendId }) {
           <p>Version {version.version_number || 1} · {getLegendDisplayStatus(version.status).label}</p>
         </div>
         <div className="creator-editor-actions">
+          <Button variant="ghost" onClick={openReaderRender} disabled={saving}>
+            <MaterialIcon name="menu_book" />
+            Ver como lector
+          </Button>
           <Button variant="ghost" onClick={activeTab === 'content' ? handleSavePages : handleSaveGeneral} disabled={saving || isReviewLocked}>
             {saving ? 'Guardando...' : 'Guardar'}
           </Button>
@@ -1088,7 +1108,7 @@ function LegendEditor({ legendId }) {
             </div>
             <CoverStudio
               legendId={legendId}
-              meta={{ title: form.title || legend?.title || '', author: legend?.author_name || '' }}
+              meta={{ title: form.title || legend?.title || '', author: legend?.author_name || '', slug: form.slug || legend?.slug || '' }}
             />
           </Card>
 

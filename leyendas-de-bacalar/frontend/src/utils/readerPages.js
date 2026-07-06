@@ -36,6 +36,7 @@ function buildContentPages(bundle) {
     imageUrl: null,
     title: page.title ?? null,
     textContent: page.textContent ?? '',
+    renderedHtml: page.renderedHtml ?? page.rendered_html ?? null,
     width: null,
     height: null,
     sourceDocumentId: null,

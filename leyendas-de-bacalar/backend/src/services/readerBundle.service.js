@@ -303,7 +303,7 @@ const loadLegendPages = async ({ legendId, includeUnpublished }) => {
 
   const { data, error } = await supabaseAdmin
     .from('legend_pages')
-    .select('id, version_id, page_number, title, text_content, background_asset_id, created_at, updated_at')
+    .select('id, version_id, page_number, title, text_content, rendered_html, background_asset_id, created_at, updated_at')
     .eq('version_id', version.id)
     .order('page_number', { ascending: true });
 
@@ -455,6 +455,7 @@ export const getReaderBundle = async ({ legendId, userId = null, roles = [] }) =
       pageNumber: page.page_number,
       title: page.title,
       textContent: page.text_content,
+      renderedHtml: page.rendered_html ?? null,
       backgroundAssetId: page.background_asset_id,
     })),
     legendVersion: manualPagesResult.version

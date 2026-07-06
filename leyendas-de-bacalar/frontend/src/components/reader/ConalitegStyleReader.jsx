@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import HTMLFlipBook from 'react-pageflip';
+import DOMPurify from 'dompurify';
 import { getHotspotsForReaderPage } from '../../utils/readerPages.js';
 import AppIcon from '../ui/AppIcon.jsx';
 import ReaderSettingsPanel from './ReaderSettingsPanel.jsx';
@@ -209,7 +210,9 @@ const FlipPage = React.forwardRef(({
       ) : page.type === 'manual' ? (
         <div className="reader-paper">
           {page.title && <h3 className="reader-paper-title">{page.title}</h3>}
-          <div className="reader-paper-text">{page.textContent}</div>
+          {page.renderedHtml
+            ? <div className="reader-paper-text reader-paper-html editorial-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(page.renderedHtml) }} />
+            : <div className="reader-paper-text">{page.textContent}</div>}
         </div>
       ) : (
         <div className="pdf-flip-page-loading">Pagina {page.pageNumber}</div>

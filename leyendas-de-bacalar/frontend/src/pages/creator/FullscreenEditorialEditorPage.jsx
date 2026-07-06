@@ -4,6 +4,7 @@ import LoadingState from '../../components/ui/LoadingState.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import EditorialRichEditor from '../../components/creator/EditorialRichEditor.jsx';
 import BookPreviewOverlay from '../../components/creator/BookPreviewOverlay.jsx';
+import EditorReaderRender from '../../components/reader/EditorReaderRender.jsx';
 import { getLegendEditorData, saveLegendPages } from '../../services/creatorLegendService.js';
 import { plainTextToEditorData } from '../../utils/editorJsToHtml.js';
 
@@ -45,6 +46,7 @@ export default function FullscreenEditorialEditorPage() {
   const [saveError, setSaveError] = useState('');
   const [coverUrl, setCoverUrl] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [showReader, setShowReader] = useState(false);
   // Fase 4 — autosave a BD. 'saved' | 'dirty' | 'saving'.
   const [autoSaveState, setAutoSaveState] = useState('saved');
   const dirtyRef = useRef(false);
@@ -197,6 +199,13 @@ export default function FullscreenEditorialEditorPage() {
     setShowPreview(true);
   };
 
+  // Render like the public reader (CONALITEG). Saves first so the bundle reflects
+  // the latest content, then opens the same reader the audience sees.
+  const openReader = async () => {
+    if (version?.id) await savePages();
+    setShowReader(true);
+  };
+
   if (loading) return <LoadingState message="Abriendo editor..." />;
   if (error) return <EmptyState title="No se pudo abrir el editor" message={error.message} />;
 
@@ -232,10 +241,20 @@ export default function FullscreenEditorialEditorPage() {
         availableMarkers={resources.arMarkers ?? []}
       />
 
-      <button type="button" className="book-preview-fab" onClick={openPreview}>
-        <span className="material-symbols-rounded" aria-hidden="true">visibility</span>
-        Vista previa
-      </button>
+      <div className="book-preview-fab-group">
+        <button type="button" className="book-preview-fab book-preview-fab--reader" onClick={openReader}>
+          <span className="material-symbols-rounded" aria-hidden="true">menu_book</span>
+          Ver como lector
+        </button>
+        <button type="button" className="book-preview-fab" onClick={openPreview}>
+          <span className="material-symbols-rounded" aria-hidden="true">visibility</span>
+          Vista previa
+        </button>
+      </div>
+
+      {showReader && (
+        <EditorReaderRender legendId={legendId} onClose={() => setShowReader(false)} />
+      )}
 
       {showPreview && (
         <BookPreviewOverlay

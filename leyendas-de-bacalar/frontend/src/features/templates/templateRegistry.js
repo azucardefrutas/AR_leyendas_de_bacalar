@@ -5,7 +5,7 @@
 const modules = import.meta.glob('./coverTemplates/*.js', { eager: true });
 
 // Preferred display order (unknown ids fall to the end, alphabetical).
-const ORDER = ['classic', 'modern', 'children', 'historic', 'minimal', 'blank'];
+const ORDER = ['classic', 'elegant', 'modern', 'fantasy', 'children', 'historic', 'maya', 'minimal', 'blank'];
 
 function orderIndex(id) {
   const i = ORDER.indexOf(id);

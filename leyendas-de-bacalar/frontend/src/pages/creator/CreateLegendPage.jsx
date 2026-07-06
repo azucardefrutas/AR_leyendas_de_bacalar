@@ -783,6 +783,7 @@ function CreateLegendPage() {
           title: form.title,
           author: creatorSummary?.penName || creatorSummary?.profile?.pen_name || '',
           sinopsis: form.synopsis,
+          slug: form.slug,
         };
         try {
           await saveBookTemplate(legendId, {
@@ -792,6 +793,15 @@ function CreateLegendPage() {
           });
         } catch (templateError) {
           if (import.meta.env.DEV) console.warn('[CreateLegend] no se guardó la plantilla:', templateError?.message || templateError);
+        }
+      }
+      // Auto-crear Página 1 para que el libro no abra vacío (Portada + Página 1 + Contraportada).
+      const versionId = result.draft.version?.id;
+      if (versionId) {
+        try {
+          await saveLegendPages({ versionId, pages: [createPage(1)], legendId });
+        } catch (pageError) {
+          if (import.meta.env.DEV) console.warn('[CreateLegend] no se creó la página 1:', pageError?.message || pageError);
         }
       }
       navigate(`/creator/legends/${legendId}/edit`);

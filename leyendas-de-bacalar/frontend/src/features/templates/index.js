@@ -10,6 +10,7 @@ export {
   buildDefaultCoverData,
   buildDefaultBackCoverData,
   FONT_STACKS,
+  FONT_OPTIONS,
   SURFACE_BASE,
 } from './templateEngine.js';
 export { useTemplates, useTemplate } from './hooks/useTemplates.js';

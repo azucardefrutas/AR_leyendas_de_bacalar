@@ -2,25 +2,53 @@ import React, { useEffect, useState } from 'react';
 import TemplateSurface from './TemplateSurface.jsx';
 import { getTemplateById, listTemplates } from '../templateRegistry.js';
 import { getBookTemplate, saveBookTemplate } from '../services/bookTemplateService.js';
-import { buildDefaultCoverData, buildDefaultBackCoverData } from '../templateEngine.js';
+import { buildDefaultCoverData, buildDefaultBackCoverData, buildReaderUrl, FONT_OPTIONS } from '../templateEngine.js';
 import { uploadLegendAsset } from '../../../services/assetService.js';
 
 // Inline editor for the book's cover & back cover. Edits ONLY the template data
 // (text, image, colors, typography) over the chosen template and persists it via
 // bookTemplateService. Never touches Editor.js / the pages.
-const FONTS = [
-  { v: 'serif', l: 'Serif (clásica)' },
-  { v: 'sans', l: 'Sans (moderna)' },
-  { v: 'display', l: 'Display (impacto)' },
-];
-
 const COVER_FIELDS = [['title', 'Título'], ['subtitle', 'Subtítulo'], ['author', 'Autor']];
-const BACK_FIELDS = [['sinopsis', 'Sinopsis'], ['author', 'Autor'], ['bio', 'Biografía'], ['isbn', 'ISBN'], ['credits', 'Créditos']];
+const BACK_FIELDS = [['sinopsis', 'Sinopsis'], ['author', 'Autor'], ['bio', 'Biografía'], ['isbn', 'ISBN'], ['credits', 'Créditos'], ['qrUrl', 'Enlace del QR (URL del lector)']];
 const MULTILINE = new Set(['sinopsis', 'bio']);
+const WIDE = new Set(['sinopsis', 'bio', 'qrUrl']); // span both grid columns
+
+// Canva-like color palette (click a swatch or pick a custom RGB color).
+const PALETTE = [
+  '#1e3a5f', '#0f766e', '#14342b', '#3b2f2a', '#2e1065', '#7c2d12', '#111827', '#334155',
+  '#f8fafc', '#f4f1ea', '#ffffff', '#fef3c7',
+  '#c9a24b', '#e0a458', '#5eead4', '#f97316', '#2563eb', '#f0abfc', '#dc2626', '#16a34a',
+];
 
 function assetUrl(result) {
   const asset = result?.asset || result;
   return asset?.public_url || asset?.file_url || asset?.url || asset?.external_url || '';
+}
+
+function ColorField({ label, value, onChange }) {
+  const current = String(value || '').toLowerCase();
+  return (
+    <div className="cover-studio__color">
+      <span className="cover-studio__color-label">{label}</span>
+      <div className="cover-studio__swatches">
+        {PALETTE.map((c) => (
+          <button
+            type="button"
+            key={c}
+            className={`cover-studio__swatch${current === c ? ' is-active' : ''}`}
+            style={{ background: c }}
+            onClick={() => onChange(c)}
+            aria-label={c}
+            title={c}
+          />
+        ))}
+        <label className="cover-studio__swatch cover-studio__swatch--custom" title="Color personalizado (RGB)">
+          <span aria-hidden="true">+</span>
+          <input type="color" value={value || '#000000'} onChange={(e) => onChange(e.target.value)} />
+        </label>
+      </div>
+    </div>
+  );
 }
 
 export default function CoverStudio({ legendId, meta = {} }) {
@@ -28,6 +56,7 @@ export default function CoverStudio({ legendId, meta = {} }) {
   const [coverData, setCoverData] = useState({ content: {}, theme: {} });
   const [backData, setBackData] = useState({ content: {}, theme: {} });
   const [side, setSide] = useState('cover');
+  const [selected, setSelected] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -40,7 +69,12 @@ export default function CoverStudio({ legendId, meta = {} }) {
       const tpl = getTemplateById(data?.templateId) || getTemplateById('classic');
       setTemplateId(tpl?.id || 'classic');
       setCoverData(data?.coverData && Object.keys(data.coverData).length ? data.coverData : buildDefaultCoverData(tpl, meta));
-      setBackData(data?.backCoverData && Object.keys(data.backCoverData).length ? data.backCoverData : buildDefaultBackCoverData(tpl, meta));
+      const existingBack = data?.backCoverData && Object.keys(data.backCoverData).length ? data.backCoverData : null;
+      // Backfill the QR link for older drafts (only when the key was never set —
+      // an author who cleared it on purpose keeps it empty).
+      setBackData(existingBack
+        ? { ...existingBack, content: { qrUrl: buildReaderUrl(meta.slug), ...(existingBack.content || {}) } }
+        : buildDefaultBackCoverData(tpl, meta));
       setLoading(false);
     });
     return () => { active = false; };
@@ -60,14 +94,23 @@ export default function CoverStudio({ legendId, meta = {} }) {
   function setTheme(key, value) {
     setActiveData((d) => ({ ...d, theme: { ...(d.theme || {}), [key]: value } }));
   }
+  function handleMove(key, pos) {
+    setActiveData((d) => ({ ...d, layout: { ...(d.layout || {}), [key]: pos } }));
+  }
+  function resetLayout() {
+    setActiveData((d) => ({ ...d, layout: {} }));
+    setSelected(null);
+  }
 
   function switchTemplate(id) {
     const tpl = getTemplateById(id);
     if (!tpl) return;
     setTemplateId(id);
-    // Keep the author's text; adopt the new template's default theme.
-    setCoverData((d) => ({ ...d, theme: { ...tpl.cover.theme } }));
-    setBackData((d) => ({ ...d, theme: { ...(tpl.backCover?.theme || tpl.cover.theme) } }));
+    setSelected(null);
+    // Las posiciones arrastradas son relativas a la estructura de la plantilla anterior;
+    // al cambiar de plantilla se descartan para no colocar elementos fuera de lugar.
+    setCoverData((d) => ({ ...d, theme: { ...tpl.cover.theme }, layout: {} }));
+    setBackData((d) => ({ ...d, theme: { ...(tpl.backCover?.theme || tpl.cover.theme) }, layout: {} }));
   }
 
   async function handleImage(event) {
@@ -75,7 +118,9 @@ export default function CoverStudio({ legendId, meta = {} }) {
     if (!file) return;
     setUploading(true);
     setStatus({ ok: '', err: '' });
-    const { data, error } = await uploadLegendAsset({ file, legendId, assetType: 'cover' });
+    // Uploaded as an editor image (NOT the catalog cover): this image lives INSIDE
+    // the cover design. The public cover the reader sees is the rendered template.
+    const { data, error } = await uploadLegendAsset({ file, legendId, assetType: 'editor_image' });
     setUploading(false);
     event.target.value = '';
     if (error) { setStatus({ ok: '', err: error.message || 'No se pudo subir la imagen.' }); return; }
@@ -97,52 +142,68 @@ export default function CoverStudio({ legendId, meta = {} }) {
   return (
     <div className="cover-studio">
       <div className="cover-studio__tabs" role="tablist">
-        <button type="button" className={isCover ? 'is-active' : ''} onClick={() => setSide('cover')}>Portada</button>
-        <button type="button" className={!isCover ? 'is-active' : ''} onClick={() => setSide('back')}>Contraportada</button>
+        <button type="button" className={isCover ? 'is-active' : ''} onClick={() => { setSide('cover'); setSelected(null); }}>Portada</button>
+        <button type="button" className={!isCover ? 'is-active' : ''} onClick={() => { setSide('back'); setSelected(null); }}>Contraportada</button>
       </div>
 
       <div className="cover-studio__body">
-        <div className="cover-studio__preview">
-          <TemplateSurface surface={surface} data={activeData} />
+        <div className="cover-studio__preview-col">
+          <div className="cover-studio__preview">
+            <TemplateSurface
+              surface={surface}
+              data={activeData}
+              editable
+              selected={selected}
+              onSelect={setSelected}
+              onMove={handleMove}
+            />
+          </div>
+          <div className="cover-studio__preview-hint">
+            <span><span className="cover-studio__hint-icon" aria-hidden="true">drag_pan</span> Arrastra los elementos para reposicionarlos.</span>
+            <button type="button" className="cover-studio__reset" onClick={resetLayout}>Restablecer posiciones</button>
+          </div>
         </div>
 
         <div className="cover-studio__controls">
-          <label className="field">
-            <span>Plantilla</span>
-            <select className="select" value={templateId} onChange={(e) => switchTemplate(e.target.value)}>
-              {listTemplates().map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-            </select>
-          </label>
-
-          {fields.map(([key, label]) => (
-            <label className="field" key={key}>
-              <span>{label}</span>
-              {MULTILINE.has(key)
-                ? <textarea className="textarea" rows={key === 'sinopsis' ? 4 : 2} value={activeData.content?.[key] || ''} onChange={(e) => setContent(key, e.target.value)} />
-                : <input className="standalone-input" value={activeData.content?.[key] || ''} onChange={(e) => setContent(key, e.target.value)} />}
+          <div className="cover-studio__fields">
+            <label className="field cs-span-2">
+              <span>Plantilla</span>
+              <select className="select" value={templateId} onChange={(e) => switchTemplate(e.target.value)}>
+                {listTemplates().map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+              </select>
             </label>
-          ))}
 
-          {isCover && (
-            <label className="field">
-              <span>Imagen de portada</span>
-              <input type="file" accept=".png,.jpg,.jpeg,.webp" onChange={handleImage} disabled={uploading} />
-              {uploading && <small>Subiendo imagen...</small>}
+            {fields.map(([key, label]) => (
+              <label className={`field${WIDE.has(key) ? ' cs-span-2' : ''}`} key={key}>
+                <span>{label}</span>
+                {MULTILINE.has(key)
+                  ? <textarea className="textarea" rows={key === 'sinopsis' ? 3 : 2} value={activeData.content?.[key] || ''} onChange={(e) => setContent(key, e.target.value)} />
+                  : <input className="standalone-input" value={activeData.content?.[key] || ''} onChange={(e) => setContent(key, e.target.value)} />}
+                {key === 'qrUrl' && <small>Ruta interna (ej. /legend/mi-slug/read) o URL completa. El QR se genera solo.</small>}
+              </label>
+            ))}
+
+            {isCover && (
+              <label className="field cs-span-2">
+                <span>Imagen dentro del diseño</span>
+                <input type="file" accept=".png,.jpg,.jpeg,.webp" onChange={handleImage} disabled={uploading} />
+                <small>{uploading ? 'Subiendo imagen...' : 'Va dentro de la portada. No es la portada del catálogo (esa es este diseño).'}</small>
+              </label>
+            )}
+
+            <label className="field cs-span-2">
+              <span>Tipografía</span>
+              <select className="select" value={activeTheme.font || 'serif'} onChange={(e) => setTheme('font', e.target.value)}>
+                {FONT_OPTIONS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+              </select>
             </label>
-          )}
-
-          <div className="cover-studio__row">
-            <label className="field"><span>Fondo</span><input type="color" value={activeTheme.bg || '#1e3a5f'} onChange={(e) => setTheme('bg', e.target.value)} /></label>
-            <label className="field"><span>Texto</span><input type="color" value={activeTheme.fg || '#ffffff'} onChange={(e) => setTheme('fg', e.target.value)} /></label>
-            <label className="field"><span>Acento</span><input type="color" value={activeTheme.accent || '#c9a24b'} onChange={(e) => setTheme('accent', e.target.value)} /></label>
           </div>
 
-          <label className="field">
-            <span>Tipografía</span>
-            <select className="select" value={activeTheme.font || 'serif'} onChange={(e) => setTheme('font', e.target.value)}>
-              {FONTS.map((f) => <option key={f.v} value={f.v}>{f.l}</option>)}
-            </select>
-          </label>
+          <div className="cover-studio__colors">
+            <ColorField label="Fondo" value={activeTheme.bg} onChange={(v) => setTheme('bg', v)} />
+            <ColorField label="Texto" value={activeTheme.fg} onChange={(v) => setTheme('fg', v)} />
+            <ColorField label="Acento" value={activeTheme.accent} onChange={(v) => setTheme('accent', v)} />
+          </div>
 
           {status.err && <p className="error-message">{status.err}</p>}
           {status.ok && <p className="success-message">{status.ok}</p>}

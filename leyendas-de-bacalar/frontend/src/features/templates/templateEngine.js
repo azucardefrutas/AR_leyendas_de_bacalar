@@ -9,7 +9,19 @@ export const FONT_STACKS = {
   serif: "'Fraunces', Georgia, 'Times New Roman', serif",
   sans: "'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif",
   display: "'Anton', 'Arial Narrow', sans-serif",
+  elegant: "'Playfair Display', Georgia, serif",
+  rounded: "'Poppins', system-ui, sans-serif",
 };
+
+// Fonts offered in the editor (label + key). Adding a key here + a stack above
+// makes it available everywhere the engine renders.
+export const FONT_OPTIONS = [
+  { value: 'serif', label: 'Fraunces (serif)' },
+  { value: 'elegant', label: 'Playfair (elegante)' },
+  { value: 'sans', label: 'Inter (moderna)' },
+  { value: 'rounded', label: 'Poppins (amable)' },
+  { value: 'display', label: 'Anton (impacto)' },
+];
 
 // Placeholder text used only for previews / empty fields.
 const PLACEHOLDERS = {
@@ -25,6 +37,22 @@ const PLACEHOLDERS = {
 
 export function resolveFont(name) {
   return FONT_STACKS[name] || FONT_STACKS.sans;
+}
+
+// Reader path a back-cover QR should point to. Stored relative (no origin) so the
+// QR resolves to whatever domain the book is served from; the render turns it into
+// an absolute URL. Empty when there is no slug yet.
+export function buildReaderUrl(slug) {
+  return slug ? `/legend/${slug}/read` : '';
+}
+
+// Turn a stored QR target into an absolute, scannable URL at render time.
+export function absoluteQrUrl(value) {
+  const v = String(value || '').trim();
+  if (!v) return '';
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(v)) return v; // already absolute (http:, https:, …)
+  const origin = (typeof window !== 'undefined' && window.location && window.location.origin) ? window.location.origin : '';
+  return v.startsWith('/') ? origin + v : v;
 }
 
 function resolveColor(token, theme) {
@@ -65,12 +93,19 @@ export function resolveSurface(surface, data = {}) {
     ? { type: 'image', imageUrl: data.content.backgroundImageUrl, overlay: surface.background?.overlay }
     : surface.background;
 
+  const layout = data.layout || {};
   const elements = (surface.elements || []).map((el, index) => {
     const isText = el.type === 'text';
-    const value = el.role ? content[el.role] : el.text;
+    const value = el.role ? content[el.role] : (el.type === 'qr' ? content.qrUrl : el.text);
+    const layoutKey = el.id || el.role || null;
+    const override = layoutKey ? layout[layoutKey] : null;
     return {
       key: el.id || `${el.type}-${index}`,
+      layoutKey,
       ...el,
+      // Per-element position overrides (drag-and-drop) win over the template default.
+      x: override?.x != null ? override.x : el.x,
+      y: override?.y != null ? override.y : el.y,
       value: value != null && value !== '' ? value : (isText ? (PLACEHOLDERS[el.role] || '') : ''),
       isPlaceholder: !(value != null && value !== ''),
       imageUrl: el.role === 'image' ? content.imageUrl || '' : undefined,
@@ -107,6 +142,7 @@ export function buildDefaultBackCoverData(template, meta = {}) {
       bio: meta.bio || '',
       isbn: meta.isbn || '',
       credits: meta.credits || '',
+      qrUrl: meta.qrUrl || buildReaderUrl(meta.slug),
     },
   };
 }
