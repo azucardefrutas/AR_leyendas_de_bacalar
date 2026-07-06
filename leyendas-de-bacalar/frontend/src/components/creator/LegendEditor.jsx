@@ -27,7 +27,7 @@ import {
   startDocumentExtraction,
 } from '../../services/backendApiService.js';
 import ArSceneModal from '../3d/ArSceneModal.jsx';
-import CoverDesigner from './CoverDesigner.jsx';
+import { CoverStudio } from '../../features/templates/index.js';
 
 const tabs = [
   { key: 'general', label: 'Datos de historia', icon: 'contract_edit' },
@@ -1082,15 +1082,13 @@ function LegendEditor({ legendId }) {
             <div className="creator-editor-card-title">
               <span>1</span>
               <div>
-                <h2>Diseña tu portada</h2>
-                <p>Elige una plantilla editable, personaliza texto, color y tipografía, y aplícala como portada. También puedes guardar tus propias plantillas.</p>
+                <h2>Portada y contraportada</h2>
+                <p>Personaliza la plantilla del libro: texto, imagen, colores y tipografía de la portada y la contraportada. Las páginas se editan aparte.</p>
               </div>
             </div>
-            <CoverDesigner
+            <CoverStudio
               legendId={legendId}
-              defaultTitle={form.title || legend?.title || ''}
-              defaultAuthor={form.author || legend?.author_name || ''}
-              onApplied={loadEditor}
+              meta={{ title: form.title || legend?.title || '', author: legend?.author_name || '' }}
             />
           </Card>
 

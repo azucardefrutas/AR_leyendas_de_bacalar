@@ -5,6 +5,8 @@ import AppIcon from '../ui/AppIcon.jsx';
 import ReaderSettingsPanel from './ReaderSettingsPanel.jsx';
 import ReaderBottomControls from './ReaderBottomControls.jsx';
 import { READER_THEMES, READER_THEME_IDS, getContrastText, buildReaderThemeVars } from './readerTheme.js';
+import TemplateSurface from '../../features/templates/components/TemplateSurface.jsx';
+import { getTemplateById } from '../../features/templates/templateRegistry.js';
 
 const MIN_PAGE_WIDTH = 260;
 const READER_STORAGE_KEY = 'leyendas.reader.preferences';
@@ -184,6 +186,18 @@ const FlipPage = React.forwardRef(({
   hotspots,
   onHotspotClick,
 }, ref) => {
+  // Editorial template cover / back cover — rendered by the template engine
+  // (not Editor.js). No hotspots or page number on these sheets.
+  if (page.type === 'template-cover' || page.type === 'template-back') {
+    const template = getTemplateById(page.templateId);
+    const surface = template ? (page.type === 'template-cover' ? template.cover : template.backCover) : null;
+    return (
+      <div className="pdf-flip-page pdf-flip-page-template" ref={ref}>
+        {surface && <TemplateSurface surface={surface} data={page.templateData} fill />}
+      </div>
+    );
+  }
+
   const modelHotspots = hotspots.filter((hotspot) => hotspot?.scene?.assets?.url);
   const primaryModelHotspot = modelHotspots[0] ?? null;
   const markerHotspots = hotspots.filter((hotspot) => !hotspot?.scene?.assets?.url);

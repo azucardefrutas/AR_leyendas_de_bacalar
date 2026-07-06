@@ -417,6 +417,10 @@ export const getReaderBundle = async ({ legendId, userId = null, roles = [] }) =
       synopsis: legend.synopsis ?? legend.description ?? legend.short_synopsis ?? null,
       creatorId: legend.creator_id,
       createdAt: legend.created_at,
+      // Editorial template engine (cover / back cover) — pages stay in Editor.js.
+      coverTemplateId: legend.cover_template_id ?? null,
+      coverData: legend.cover_data ?? {},
+      backCoverData: legend.back_cover_data ?? {},
     },
     author: author
       ? {

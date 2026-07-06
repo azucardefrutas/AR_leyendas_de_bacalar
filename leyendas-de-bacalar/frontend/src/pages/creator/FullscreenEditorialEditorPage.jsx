@@ -243,6 +243,9 @@ export default function FullscreenEditorialEditorPage() {
           coverUrl={coverUrl}
           title={legend?.title || ''}
           author={legend?.author_name || ''}
+          templateId={legend?.cover_template_id || ''}
+          coverData={legend?.cover_data || null}
+          backCoverData={legend?.back_cover_data || null}
           onClose={() => setShowPreview(false)}
         />
       )}

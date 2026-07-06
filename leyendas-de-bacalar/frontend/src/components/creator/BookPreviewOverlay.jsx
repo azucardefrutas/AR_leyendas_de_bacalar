@@ -1,11 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import EditorJsPreview from './EditorJsPreview.jsx';
+import TemplateSurface from '../../features/templates/components/TemplateSurface.jsx';
+import { getTemplateById } from '../../features/templates/templateRegistry.js';
 
 // Fase 3 — clean full-book reading preview. NOT an editor: no toolbar, no panels,
-// no handles, no resize or selection affordances. Renders the cover + every page
-// exactly as the reader will see it, reusing the sanitized EditorJsPreview.
-export default function BookPreviewOverlay({ pages = [], coverUrl = '', title = '', author = '', onClose }) {
-  // Build the reading sequence: optional cover slide first, then the pages.
+// no handles, no resize or selection affordances. Renders the book continuously:
+// template cover → Editor.js pages → template back cover.
+export default function BookPreviewOverlay({
+  pages = [], coverUrl = '', title = '', author = '', onClose,
+  templateId = '', coverData = null, backCoverData = null,
+}) {
+  const template = templateId ? getTemplateById(templateId) : null;
+
+  // Reading sequence: template cover (or image cover) → pages → template back cover.
   const slides = useMemo(() => {
     const readingPages = (pages || []).map((page, index) => ({
       kind: 'page',
@@ -13,10 +20,13 @@ export default function BookPreviewOverlay({ pages = [], coverUrl = '', title = 
       title: page.title,
       data: page.editor_data?.blocks ? page.editor_data : { blocks: [] },
     }));
-    return coverUrl
-      ? [{ kind: 'cover', key: 'cover' }, ...readingPages]
-      : readingPages;
-  }, [pages, coverUrl]);
+    const list = [];
+    if (template) list.push({ kind: 'tpl-cover', key: 'tpl-cover' });
+    else if (coverUrl) list.push({ kind: 'cover', key: 'cover' });
+    list.push(...readingPages);
+    if (template) list.push({ kind: 'tpl-back', key: 'tpl-back' });
+    return list;
+  }, [pages, coverUrl, template]);
 
   const [index, setIndex] = useState(0);
   const total = slides.length;
@@ -45,7 +55,11 @@ export default function BookPreviewOverlay({ pages = [], coverUrl = '', title = 
       <div className="book-preview__bar">
         <span className="book-preview__brand">Vista previa</span>
         <span className="book-preview__counter">
-          {current?.kind === 'cover' ? 'Portada' : `Página ${coverUrl ? safeIndex : safeIndex + 1} de ${pages.length}`}
+          {current?.kind === 'tpl-cover' || current?.kind === 'cover'
+            ? 'Portada'
+            : current?.kind === 'tpl-back'
+              ? 'Contraportada'
+              : `Página ${safeIndex + 1 - (template || coverUrl ? 1 : 0)} de ${pages.length}`}
         </span>
         <button type="button" className="book-preview__close" onClick={onClose} aria-label="Cerrar vista previa">
           Cerrar
@@ -53,7 +67,14 @@ export default function BookPreviewOverlay({ pages = [], coverUrl = '', title = 
       </div>
 
       <div className="book-preview__stage">
-        {current?.kind === 'cover' ? (
+        {current?.kind === 'tpl-cover' || current?.kind === 'tpl-back' ? (
+          <div className="book-preview__tpl" style={{ width: 'min(52vh, 90vw)' }}>
+            <TemplateSurface
+              surface={current.kind === 'tpl-cover' ? template.cover : template.backCover}
+              data={current.kind === 'tpl-cover' ? (coverData || {}) : (backCoverData || {})}
+            />
+          </div>
+        ) : current?.kind === 'cover' ? (
           <div className="book-preview__cover">
             <img src={coverUrl} alt={`Portada de ${title || 'la leyenda'}`} />
           </div>

@@ -20,6 +20,14 @@ import {
   validateReadyForReview,
 } from '../../services/creatorLegendService.js';
 import { getSourceDocumentViewUrl } from '../../services/backendApiService.js';
+import {
+  TemplatePicker,
+  BookTemplatePreview,
+  saveBookTemplate,
+  buildDefaultCoverData,
+  buildDefaultBackCoverData,
+  getTemplateById,
+} from '../../features/templates/index.js';
 
 const accessTypeOptions = [
   { value: 'free', label: 'Gratis' },
@@ -571,6 +579,8 @@ function CreateLegendPage() {
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
   const navigate = useNavigate();
+  const [scratchStep, setScratchStep] = useState('form'); // 'form' | 'template'
+  const [templateId, setTemplateId] = useState('classic');
 
   useEffect(() => {
     if (!selectedPageKey && pages.length) setSelectedPageKey(pages[0].client_id);
@@ -764,7 +774,27 @@ function CreateLegendPage() {
   async function handleCreateBook() {
     const result = await ensureDraft();
     if (result.ok && result.draft?.legend?.id) {
-      navigate(`/creator/legends/${result.draft.legend.id}/edit`);
+      const legendId = result.draft.legend.id;
+      // Persist ONLY the template reference + editable cover/back data.
+      // Pages stay in Editor.js. Best-effort: never block opening the editor.
+      const template = getTemplateById(templateId);
+      if (template) {
+        const meta = {
+          title: form.title,
+          author: creatorSummary?.penName || creatorSummary?.profile?.pen_name || '',
+          sinopsis: form.synopsis,
+        };
+        try {
+          await saveBookTemplate(legendId, {
+            templateId,
+            coverData: buildDefaultCoverData(template, meta),
+            backCoverData: buildDefaultBackCoverData(template, meta),
+          });
+        } catch (templateError) {
+          if (import.meta.env.DEV) console.warn('[CreateLegend] no se guardó la plantilla:', templateError?.message || templateError);
+        }
+      }
+      navigate(`/creator/legends/${legendId}/edit`);
     }
   }
 
@@ -1071,7 +1101,7 @@ function CreateLegendPage() {
       || creatorSummary?.userLabel
       || 'Autor autenticado';
     const synopsisLength = form.synopsis.trim().length;
-    const canCreateBook = Boolean(form.title.trim()) && synopsisLength >= 30 && !saving;
+    const canProceed = Boolean(form.title.trim()) && synopsisLength >= 30;
 
     return (
       <section className="page-stack creator-panel creator-create-flow">
@@ -1089,11 +1119,13 @@ function CreateLegendPage() {
         <Card className="creator-wizard-card creator-start-card">
           {error && <p className="error-message">{error.message}</p>}
 
+          {scratchStep === 'form' && (
+          <>
           <div className="creator-start-card-head">
             <div>
-              <span className="creator-start-step">Borrador real</span>
+              <span className="creator-start-step">Paso 1 de 2</span>
               <h2>Datos principales</h2>
-              <p>Con esta informacion se crea tu libro y se abre el editor para escribir por paginas.</p>
+              <p>Con esta informacion se crea tu libro. Despues eliges la plantilla.</p>
             </div>
             <span className="creator-start-status">Crear desde cero</span>
           </div>
@@ -1157,15 +1189,43 @@ function CreateLegendPage() {
           </div>
 
           <p className="creator-muted">
-            Al crear el libro se guarda un borrador real. Podras editar portada, recursos, revision y datos editoriales despues.
+            Al crear el libro se guarda un borrador real con portada y contraportada listas.
           </p>
 
           <div className="creator-wizard-actions">
             <Button type="button" variant="ghost" onClick={() => selectSourceMode(null)} disabled={saving}>Atras</Button>
-            <Button type="button" onClick={handleCreateBook} disabled={!canCreateBook}>
-              {saving ? 'Creando...' : 'Crear libro'}
+            <Button type="button" onClick={() => setScratchStep('template')} disabled={!canProceed}>
+              Siguiente: elegir plantilla
             </Button>
           </div>
+          </>
+          )}
+
+          {scratchStep === 'template' && (
+          <>
+          <div className="creator-start-card-head">
+            <div>
+              <span className="creator-start-step">Paso 2 de 2</span>
+              <h2>Elige una plantilla</h2>
+              <p>Se crea tu libro con portada y contraportada. Podras editarlas cuando quieras.</p>
+            </div>
+            <span className="creator-start-status">{getTemplateById(templateId)?.name || ''}</span>
+          </div>
+
+          <TemplatePicker value={templateId} onSelect={setTemplateId} meta={{ title: form.title, author: authorName }} />
+
+          <div style={{ marginTop: 20 }}>
+            <BookTemplatePreview templateId={templateId} meta={{ title: form.title, author: authorName, sinopsis: form.synopsis }} />
+          </div>
+
+          <div className="creator-wizard-actions">
+            <Button type="button" variant="ghost" onClick={() => setScratchStep('form')} disabled={saving}>Atras</Button>
+            <Button type="button" onClick={handleCreateBook} disabled={saving}>
+              {saving ? 'Creando libro...' : 'Crear libro'}
+            </Button>
+          </div>
+          </>
+          )}
         </Card>
       </section>
     );

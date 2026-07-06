@@ -10,7 +10,7 @@
  *   title:?string, textContent:?string, width:?number, height:?number,
  *   sourceDocumentId:?string, pageId:?string}>}
  */
-export function buildReaderPagesFromBundle(bundle) {
+function buildContentPages(bundle) {
   const rendered = bundle?.renderedPages ?? [];
   if (rendered.length > 0) {
     const sourceDocumentId = bundle?.sourceDocument?.id ?? null;
@@ -41,6 +41,38 @@ export function buildReaderPagesFromBundle(bundle) {
     sourceDocumentId: null,
     pageId: page.id ?? null,
   }));
+}
+
+// Wraps the content pages with the editorial-template cover & back cover so the
+// book reads continuously: cover → pages → back cover. Pages stay Editor.js/PDF.
+export function buildReaderPagesFromBundle(bundle) {
+  const content = buildContentPages(bundle);
+  const legend = bundle?.legend;
+  if (!legend?.coverTemplateId || content.length === 0) return content;
+
+  const cover = {
+    pageNumber: '',
+    type: 'template-cover',
+    templateId: legend.coverTemplateId,
+    templateData: legend.coverData ?? {},
+    hideNumber: true,
+    width: null,
+    height: null,
+    sourceDocumentId: null,
+    pageId: null,
+  };
+  const back = {
+    pageNumber: '',
+    type: 'template-back',
+    templateId: legend.coverTemplateId,
+    templateData: legend.backCoverData ?? {},
+    hideNumber: true,
+    width: null,
+    height: null,
+    sourceDocumentId: null,
+    pageId: null,
+  };
+  return [cover, ...content, back];
 }
 
 /**
