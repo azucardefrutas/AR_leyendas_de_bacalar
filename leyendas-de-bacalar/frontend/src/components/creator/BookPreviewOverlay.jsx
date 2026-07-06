@@ -1,99 +1,78 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import EditorJsPreview from './EditorJsPreview.jsx';
-import TemplateSurface from '../../features/templates/components/TemplateSurface.jsx';
-import { getTemplateById } from '../../features/templates/templateRegistry.js';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { animate } from 'animejs';
+import ConalitegStyleReader from '../reader/ConalitegStyleReader.jsx';
+import { buildPreviewPages } from '../../utils/readerPages.js';
 
-// Fase 3 — clean full-book reading preview. NOT an editor: no toolbar, no panels,
-// no handles, no resize or selection affordances. Renders the book continuously:
-// template cover → Editor.js pages → template back cover.
+// "Vista previa" — the book with the SAME CONALITEG page-flip physics as the reader
+// (react-pageflip), but built from the editor's LIVE local state (unsaved), so the
+// author sees the book take shape instantly: portada → páginas → contraportada.
+// Distinct from "Ver como lector", which renders the saved reader-bundle.
 export default function BookPreviewOverlay({
-  pages = [], coverUrl = '', title = '', author = '', onClose,
+  pages = [], title = '', author = '', onClose,
   templateId = '', coverData = null, backCoverData = null,
 }) {
-  const template = templateId ? getTemplateById(templateId) : null;
-
-  // Reading sequence: template cover (or image cover) → pages → template back cover.
-  const slides = useMemo(() => {
-    const readingPages = (pages || []).map((page, index) => ({
-      kind: 'page',
-      key: page.client_id || page.id || `page-${index}`,
-      title: page.title,
-      data: page.editor_data?.blocks ? page.editor_data : { blocks: [] },
-    }));
-    const list = [];
-    if (template) list.push({ kind: 'tpl-cover', key: 'tpl-cover' });
-    else if (coverUrl) list.push({ kind: 'cover', key: 'cover' });
-    list.push(...readingPages);
-    if (template) list.push({ kind: 'tpl-back', key: 'tpl-back' });
-    return list;
-  }, [pages, coverUrl, template]);
-
-  const [index, setIndex] = useState(0);
-  const total = slides.length;
-  const safeIndex = Math.min(index, Math.max(total - 1, 0));
-  const current = slides[safeIndex];
-
-  const goPrev = useCallback(() => setIndex((i) => Math.max(i - 1, 0)), []);
-  const goNext = useCallback(() => setIndex((i) => Math.min(i + 1, total - 1)), [total]);
+  const rootRef = useRef(null);
+  const readerPages = useMemo(
+    () => buildPreviewPages(pages, { templateId, coverData, backCoverData }),
+    [pages, templateId, coverData, backCoverData],
+  );
 
   useEffect(() => {
     document.body.classList.add('book-preview-open');
-    const onKey = (event) => {
-      if (event.key === 'Escape') onClose?.();
-      else if (event.key === 'ArrowLeft') goPrev();
-      else if (event.key === 'ArrowRight') goNext();
-    };
+    const onKey = (event) => { if (event.key === 'Escape') onClose?.(); };
     window.addEventListener('keydown', onKey);
     return () => {
       document.body.classList.remove('book-preview-open');
       window.removeEventListener('keydown', onKey);
     };
-  }, [onClose, goPrev, goNext]);
+  }, [onClose]);
+
+  // Entrance polish — fade the overlay + slide the bar in. Only opacity touches the
+  // stage: a transform on the stage would become the containing block for the
+  // reader's position:fixed controls (gear + bottom bar) and misplace them.
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+    const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce) return;
+    animate(root, { opacity: [0, 1], duration: 240, ease: 'outQuad' });
+    const bar = root.querySelector('.book-preview-reader__bar');
+    if (bar) animate(bar, { translateY: [-16, 0], opacity: [0, 1], duration: 460, ease: 'outExpo' });
+    const stage = root.querySelector('.book-preview-reader__stage');
+    if (stage) animate(stage, { opacity: [0, 1], duration: 560, delay: 90, ease: 'outQuad' });
+  }, []);
 
   return (
-    <div className="book-preview" role="dialog" aria-modal="true" aria-label="Vista previa del libro">
-      <div className="book-preview__bar">
-        <span className="book-preview__brand">Vista previa</span>
-        <span className="book-preview__counter">
-          {current?.kind === 'tpl-cover' || current?.kind === 'cover'
-            ? 'Portada'
-            : current?.kind === 'tpl-back'
-              ? 'Contraportada'
-              : `Página ${safeIndex + 1 - (template || coverUrl ? 1 : 0)} de ${pages.length}`}
+    <div
+      className="book-preview-reader reader-stage"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Vista previa del libro"
+      ref={rootRef}
+    >
+      <div className="book-preview-reader__bar">
+        <span className="book-preview-reader__brand">
+          <span className="material-symbols-rounded" aria-hidden="true">auto_stories</span>
+          <span className="book-preview-reader__brand-text">
+            <strong>Vista previa</strong>
+            <em>{title || 'Cómo va quedando tu libro'}</em>
+          </span>
         </span>
-        <button type="button" className="book-preview__close" onClick={onClose} aria-label="Cerrar vista previa">
+        {author && <span className="book-preview-reader__meta">{author}</span>}
+        <button type="button" className="book-preview-reader__close" onClick={onClose}>
+          <span className="material-symbols-rounded" aria-hidden="true">close</span>
           Cerrar
         </button>
       </div>
 
-      <div className="book-preview__stage">
-        {current?.kind === 'tpl-cover' || current?.kind === 'tpl-back' ? (
-          <div className="book-preview__tpl" style={{ width: 'min(52vh, 90vw)' }}>
-            <TemplateSurface
-              surface={current.kind === 'tpl-cover' ? template.cover : template.backCover}
-              data={current.kind === 'tpl-cover' ? (coverData || {}) : (backCoverData || {})}
-            />
-          </div>
-        ) : current?.kind === 'cover' ? (
-          <div className="book-preview__cover">
-            <img src={coverUrl} alt={`Portada de ${title || 'la leyenda'}`} />
-          </div>
+      <div className="book-preview-reader__stage">
+        {readerPages.length === 0 ? (
+          <p className="book-preview-reader__msg">
+            Aún no hay páginas para previsualizar. Escribe contenido y vuelve a intentar.
+          </p>
         ) : (
-          <article className="book-preview__paper">
-            {current?.title && <h2 className="book-preview__paper-title">{current.title}</h2>}
-            <EditorJsPreview data={current?.data} />
-          </article>
+          <ConalitegStyleReader pages={readerPages} hotspots={[]} onHotspotClick={() => {}} />
         )}
-      </div>
-
-      <div className="book-preview__nav">
-        <button type="button" onClick={goPrev} disabled={safeIndex === 0} aria-label="Página anterior">‹ Anterior</button>
-        {(title || author) && (
-          <span className="book-preview__meta">
-            {title}{author ? ` · ${author}` : ''}
-          </span>
-        )}
-        <button type="button" onClick={goNext} disabled={safeIndex >= total - 1} aria-label="Página siguiente">Siguiente ›</button>
       </div>
     </div>
   );

@@ -8,11 +8,6 @@ import EditorReaderRender from '../../components/reader/EditorReaderRender.jsx';
 import { getLegendEditorData, saveLegendPages } from '../../services/creatorLegendService.js';
 import { plainTextToEditorData } from '../../utils/editorJsToHtml.js';
 
-function findCoverUrl(media = []) {
-  const cover = (media || []).find((item) => (item.media_type === 'cover' || item.type === 'cover') && (item.url || item.file_url || item.assets?.file_url));
-  return cover?.url || cover?.file_url || cover?.assets?.file_url || '';
-}
-
 function createPage(pageNumber = 1) {
   return {
     client_id: `page-${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -44,7 +39,6 @@ export default function FullscreenEditorialEditorPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [saveError, setSaveError] = useState('');
-  const [coverUrl, setCoverUrl] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [showReader, setShowReader] = useState(false);
   // Fase 4 — autosave a BD. 'saved' | 'dirty' | 'saving'.
@@ -70,7 +64,6 @@ export default function FullscreenEditorialEditorPage() {
       arScenes: data.arScenes ?? data.resources?.arScenes ?? [],
       arMarkers: data.arMarkers ?? data.resources?.arMarkers ?? [],
     });
-    setCoverUrl(findCoverUrl(data.media ?? data.resources?.media ?? []));
     const loaded = (data.pages || []).map((page) => ({
       ...page,
       client_id: page.id,
@@ -260,7 +253,6 @@ export default function FullscreenEditorialEditorPage() {
       {showPreview && (
         <BookPreviewOverlay
           pages={pages}
-          coverUrl={coverUrl}
           title={legend?.title || ''}
           author={legend?.author_name || ''}
           templateId={legend?.cover_template_id || ''}

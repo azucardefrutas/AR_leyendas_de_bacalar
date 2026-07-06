@@ -43,9 +43,15 @@ export default function EditorReaderRender({ legendId, onClose }) {
       <div className="editor-reader-render__bar">
         <span className="editor-reader-render__brand">
           <span className="material-symbols-rounded" aria-hidden="true">menu_book</span>
-          Render del lector · CONALITEG
+          <span className="editor-reader-render__brand-text">
+            <strong>Render del lector</strong>
+            <em>Cómo lo verá el público · CONALITEG</em>
+          </span>
         </span>
-        <button type="button" className="editor-reader-render__close" onClick={onClose}>Cerrar</button>
+        <button type="button" className="editor-reader-render__close" onClick={onClose}>
+          <span className="material-symbols-rounded" aria-hidden="true">close</span>
+          Cerrar
+        </button>
       </div>
 
       <div className="editor-reader-render__stage">

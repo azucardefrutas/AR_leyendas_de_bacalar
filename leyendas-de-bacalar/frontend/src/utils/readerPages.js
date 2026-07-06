@@ -1,6 +1,7 @@
 // Single source of truth for turning a reader-bundle into the unified page list
 // that ConalitegStyleReader renders, and for filtering hotspots per page.
 // Both PDF-rendered and manual stories share the SAME normalized shape.
+import { editorJsToHtml } from './editorJsToHtml.js';
 
 /**
  * Normalize a reader-bundle into a common page list.
@@ -74,6 +75,29 @@ export function buildReaderPagesFromBundle(bundle) {
     pageId: null,
   };
   return [cover, ...content, back];
+}
+
+// Build the SAME reader page list from the editor's LIVE local state (unsaved),
+// so "Vista previa" shows the book with the exact CONALITEG flip physics without
+// waiting for a save/fetch. Reuses buildReaderPagesFromBundle so the preview and
+// the public reader are guaranteed to build pages identically.
+export function buildPreviewPages(localPages = [], meta = {}) {
+  const legendPages = (localPages || []).map((page, index) => ({
+    id: page.id || page.client_id || `preview-${index}`,
+    pageNumber: page.page_number ?? index + 1,
+    title: page.title || null,
+    textContent: '',
+    renderedHtml: page.editor_data?.blocks?.length ? editorJsToHtml(page.editor_data) : '',
+  }));
+  return buildReaderPagesFromBundle({
+    legend: {
+      coverTemplateId: meta.templateId || null,
+      coverData: meta.coverData || {},
+      backCoverData: meta.backCoverData || {},
+    },
+    legendPages,
+    renderedPages: [],
+  });
 }
 
 /**
