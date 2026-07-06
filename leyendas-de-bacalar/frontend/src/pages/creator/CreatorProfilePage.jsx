@@ -61,7 +61,7 @@ function CreatorProfilePage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState('');
   const [message, setMessage] = useState('');
-  const [worksOpen, setWorksOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState('works');
   const [form, setForm] = useState({
     full_name: '',
     username: '',
@@ -269,7 +269,15 @@ function CreatorProfilePage() {
           <h1>Mi perfil</h1>
         </div>
         <div className="creator-profile-actions">
-          <button className="btn btn-ghost" type="button" onClick={() => setIsEditing((open) => !open)}>
+          <button
+            className="btn btn-ghost"
+            type="button"
+            onClick={() => {
+              const next = !isEditing;
+              setIsEditing(next);
+              if (next) setActiveTab('about');
+            }}
+          >
             {isEditing ? 'Cancelar edicion' : 'Editar perfil'}
           </button>
           <Link className="btn btn-primary" to="/creator">Ver panel</Link>
@@ -281,37 +289,52 @@ function CreatorProfilePage() {
       )}
       {message && <p className="success-message">{message}</p>}
 
-      <Card className="creator-profile-card creator-profile-social">
-        <div className="creator-profile-cover">
-          {coverUrl ? <img src={coverUrl} alt="" /> : <div className="creator-profile-cover-fallback" />}
+      <Card className="creator-profile-card fbig-card">
+        <div className="fbig-cover">
+          {coverUrl ? <img src={coverUrl} alt="" /> : <div className="fbig-cover-fallback" />}
           {isEditing && (
-            <label className="creator-profile-upload">
-              <span>{uploading === 'cover' ? 'Subiendo portada...' : 'Cambiar portada'}</span>
+            <label className="fbig-cover-change">
+              <span className="material-symbols-rounded" aria-hidden="true">photo_camera</span>
+              <span>{uploading === 'cover' ? 'Subiendo...' : 'Cambiar portada'}</span>
               <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleCoverUpload} disabled={uploading === 'cover'} />
             </label>
           )}
         </div>
 
-        <div className="creator-profile-summary">
-          <div className="creator-profile-avatar creator-profile-avatar-large">
-            {avatarUrl ? <img src={avatarUrl} alt={`Avatar de ${displayName}`} /> : getInitials(displayName)}
+        <div className="fbig-identity">
+          <div className="fbig-avatar">
+            {avatarUrl ? <img src={avatarUrl} alt={`Avatar de ${displayName}`} /> : <span className="fbig-avatar-initials">{getInitials(displayName)}</span>}
             {isEditing && (
-              <label className="creator-profile-avatar-upload" title="Cambiar avatar">
+              <label className="fbig-avatar-cam" title="Cambiar avatar">
                 <span className="material-symbols-rounded" aria-hidden="true">photo_camera</span>
                 <input type="file" accept="image/png,image/jpeg,image/webp" onChange={handleAvatarUpload} disabled={uploading === 'avatar'} />
               </label>
             )}
           </div>
 
-          <div className="creator-profile-main">
-            <div className="creator-profile-namerow">
-              <h2>{displayName}</h2>
-              <StatusBadge status={profileStatus} context="creator_profile" className="creator-profile-status" />
+          <div className="fbig-info">
+            <div className="fbig-headrow">
+              <div className="fbig-names">
+                <div className="fbig-namerow">
+                  <h2>{displayName}</h2>
+                  <StatusBadge status={profileStatus} context="creator_profile" className="creator-profile-status" />
+                </div>
+                {activeProfile?.username && <p className="fbig-username">@{activeProfile.username}</p>}
+              </div>
+
+              <div className="fbig-stats">
+                {stats.map((item) => (
+                  <div className={`fbig-stat tone-${item.tone}`} key={item.key}>
+                    <strong>{item.value}</strong>
+                    <span>{item.label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            {activeProfile?.username && <p className="creator-profile-username">@{activeProfile.username}</p>}
-            <p className="creator-profile-headline">{headline}</p>
-            <p className="creator-profile-bio">{biography}</p>
-            <div className="creator-profile-meta">
+
+            <p className="fbig-headline">{headline}</p>
+            <p className="fbig-bio">{biography}</p>
+            <div className="fbig-meta">
               {location && (
                 <span><span className="material-symbols-rounded" aria-hidden="true">location_on</span>{location}</span>
               )}
@@ -325,96 +348,133 @@ function CreatorProfilePage() {
           </div>
         </div>
 
-        <div className="creator-profile-stats creator-profile-status-stats">
-          {stats.map((item) => (
-            <article className={`creator-profile-stat-${item.tone}`} key={item.key}>
-              <strong>{item.value}</strong>
-              <span>{item.label}</span>
-            </article>
-          ))}
+        <div className="fbig-tabs" role="tablist">
+          <button type="button" role="tab" aria-selected={activeTab === 'works'} className={activeTab === 'works' ? 'is-active' : ''} onClick={() => setActiveTab('works')}>
+            <span className="material-symbols-rounded" aria-hidden="true">grid_view</span>Obras
+          </button>
+          <button type="button" role="tab" aria-selected={activeTab === 'about'} className={activeTab === 'about' ? 'is-active' : ''} onClick={() => setActiveTab('about')}>
+            <span className="material-symbols-rounded" aria-hidden="true">person</span>Acerca de
+          </button>
+          <Link to="/creator/legends" className="fbig-tabs-link">Ver todas</Link>
         </div>
       </Card>
 
-      {isEditing && (
-        <Card className="creator-profile-editor-card">
-          <form className="creator-profile-editor-form" onSubmit={handleSave}>
-            <div className="creator-profile-editor-grid">
-              <label className="field">
-                <span>Nombre publico</span>
-                <input className="standalone-input" value={form.full_name} onChange={(event) => updateField('full_name', event.target.value)} />
-              </label>
-              <label className="field">
-                <span>Username</span>
-                <input className="standalone-input" value={form.username} onChange={(event) => updateField('username', event.target.value)} />
-              </label>
-              <label className="field">
-                <span>Nombre de autor / pen name</span>
-                <input className="standalone-input" value={form.pen_name} onChange={(event) => updateField('pen_name', event.target.value)} />
-              </label>
-              <label className="field">
-                <span>Frase corta</span>
-                <input className="standalone-input" value={form.headline} onChange={(event) => updateField('headline', event.target.value)} placeholder="Creador(a) digital / Autor Leyendas Bacalar" />
-              </label>
-              <label className="field">
-                <span>Ubicacion</span>
-                <input className="standalone-input" value={form.location_label} onChange={(event) => updateField('location_label', event.target.value)} placeholder="Bacalar, Quintana Roo" />
-              </label>
-              <label className="field">
-                <span>Sitio web</span>
-                <input className="standalone-input" type="url" value={form.website_url} onChange={(event) => updateField('website_url', event.target.value)} placeholder="https://..." />
-              </label>
-              <label className="field">
-                <span>Visibilidad</span>
-                <select className="select" value={form.profile_visibility} onChange={(event) => updateField('profile_visibility', event.target.value)}>
-                  <option value="public">Publico</option>
-                  <option value="private">Privado</option>
-                </select>
-              </label>
-              <label className="field creator-profile-editor-wide">
-                <span>Biografia</span>
-                <textarea className="textarea" rows={5} value={form.biography} onChange={(event) => updateField('biography', event.target.value)} />
-              </label>
-            </div>
-            <div className="creator-profile-actions">
-              <button className="btn btn-ghost" type="button" onClick={() => setIsEditing(false)} disabled={saving}>Cancelar</button>
-              <button className="btn btn-primary" type="submit" disabled={saving}>{saving ? 'Guardando...' : 'Guardar cambios'}</button>
-            </div>
-          </form>
-        </Card>
-      )}
+      {activeTab === 'works' ? (
+        legends.length === 0 ? (
+          <Card className="creator-empty-card fbig-empty">
+            <span className="material-symbols-rounded" aria-hidden="true">auto_stories</span>
+            <h2>Aun no hay obras registradas</h2>
+            <p>Cuando crees leyendas, apareceran aqui como una galeria.</p>
+            <Link to="/creator/legends/new" className="btn btn-primary">Crear leyenda</Link>
+          </Card>
+        ) : (
+          <div className="fbig-grid">
+            {legends.map((legend) => (
+              <Link key={legend.id} to={`/creator/legends/${legend.id}/edit`} className="fbig-tile">
+                <div
+                  className="fbig-tile-cover"
+                  style={legend.coverUrl ? { '--cover-image': `url("${legend.coverUrl}")` } : undefined}
+                >
+                  {legend.coverUrl
+                    ? <img src={legend.coverUrl} alt={`Portada de ${legend.title || 'leyenda'}`} />
+                    : <span className="material-symbols-rounded" aria-hidden="true">auto_stories</span>}
+                  <StatusBadge status={legend.status || 'draft'} context="legend" size="small" className="fbig-tile-status" />
+                </div>
+                <div className="fbig-tile-body">
+                  <strong>{legend.title || 'Leyenda sin titulo'}</strong>
+                  <span>{legend.short_synopsis || legend.synopsis || 'Sin sinopsis registrada.'}</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )
+      ) : (
+        <Card className="fbig-about">
+          <div className="fbig-about-head">
+            <h3>Acerca del autor</h3>
+            {!isEditing && (
+              <button type="button" className="btn btn-ghost fbig-about-edit" onClick={() => setIsEditing(true)}>
+                <span className="material-symbols-rounded" aria-hidden="true">edit</span>Editar
+              </button>
+            )}
+          </div>
 
-      <div className="page-heading-row">
-        <div>
-          <p className="creator-kicker">Obras del autor</p>
-          <h2>Biblioteca del creador</h2>
-          <p className="admin-muted">{legends.length} obra{legends.length === 1 ? '' : 's'} registrada{legends.length === 1 ? '' : 's'}.</p>
-        </div>
-        <div className="creator-profile-actions">
-          <button className="btn btn-ghost" type="button" onClick={() => setWorksOpen((open) => !open)}>
-            {worksOpen ? 'Ocultar obras' : 'Mostrar obras'}
-          </button>
-          <Link to="/creator/legends" className="btn btn-ghost">Ver todas</Link>
-        </div>
-      </div>
-
-      {(worksOpen || legends.length === 0) && (
-        <div className="creator-profile-works">
-          {legends.slice(0, 6).map((legend) => (
-            <article key={legend.id}>
-              <div>
-                <strong>{legend.title || 'Leyenda sin titulo'}</strong>
-                <span>{legend.short_synopsis || legend.synopsis || 'Sin sinopsis registrada.'}</span>
+          {isEditing ? (
+            <form className="fbig-about-form" onSubmit={handleSave}>
+              <div className="fbig-about-fields">
+                <label className="field">
+                  <span>Nombre público</span>
+                  <input className="standalone-input" value={form.full_name} onChange={(event) => updateField('full_name', event.target.value)} />
+                </label>
+                <label className="field">
+                  <span>Username</span>
+                  <input className="standalone-input" value={form.username} onChange={(event) => updateField('username', event.target.value)} />
+                </label>
+                <label className="field">
+                  <span>Nombre de autor / pen name</span>
+                  <input className="standalone-input" value={form.pen_name} onChange={(event) => updateField('pen_name', event.target.value)} />
+                </label>
+                <label className="field">
+                  <span>Frase corta</span>
+                  <input className="standalone-input" value={form.headline} onChange={(event) => updateField('headline', event.target.value)} placeholder="Creador(a) digital / Autor Leyendas Bacalar" />
+                </label>
+                <label className="field">
+                  <span>Ubicación</span>
+                  <input className="standalone-input" value={form.location_label} onChange={(event) => updateField('location_label', event.target.value)} placeholder="Bacalar, Quintana Roo" />
+                </label>
+                <label className="field">
+                  <span>Sitio web</span>
+                  <input className="standalone-input" type="url" value={form.website_url} onChange={(event) => updateField('website_url', event.target.value)} placeholder="https://..." />
+                </label>
+                <label className="field">
+                  <span>Visibilidad</span>
+                  <select className="select" value={form.profile_visibility} onChange={(event) => updateField('profile_visibility', event.target.value)}>
+                    <option value="public">Público</option>
+                    <option value="private">Privado</option>
+                  </select>
+                </label>
+                <label className="field fbig-about-wide">
+                  <span>Biografía</span>
+                  <textarea className="textarea" rows={5} value={form.biography} onChange={(event) => updateField('biography', event.target.value)} />
+                </label>
               </div>
-              <StatusBadge status={legend.status || 'draft'} context="legend" size="small" />
-            </article>
-          ))}
-          {legends.length === 0 && (
-            <Card className="creator-empty-card">
-              <h2>Aun no hay obras registradas</h2>
-              <p>Cuando crees leyendas, apareceran en esta seccion del perfil.</p>
-            </Card>
+              <div className="fbig-about-actions">
+                <button className="btn btn-ghost" type="button" onClick={() => setIsEditing(false)} disabled={saving}>Cancelar</button>
+                <button className="btn btn-primary" type="submit" disabled={saving}>{saving ? 'Guardando...' : 'Guardar cambios'}</button>
+              </div>
+            </form>
+          ) : (
+            <>
+              <p className="fbig-about-bio">{biography}</p>
+              <div className="fbig-about-grid">
+                <div className="fbig-about-item">
+                  <span className="material-symbols-rounded" aria-hidden="true">badge</span>
+                  <div><small>Nombre de autor</small><strong>{form.pen_name || displayName}</strong></div>
+                </div>
+                {location && (
+                  <div className="fbig-about-item">
+                    <span className="material-symbols-rounded" aria-hidden="true">location_on</span>
+                    <div><small>Ubicacion</small><strong>{location}</strong></div>
+                  </div>
+                )}
+                {websiteUrl && (
+                  <div className="fbig-about-item">
+                    <span className="material-symbols-rounded" aria-hidden="true">link</span>
+                    <div><small>Sitio web</small><a href={websiteUrl} target="_blank" rel="noreferrer">{formatWebsite(websiteUrl)}</a></div>
+                  </div>
+                )}
+                <div className="fbig-about-item">
+                  <span className="material-symbols-rounded" aria-hidden="true">calendar_month</span>
+                  <div><small>Se unio</small><strong>{formatDate(creatorProfile?.created_at)}</strong></div>
+                </div>
+                <div className="fbig-about-item">
+                  <span className="material-symbols-rounded" aria-hidden="true">visibility</span>
+                  <div><small>Visibilidad</small><strong>{form.profile_visibility === 'public' ? 'Publico' : 'Privado'}</strong></div>
+                </div>
+              </div>
+            </>
           )}
-        </div>
+        </Card>
       )}
     </section>
   );

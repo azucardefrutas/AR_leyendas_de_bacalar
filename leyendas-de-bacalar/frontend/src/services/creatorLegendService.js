@@ -14,12 +14,15 @@ import {
   updateLegendGeneralBackend,
 } from './backendApiService.js';
 
-// The backend is the source of truth for the creator write path, but we keep the
-// Supabase-direct path as a fallback so nothing breaks if the backend is unreachable
-// or VITE_BACKEND_URL is unset. Only "backend down / not configured" (status 0)
-// triggers the fallback; real business errors (400/403/409) are surfaced as-is.
+// The backend is the preferred write path for creators, but the direct Supabase
+// path is still the stable fallback. Use it when the backend is unavailable or
+// when an older deployment does not expose the creator route yet. Business
+// validation errors (400/403/409) still surface as-is.
 function isBackendUnavailable(error) {
-  return error instanceof BackendApiError && (error.status === 0 || !error.status);
+  if (!(error instanceof BackendApiError)) return false;
+  if (error.status === 0 || !error.status) return true;
+  const backendMessage = `${error.message || ''} ${error.data?.error || ''} ${error.data?.message || ''}`;
+  return error.status === 404 && /route not found/i.test(backendMessage);
 }
 import {
   canDeleteCreatorLegend,

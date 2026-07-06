@@ -1075,7 +1075,7 @@ function CreateLegendPage() {
 
     return (
       <section className="page-stack creator-panel creator-create-flow">
-        <div className="creator-editor-header">
+        <div className="creator-editor-header creator-start-hero">
           <div>
             <p className="creator-kicker">Nueva leyenda</p>
             <h1>Empecemos tu libro</h1>
@@ -1088,6 +1088,15 @@ function CreateLegendPage() {
 
         <Card className="creator-wizard-card creator-start-card">
           {error && <p className="error-message">{error.message}</p>}
+
+          <div className="creator-start-card-head">
+            <div>
+              <span className="creator-start-step">Borrador real</span>
+              <h2>Datos principales</h2>
+              <p>Con esta informacion se crea tu libro y se abre el editor para escribir por paginas.</p>
+            </div>
+            <span className="creator-start-status">Crear desde cero</span>
+          </div>
 
           <div className="creator-start-form">
             <label className="field form-span-2" htmlFor="start-title">
@@ -1148,7 +1157,7 @@ function CreateLegendPage() {
           </div>
 
           <p className="creator-muted">
-            Al crear el libro se guarda un borrador real y se abre el editor. Podras editar todos los datos despues.
+            Al crear el libro se guarda un borrador real. Podras editar portada, recursos, revision y datos editoriales despues.
           </p>
 
           <div className="creator-wizard-actions">

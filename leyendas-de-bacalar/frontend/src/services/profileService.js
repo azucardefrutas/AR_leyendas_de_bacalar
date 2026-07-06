@@ -60,6 +60,21 @@ function profileError(message, details = {}) {
   return error;
 }
 
+function logProfileUploadError(operation, { bucket, path, file, table, payload, error } = {}) {
+  if (!import.meta.env.DEV) return;
+  console.error('[CreatorProfileUpload] Error real:', {
+    operation,
+    bucket,
+    path,
+    table,
+    fileName: file?.name,
+    fileType: file?.type,
+    fileSize: file?.size,
+    payload,
+    error,
+  });
+}
+
 async function getCurrentUserOrError() {
   const { data: userData, error: userError } = await getCurrentUser();
   if (userError) return { data: null, error: userError };
@@ -220,6 +235,28 @@ function safeFileName(name = 'perfil') {
   return `${base}.${extension}`;
 }
 
+function createProfileImagePath({ userId, folder, file }) {
+  return `${userId}/profiles/${folder}/${Date.now()}-${safeFileName(file?.name)}`;
+}
+
+async function insertCreatorCoverAsset(client, payloads = []) {
+  let lastError = null;
+  for (const payload of payloads) {
+    const { data, error } = await client.from('assets').insert(payload).select().single();
+    if (!error) return { data, error: null };
+    lastError = error;
+    logProfileUploadError('insert creator cover asset', { table: 'assets', payload, error });
+  }
+
+  return {
+    data: null,
+    error: profileError('La portada subio, pero no se pudo registrar para el perfil.', {
+      supabaseError: lastError,
+      table: 'assets',
+    }),
+  };
+}
+
 async function uploadCreatorProfileImage(file, folder) {
   const validationError = validateProfileImage(file);
   if (validationError) return { data: null, error: validationError };
@@ -230,7 +267,7 @@ async function uploadCreatorProfileImage(file, folder) {
   const { data: user, error: userError } = await getCurrentUserOrError();
   if (userError) return { data: null, error: userError };
 
-  const path = `profiles/${user.id}/${folder}/${Date.now()}-${safeFileName(file.name)}`;
+  const path = createProfileImagePath({ userId: user.id, folder, file });
   const { error: uploadError } = await client.storage
     .from(PROFILE_IMAGE_BUCKET)
     .upload(path, file, {
@@ -240,9 +277,19 @@ async function uploadCreatorProfileImage(file, folder) {
     });
 
   if (uploadError) {
+    logProfileUploadError('storage upload profile image', {
+      bucket: PROFILE_IMAGE_BUCKET,
+      path,
+      file,
+      error: uploadError,
+    });
     return {
       data: null,
-      error: profileError('No se pudo subir la imagen del perfil.', { supabaseError: uploadError }),
+      error: profileError('No se pudo subir la imagen. Intenta con PNG, JPG o WebP menor a 5 MB.', {
+        supabaseError: uploadError,
+        bucket: PROFILE_IMAGE_BUCKET,
+        path,
+      }),
     };
   }
 
@@ -270,30 +317,37 @@ export async function uploadCreatorCover(file) {
   const { data: user, error: userError } = await getCurrentUserOrError();
   if (userError) return { data: null, error: userError };
 
-  const { data: asset, error: assetError } = await client
-    .from('assets')
-    .insert({
-      uploaded_by: user.id,
-      asset_type: 'cover',
-      source_type: 'upload',
-      file_url: uploadResult.data.publicUrl || null,
-      storage_path: uploadResult.data.path,
-      mime_type: file.type,
+  const baseAssetPayload = {
+    uploaded_by: user.id,
+    asset_type: 'cover',
+    source_type: 'upload',
+    file_url: uploadResult.data.publicUrl || null,
+    storage_path: uploadResult.data.path,
+    mime_type: file.type,
+    metadata: {
+      bucket: uploadResult.data.bucket,
+      kind: 'creator_cover',
+      context: 'creator_profile',
+      original_name: file.name,
+    },
+  };
+
+  const { data: asset, error: assetError } = await insertCreatorCoverAsset(client, [
+    {
+      ...baseAssetPayload,
       file_size: file.size,
-      metadata: {
-        bucket: uploadResult.data.bucket,
-        kind: 'creator_cover',
-        context: 'creator_profile',
-        original_name: file.name,
-      },
-    })
-    .select()
-    .single();
+    },
+    {
+      ...baseAssetPayload,
+      size_bytes: file.size,
+    },
+    baseAssetPayload,
+  ]);
 
   if (assetError) {
     return {
       data: uploadResult.data,
-      error: profileError('La portada subio, pero no se pudo registrar en assets.', { supabaseError: assetError }),
+      error: assetError,
     };
   }
 
