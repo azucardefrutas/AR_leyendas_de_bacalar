@@ -93,7 +93,7 @@ function UploadAssetsPage() {
         <Card className="creator-empty-card">
           <h2>Aun no tienes leyendas</h2>
           <p>Crea una obra para empezar a subir recursos editoriales.</p>
-          <Link to="/creator/legends/new"><Button>Crear leyenda</Button></Link>
+          <Link to="/creator/legends/new"><Button>Nueva leyenda</Button></Link>
         </Card>
       )}
     </section>

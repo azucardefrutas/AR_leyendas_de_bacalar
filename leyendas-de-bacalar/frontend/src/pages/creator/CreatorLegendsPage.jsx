@@ -143,7 +143,7 @@ function CreatorLegendsPage() {
           <p className="creator-kicker">Obras</p>
           <h1>{isDraftsView ? 'Borradores' : 'Mis leyendas'}</h1>
         </div>
-        <Link to="/creator/legends/new" className="btn btn-primary">Crear leyenda</Link>
+        <Link to="/creator/legends/new" className="btn btn-primary">Nueva leyenda</Link>
       </div>
 
       {error && <p className="error-message">{error.message}</p>}

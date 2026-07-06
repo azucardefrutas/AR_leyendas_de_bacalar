@@ -289,7 +289,7 @@ function CreatorProfilePage() {
       )}
       {message && <p className="success-message">{message}</p>}
 
-      <Card className="creator-profile-card fbig-card">
+      <Card className="fbig-card">
         <div className="fbig-cover">
           {coverUrl ? <img src={coverUrl} alt="" /> : <div className="fbig-cover-fallback" />}
           {isEditing && (
@@ -365,7 +365,7 @@ function CreatorProfilePage() {
             <span className="material-symbols-rounded" aria-hidden="true">auto_stories</span>
             <h2>Aun no hay obras registradas</h2>
             <p>Cuando crees leyendas, apareceran aqui como una galeria.</p>
-            <Link to="/creator/legends/new" className="btn btn-primary">Crear leyenda</Link>
+            <Link to="/creator/legends/new" className="btn btn-primary">Nueva leyenda</Link>
           </Card>
         ) : (
           <div className="fbig-grid">
