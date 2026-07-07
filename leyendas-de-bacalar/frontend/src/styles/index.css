@@ -4106,7 +4106,7 @@ pre {
 /* El overlay usa .reader-stage (para el tema del lector), pero ese estilo trae
    padding-top y min-height:100dvh pensados para el lector público; se anulan aquí. */
 .book-preview-reader.reader-stage { padding-top: 0; min-height: 0; }
-.book-preview-reader .pdf-flipbook { min-height: 0; }
+.book-preview-reader .pdf-flipbook { min-height: 100%; }
 /* El libro ocupa TODO el overlay; la barra flota translúcida (glass) encima,
    así el libro se ve a través de ella. */
 .book-preview-reader__stage { position: absolute; inset: 0; overflow: hidden; }
@@ -4123,6 +4123,14 @@ pre {
   backdrop-filter: blur(18px) saturate(150%);
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
   color: #f1f5f9;
+  transition: opacity 320ms ease, transform 320ms ease;
+}
+/* La barra se guarda sola cuando el usuario deja de interactuar, para no estorbar
+   ni difuminar el filo del libro; reaparece con cualquier actividad. */
+.book-preview-reader__bar.is-hidden {
+  opacity: 0;
+  transform: translateY(-100%);
+  pointer-events: none;
 }
 .book-preview-reader__brand { display: inline-flex; align-items: center; gap: 10px; min-width: 0; margin-right: auto; }
 .book-preview-reader__brand > .material-symbols-rounded { font-size: 1.6rem; color: #fbbf24; flex: none; filter: drop-shadow(0 1px 4px rgba(0, 0, 0, 0.45)); }

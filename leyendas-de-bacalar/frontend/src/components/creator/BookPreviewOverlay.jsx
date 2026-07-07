@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { animate } from 'animejs';
 import ConalitegStyleReader from '../reader/ConalitegStyleReader.jsx';
 import { buildPreviewPages } from '../../utils/readerPages.js';
@@ -26,19 +26,34 @@ export default function BookPreviewOverlay({
     };
   }, [onClose]);
 
-  // Entrance polish — fade the overlay + slide the bar in. Only opacity touches the
-  // stage: a transform on the stage would become the containing block for the
-  // reader's position:fixed controls (gear + bottom bar) and misplace them.
+  // Entrance fade of the whole overlay (opacity only — a transform on the stage
+  // would become the containing block for the reader's fixed controls). Respects
+  // reduced motion. The bar's own show/hide is handled by CSS transitions below.
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
     const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (reduce) return;
-    animate(root, { opacity: [0, 1], duration: 240, ease: 'outQuad' });
-    const bar = root.querySelector('.book-preview-reader__bar');
-    if (bar) animate(bar, { translateY: [-16, 0], opacity: [0, 1], duration: 460, ease: 'outExpo' });
-    const stage = root.querySelector('.book-preview-reader__stage');
-    if (stage) animate(stage, { opacity: [0, 1], duration: 560, delay: 90, ease: 'outQuad' });
+    animate(root, { opacity: [0, 1], duration: 260, ease: 'outQuad' });
+  }, []);
+
+  // Auto-hide the floating bar so it stops covering the book; it slides back in on
+  // any activity (mouse move, tap, key) and tucks away after a couple idle seconds.
+  const [chromeVisible, setChromeVisible] = useState(true);
+  useEffect(() => {
+    let timer = null;
+    const show = () => {
+      setChromeVisible(true);
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => setChromeVisible(false), 2800);
+    };
+    show();
+    const events = ['pointermove', 'pointerdown', 'keydown', 'touchstart'];
+    events.forEach((event) => window.addEventListener(event, show, { passive: true }));
+    return () => {
+      if (timer) clearTimeout(timer);
+      events.forEach((event) => window.removeEventListener(event, show));
+    };
   }, []);
 
   return (
@@ -49,7 +64,7 @@ export default function BookPreviewOverlay({
       aria-label="Ver el libro como lector"
       ref={rootRef}
     >
-      <div className="book-preview-reader__bar">
+      <div className={`book-preview-reader__bar${chromeVisible ? '' : ' is-hidden'}`}>
         <span className="book-preview-reader__brand">
           <span className="material-symbols-rounded" aria-hidden="true">auto_stories</span>
           <span className="book-preview-reader__brand-text">
