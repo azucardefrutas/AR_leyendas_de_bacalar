@@ -69,7 +69,13 @@ export default function BookPreviewOverlay({
             Aún no hay páginas para previsualizar. Escribe contenido y vuelve a intentar.
           </p>
         ) : (
-          <ConalitegStyleReader pages={readerPages} hotspots={[]} onHotspotClick={() => {}} />
+          <ConalitegStyleReader
+            pages={readerPages}
+            hotspots={[]}
+            onHotspotClick={() => {}}
+            flippingTime={1000}
+            maxShadowOpacity={0.62}
+          />
         )}
       </div>
     </div>

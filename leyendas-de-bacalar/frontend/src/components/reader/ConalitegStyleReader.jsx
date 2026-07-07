@@ -249,7 +249,15 @@ FlipPage.displayName = 'FlipPage';
  * backend and overlays the interactive hotspots. Manual legend pages reuse the
  * same physical book shell so all stories share one reader behavior.
  */
-function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
+function ConalitegStyleReader({
+  pages = [],
+  hotspots = [],
+  onHotspotClick,
+  // Physics of the page turn (react-pageflip). Defaults keep the public reader
+  // exactly as-is; "Ver como lector" passes weightier, richer values.
+  flippingTime = 920,
+  maxShadowOpacity = 0.52,
+}) {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageInput, setPageInput] = useState('1');
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -463,9 +471,9 @@ function ConalitegStyleReader({ pages = [], hotspots = [], onHotspotClick }) {
             useMouseEvents
             drawShadow
             showPageCorners
-            flippingTime={920}
+            flippingTime={flippingTime}
             startZIndex={8}
-            maxShadowOpacity={0.52}
+            maxShadowOpacity={maxShadowOpacity}
             onFlip={handleFlip}
             className="pdf-flipbook-book"
           >
