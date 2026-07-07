@@ -56,12 +56,16 @@ export default function BookPreviewOverlay({
       }
     };
     const onTap = () => { setChromeVisible(true); scheduleHide(2600); };
-    window.addEventListener('pointermove', onMove, { passive: true });
-    window.addEventListener('pointerdown', onTap, { passive: true });
+    // Capture phase: react-pageflip swallows pointer events over the book, so a
+    // normal (bubbling) window listener never fires while the cursor is on a page.
+    // Capturing guarantees onMove runs before the flipbook can stop propagation.
+    const opts = { capture: true, passive: true };
+    window.addEventListener('pointermove', onMove, opts);
+    window.addEventListener('pointerdown', onTap, opts);
     return () => {
       clearTimeout(hideTimer);
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerdown', onTap);
+      window.removeEventListener('pointermove', onMove, opts);
+      window.removeEventListener('pointerdown', onTap, opts);
     };
   }, []);
 
