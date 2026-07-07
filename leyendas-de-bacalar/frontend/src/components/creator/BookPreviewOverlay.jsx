@@ -37,22 +37,31 @@ export default function BookPreviewOverlay({
     animate(root, { opacity: [0, 1], duration: 260, ease: 'outQuad' });
   }, []);
 
-  // Auto-hide the floating bar so it stops covering the book; it slides back in on
-  // any activity (mouse move, tap, key) and tucks away after a couple idle seconds.
+  // Immersive-reader chrome: the bar tucks away shortly after opening and while the
+  // reader's pointer is over the book, and slides back in only when the cursor
+  // reaches the top edge (or on tap, for touch). This way it never covers the book.
   const [chromeVisible, setChromeVisible] = useState(true);
   useEffect(() => {
-    let timer = null;
-    const show = () => {
-      setChromeVisible(true);
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => setChromeVisible(false), 2800);
+    let hideTimer = setTimeout(() => setChromeVisible(false), 2000);
+    const scheduleHide = (delay) => {
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => setChromeVisible(false), delay);
     };
-    show();
-    const events = ['pointermove', 'pointerdown', 'keydown', 'touchstart'];
-    events.forEach((event) => window.addEventListener(event, show, { passive: true }));
+    const onMove = (event) => {
+      if (event.pointerType === 'mouse' && event.clientY < 110) {
+        clearTimeout(hideTimer);
+        setChromeVisible(true);
+      } else {
+        scheduleHide(900);
+      }
+    };
+    const onTap = () => { setChromeVisible(true); scheduleHide(2600); };
+    window.addEventListener('pointermove', onMove, { passive: true });
+    window.addEventListener('pointerdown', onTap, { passive: true });
     return () => {
-      if (timer) clearTimeout(timer);
-      events.forEach((event) => window.removeEventListener(event, show));
+      clearTimeout(hideTimer);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerdown', onTap);
     };
   }, []);
 
