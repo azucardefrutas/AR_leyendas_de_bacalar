@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { animate, createTimeline, stagger, utils } from 'animejs';
 import Button from '../../components/ui/Button.jsx';
 import RxEmptyState from '../../components/reader/experience/RxEmptyState.jsx';
 import { getMyCodeRedemptions, redeemCode } from '../../services/codeService.js';
@@ -11,6 +12,12 @@ const TIPS = [
   { id: 'used', label: '¿Ya lo canjeé?', text: 'Cada código se activa una sola vez. Si ya lo usaste, la leyenda ya está desbloqueada en tu biblioteca.' },
 ];
 
+const SPARK_COLORS = ['#30cff2', '#3be0a4', '#f2c14e', '#049dd9', '#ffffff'];
+
+function prefersReducedMotion() {
+  return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
 function RedeemCodePage() {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
@@ -18,6 +25,12 @@ function RedeemCodePage() {
   const [error, setError] = useState(null);
   const [redemptions, setRedemptions] = useState([]);
   const [activeTip, setActiveTip] = useState(null);
+
+  const ticketRef = useRef(null);
+  const mainRef = useRef(null);
+  const stubRef = useRef(null);
+  const lockRef = useRef(null);
+  const stageRef = useRef(null);
 
   async function loadHistory() {
     const { data } = await getMyCodeRedemptions();
@@ -28,11 +41,75 @@ function RedeemCodePage() {
     loadHistory();
   }, []);
 
+  // Entrance: the ticket springs up into place.
+  useEffect(() => {
+    if (!ticketRef.current || prefersReducedMotion()) return;
+    animate(ticketRef.current, {
+      opacity: [0, 1],
+      translateY: [24, 0],
+      scale: [0.965, 1],
+      duration: 560,
+      ease: 'outExpo',
+    });
+  }, []);
+
+  function spawnConfetti() {
+    const stage = stageRef.current;
+    if (!stage || prefersReducedMotion()) return;
+    const sparks = Array.from({ length: 16 }, (_, i) => {
+      const s = document.createElement('span');
+      s.className = 'rx-spark';
+      s.style.background = SPARK_COLORS[i % SPARK_COLORS.length];
+      stage.appendChild(s);
+      return s;
+    });
+    animate(sparks, {
+      translateX: () => utils.random(-150, 150),
+      translateY: () => utils.random(-120, 96),
+      rotate: () => utils.random(-200, 200),
+      scale: [{ to: 1.15, duration: 120 }, { to: 0, duration: 460 }],
+      opacity: [{ to: 1, duration: 60 }, { to: 0, duration: 480 }],
+      duration: 620,
+      delay: stagger(10),
+      ease: 'outExpo',
+      onComplete: () => sparks.forEach((s) => s.remove()),
+    });
+  }
+
+  // Animate on state change.
+  useEffect(() => {
+    if (prefersReducedMotion()) return;
+    if (status === 'error' && ticketRef.current) {
+      const tl = createTimeline();
+      tl.add(ticketRef.current, {
+        translateX: [0, -8, 8, -5, 5, -2, 0],
+        duration: 360,
+        ease: 'inOutSine',
+      }, 0);
+      tl.add(mainRef.current, { translateX: -16, translateY: 10, rotate: -6, duration: 460, ease: 'outBack' }, 290);
+      tl.add(stubRef.current, { translateX: 16, translateY: 12, rotate: 8, duration: 460, ease: 'outBack' }, 290);
+    } else if (status === 'success') {
+      utils.set([mainRef.current, stubRef.current], { translateX: 0, translateY: 0, rotate: 0 });
+      const tl = createTimeline();
+      tl.add(ticketRef.current, { scale: [1, 1.03, 1], duration: 520, ease: 'outQuad' }, 0);
+      if (lockRef.current) {
+        tl.add(lockRef.current, { rotate: [0, -12, 0], scale: [1, 1.32, 1.14], duration: 640, ease: 'outElastic(1, .5)' }, 90);
+      }
+      spawnConfetti();
+    }
+  }, [status]);
+
   function handleCodeChange(value) {
     setCode(value);
     if (status === 'error') {
       setStatus('idle');
       setError(null);
+      if (!prefersReducedMotion() && mainRef.current) {
+        animate([mainRef.current, stubRef.current], {
+          translateX: 0, translateY: 0, rotate: 0,
+          duration: 460, ease: 'outElastic(1, .62)',
+        });
+      }
     }
   }
 
@@ -72,10 +149,10 @@ function RedeemCodePage() {
       </header>
 
       <section className="rx-panel">
-        <div className="rx-ticket-stage">
+        <div className="rx-ticket-stage" ref={stageRef}>
           <form onSubmit={handleSubmit} style={{ display: 'contents' }}>
-            <div className={ticketClass} aria-live="polite">
-              <div className="rx-ticket-piece rx-ticket-main">
+            <div className={ticketClass} ref={ticketRef} aria-live="polite">
+              <div className="rx-ticket-piece rx-ticket-main" ref={mainRef}>
                 <span className="rx-ticket-eyebrow">Boleto de acceso</span>
                 <span className="rx-ticket-brand">Leyendas de Bacalar</span>
                 <input
@@ -89,8 +166,8 @@ function RedeemCodePage() {
                 />
                 <span className="rx-ticket-hint">Lo encuentras impreso dentro de tu edición física.</span>
               </div>
-              <div className="rx-ticket-piece rx-ticket-stub">
-                <span className="rx-ticket-stub-lock" aria-hidden="true">{status === 'success' ? '🔓' : '🔒'}</span>
+              <div className="rx-ticket-piece rx-ticket-stub" ref={stubRef}>
+                <span className="rx-ticket-stub-lock" ref={lockRef} aria-hidden="true">{status === 'success' ? '🔓' : '🔒'}</span>
               </div>
             </div>
 

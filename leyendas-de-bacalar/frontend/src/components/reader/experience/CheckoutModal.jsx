@@ -1,7 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { animate } from 'animejs';
 import Button from '../../ui/Button.jsx';
 import { formatMoney } from '../../../utils/formatters.js';
+
+function prefersReducedMotion() {
+  return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
 
 // Simulated-payment modal with a live 3D card preview. The card art updates as
 // you type, detects the brand (Visa / MasterCard / Amex / Discover) and flips
@@ -53,6 +58,10 @@ function CheckoutModal({ open, title, subtitle, item, ctaLabel = 'Pagar', onClos
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
 
+  const cardRef = useRef(null);
+  const brandRef = useRef(null);
+  const prevBrand = useRef('generic');
+
   useEffect(() => {
     if (!open) return undefined;
     function onKey(event) {
@@ -72,8 +81,31 @@ function CheckoutModal({ open, title, subtitle, item, ctaLabel = 'Pagar', onClos
       setError(null);
       setSuccess(null);
       setLoading(false);
+      prevBrand.current = 'generic';
     }
   }, [open, item?.id]);
+
+  // Card entrance pop-in when the modal opens.
+  useEffect(() => {
+    if (open && cardRef.current && !prefersReducedMotion()) {
+      animate(cardRef.current, {
+        opacity: [0, 1],
+        translateY: [18, 0],
+        scale: [0.94, 1],
+        duration: 520,
+        ease: 'outExpo',
+      });
+    }
+  }, [open]);
+
+  // Pulse the brand logo when a new card brand is detected.
+  useEffect(() => {
+    const currentBrand = detectBrand(onlyDigits(card));
+    if (open && currentBrand !== 'generic' && currentBrand !== prevBrand.current && brandRef.current && !prefersReducedMotion()) {
+      animate(brandRef.current, { scale: [1, 1.25, 1], duration: 440, ease: 'outBack' });
+    }
+    prevBrand.current = currentBrand;
+  }, [card, open]);
 
   if (!open) return null;
 
@@ -145,12 +177,12 @@ function CheckoutModal({ open, title, subtitle, item, ctaLabel = 'Pagar', onClos
         ) : (
           <div className="rx-form">
             {/* Live 3D card preview */}
-            <div className={`rx-cc rx-cc-${brand}`}>
+            <div className={`rx-cc rx-cc-${brand}`} ref={cardRef}>
               <div className={`rx-cc-inner ${flipped ? 'rx-cc-flipped' : ''}`}>
                 <div className="rx-cc-face rx-cc-front">
                   <div className="rx-cc-row">
                     <div className="rx-cc-chip" aria-hidden="true" />
-                    <div className="rx-cc-brand"><BrandLogo brand={brand} /></div>
+                    <div className="rx-cc-brand" ref={brandRef}><BrandLogo brand={brand} /></div>
                   </div>
                   <div className="rx-cc-number">{displayNumber(cardDigits, brand)}</div>
                   <div className="rx-cc-bottom">

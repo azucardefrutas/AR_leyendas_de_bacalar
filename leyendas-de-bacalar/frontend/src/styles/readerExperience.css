@@ -796,15 +796,18 @@
 .rx-redeem-center .rx-title { margin: 0; }
 .rx-redeem-center .rx-sub { margin: 0 auto; max-width: 520px; }
 
-.rx-ticket-stage { display: grid; justify-items: center; gap: 16px; padding: 6px 0; width: 100%; }
+.rx-ticket-stage { position: relative; display: grid; justify-items: center; gap: 16px; padding: 6px 0; width: 100%; }
 .rx-ticket {
   position: relative; display: flex; width: min(420px, 100%);
   filter: drop-shadow(0 22px 44px rgba(0, 0, 0, 0.45));
 }
 .rx-ticket-piece {
-  background: linear-gradient(135deg, #0f3d4a, #082c3a);
-  border: 1px solid rgba(48, 207, 242, 0.42);
-  transition: transform 0.55s cubic-bezier(0.34, 1.2, 0.5, 1), border-color 0.4s ease, box-shadow 0.4s ease, background 0.4s ease;
+  background: linear-gradient(150deg, rgba(21, 66, 82, 0.82), rgba(8, 44, 58, 0.72));
+  border: 1px solid rgba(116, 221, 232, 0.28);
+  backdrop-filter: blur(14px);
+  /* transform/opacity are driven by anime.js — keep them out of CSS transition */
+  transition: border-color 0.4s ease, box-shadow 0.4s ease, background 0.5s ease;
+  will-change: transform;
 }
 .rx-ticket-main {
   flex: 1; min-width: 0;
@@ -848,18 +851,17 @@
 .rx-ticket-unlocked .rx-ticket-code { border-color: #3be0a4; color: #b6f5db; }
 .rx-ticket-unlocked .rx-ticket-stub-lock { transform: scale(1.15) rotate(-8deg); }
 
-/* error: shake, then tear apart at the perforation */
-.rx-ticket-broken { animation: rx-ticket-shake 0.4s ease; }
-.rx-ticket-broken .rx-ticket-piece { border-color: rgba(255, 120, 120, 0.6); }
-.rx-ticket-broken .rx-ticket-main { transform: translate(-16px, 8px) rotate(-6deg); }
-.rx-ticket-broken .rx-ticket-stub { transform: translate(16px, 10px) rotate(8deg); }
-@keyframes rx-ticket-shake {
-  0%, 100% { transform: translateX(0); }
-  15% { transform: translateX(-9px); }
-  30% { transform: translateX(9px); }
-  45% { transform: translateX(-6px); }
-  60% { transform: translateX(6px); }
-  75% { transform: translateX(-3px); }
+/* error: red perimeter (the tear motion is driven by anime.js) */
+.rx-ticket-broken .rx-ticket-piece {
+  border-color: rgba(255, 120, 120, 0.7);
+  box-shadow: 0 0 24px rgba(255, 120, 120, 0.35);
+}
+
+/* confetti sparks (created + animated by anime.js on success) */
+.rx-spark {
+  position: absolute; top: 50%; left: 50%;
+  width: 9px; height: 9px; border-radius: 2px;
+  pointer-events: none; z-index: 3; opacity: 0;
 }
 
 /* interactive tips (replaces the old "como funciona" panel) */
@@ -1189,4 +1191,67 @@
 }
 @media (max-width: 560px) {
   .capp-grid { grid-template-columns: 1fr; }
+}
+
+/* =====================================================================
+   Claymorphism + glass refinement (controlled, minimalist)
+   Soft "puffy" dual shadow (dark outer + faint cool highlight) layered
+   over the existing frosted-glass surfaces, with generous radii. Applied
+   only to primary surfaces — ledger rows and small chrome stay flat to
+   keep the minimalist balance.
+   ===================================================================== */
+.rx,
+.rx-modal-overlay,
+.capp {
+  --rx-clay: 14px 16px 34px rgba(0, 8, 16, 0.5), -9px -9px 24px rgba(120, 220, 240, 0.05);
+  --rx-clay-sm: 8px 10px 22px rgba(0, 8, 16, 0.42), -6px -6px 15px rgba(120, 220, 240, 0.045);
+}
+
+.rx-panel,
+.capp-panel,
+.capp-state,
+.rx-modal,
+.capp-aside-panel {
+  border-radius: 28px;
+  box-shadow: var(--rx-clay);
+  border-color: rgba(120, 220, 240, 0.14);
+  backdrop-filter: blur(22px);
+}
+
+.rx-quick,
+.rx-stat,
+.rx-plan,
+.rx-product,
+.rx-cine-hero {
+  border-radius: 24px;
+  box-shadow: var(--rx-clay-sm);
+}
+
+/* soft inner top highlight = the "clay" catch-light, kept very subtle */
+.rx-panel::after,
+.capp-panel::after,
+.rx-plan::after,
+.rx-quick::before {
+  /* reuse existing pseudo where present; add a hairline top highlight */
+}
+.rx-panel, .capp-panel, .rx-plan, .rx-product, .rx-stat, .rx-quick, .rx-modal, .capp-state, .capp-aside-panel {
+  position: relative;
+}
+.rx-panel > *, .capp-panel > *, .rx-modal > *, .capp-state > * { position: relative; z-index: 1; }
+
+.rx-cc-face { box-shadow: var(--rx-clay), inset 0 1px 0 rgba(255, 255, 255, 0.12); }
+.rx-ticket-piece { box-shadow: var(--rx-clay-sm); }
+
+/* Buttons: soft clay press (subtle, controlled) */
+.rx .btn, .capp .btn, .rx-modal-overlay .btn {
+  border-radius: 14px;
+  transition: transform 0.14s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+.rx .btn-primary, .capp .btn-primary, .rx-modal-overlay .btn-primary {
+  box-shadow: 0 10px 22px rgba(4, 157, 217, 0.32), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+}
+.rx .btn:active, .capp .btn:active, .rx-modal-overlay .btn:active { transform: translateY(1px) scale(0.99); }
+
+@media (prefers-reduced-motion: reduce) {
+  .rx .btn, .capp .btn { transition: none; }
 }
