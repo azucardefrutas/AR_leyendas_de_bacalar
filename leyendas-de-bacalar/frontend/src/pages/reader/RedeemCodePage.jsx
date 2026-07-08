@@ -1,23 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Button from '../../components/ui/Button.jsx';
-import ReaderSectionHeader from '../../components/reader/experience/ReaderSectionHeader.jsx';
 import RxEmptyState from '../../components/reader/experience/RxEmptyState.jsx';
 import { getMyCodeRedemptions, redeemCode } from '../../services/codeService.js';
 import { formatDate } from '../../utils/formatters.js';
 
-const STEPS = [
-  { title: 'Encuentra tu codigo', text: 'Cada edicion fisica de Leyendas de Bacalar incluye un codigo unico impreso en su interior.' },
-  { title: 'Escribelo aqui', text: 'Ingresa el codigo tal cual aparece. No distingue mayusculas de minusculas.' },
-  { title: 'Desbloquea la leyenda', text: 'La historia se agrega a tu biblioteca con su lectura interactiva y experiencias AR.' },
+const TIPS = [
+  { id: 'where', label: '¿Dónde está mi código?', text: 'Viene impreso dentro de tu edición física de Leyendas de Bacalar, normalmente en la primera o última página.' },
+  { id: 'format', label: 'Formato del código', text: 'Suele tener el formato XXXX-XXXX. No distingue mayúsculas de minúsculas ni espacios.' },
+  { id: 'used', label: '¿Ya lo canjeé?', text: 'Cada código se activa una sola vez. Si ya lo usaste, la leyenda ya está desbloqueada en tu biblioteca.' },
 ];
 
 function RedeemCodePage() {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null);
+  const [status, setStatus] = useState('idle'); // idle | error | success
   const [error, setError] = useState(null);
   const [redemptions, setRedemptions] = useState([]);
+  const [activeTip, setActiveTip] = useState(null);
 
   async function loadHistory() {
     const { data } = await getMyCodeRedemptions();
@@ -28,89 +28,120 @@ function RedeemCodePage() {
     loadHistory();
   }, []);
 
+  function handleCodeChange(value) {
+    setCode(value);
+    if (status === 'error') {
+      setStatus('idle');
+      setError(null);
+    }
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
+    if (loading || !code.trim()) return;
     setLoading(true);
-    setResult(null);
     setError(null);
 
-    const { data, error: redeemError } = await redeemCode(code.trim());
+    const { error: redeemError } = await redeemCode(code.trim());
     setLoading(false);
 
     if (redeemError) {
+      setStatus('error');
       setError(redeemError.message);
       return;
     }
 
-    setResult(data);
-    setCode('');
+    setStatus('success');
     loadHistory();
   }
 
+  const ticketClass =
+    status === 'success' ? 'rx-ticket rx-ticket-unlocked'
+      : status === 'error' ? 'rx-ticket rx-ticket-broken'
+        : 'rx-ticket';
+
   return (
     <div className="rx rx-page">
-      <ReaderSectionHeader
-        eyebrow="Activacion"
-        title="Canjear codigo"
-        subtitle="Convierte tu libro fisico en una experiencia interactiva: ingresa el codigo unico de tu edicion para desbloquear la leyenda."
-      />
+      <header className="rx-redeem-center">
+        <p className="rx-eyebrow">Activación</p>
+        <h1 className="rx-title">Canjear código</h1>
+        <p className="rx-sub">
+          Convierte tu libro físico en una experiencia interactiva: ingresa el código único de tu
+          edición para desbloquear la leyenda.
+        </p>
+      </header>
 
-      <div className="rx-redeem-grid">
-        <section className="rx-panel">
-          <div className="rx-panel-head">
-            <div>
-              <h2>Ingresa tu codigo</h2>
-              <p>Lo encuentras impreso dentro de tu edicion fisica.</p>
+      <section className="rx-panel">
+        <div className="rx-ticket-stage">
+          <form onSubmit={handleSubmit} style={{ display: 'contents' }}>
+            <div className={ticketClass} aria-live="polite">
+              <div className="rx-ticket-piece rx-ticket-main">
+                <span className="rx-ticket-eyebrow">Boleto de acceso</span>
+                <span className="rx-ticket-brand">Leyendas de Bacalar</span>
+                <input
+                  className="rx-ticket-code"
+                  value={code}
+                  onChange={(event) => handleCodeChange(event.target.value)}
+                  placeholder="XXXX-XXXX"
+                  aria-label="Código de activación"
+                  disabled={status === 'success'}
+                  required
+                />
+                <span className="rx-ticket-hint">Lo encuentras impreso dentro de tu edición física.</span>
+              </div>
+              <div className="rx-ticket-piece rx-ticket-stub">
+                <span className="rx-ticket-stub-lock" aria-hidden="true">{status === 'success' ? '🔓' : '🔒'}</span>
+              </div>
             </div>
-          </div>
 
-          <form className="rx-redeem-form" onSubmit={handleSubmit}>
-            <input
-              className="rx-code-input"
-              value={code}
-              onChange={(event) => setCode(event.target.value)}
-              placeholder="XXXX-XXXX"
-              aria-label="Codigo de activacion"
-              required
-            />
-            {error && <div className="rx-alert rx-alert-error">{error}</div>}
-            {result && (
-              <div className="rx-alert rx-alert-ok">
-                Codigo canjeado correctamente. Ya puedes leerlo en tu biblioteca.
+            {status === 'error' && error && (
+              <div className="rx-alert rx-alert-error" style={{ maxWidth: 420 }}>{error}</div>
+            )}
+            {status === 'success' && (
+              <div className="rx-alert rx-alert-ok" style={{ maxWidth: 420 }}>
+                ¡Boleto validado! La leyenda se desbloqueó en tu biblioteca.
               </div>
             )}
-            <div className="rx-head-actions">
-              <Button type="submit" disabled={loading || !code.trim()}>
-                {loading ? 'Canjeando...' : 'Canjear codigo'}
-              </Button>
-              {result && <Link to="/reader/library"><Button variant="ghost">Ir a mi biblioteca</Button></Link>}
+
+            <div className="rx-head-actions" style={{ justifyContent: 'center' }}>
+              {status === 'success' ? (
+                <>
+                  <Link to="/reader/library"><Button>Ir a mi biblioteca</Button></Link>
+                  <Button variant="ghost" onClick={() => { setStatus('idle'); setCode(''); }}>Canjear otro código</Button>
+                </>
+              ) : (
+                <Button type="submit" disabled={loading || !code.trim()}>
+                  {loading ? 'Validando...' : 'Canjear código'}
+                </Button>
+              )}
             </div>
           </form>
-        </section>
+        </div>
 
-        <section className="rx-panel">
-          <div className="rx-panel-head">
-            <div>
-              <h2>Como funciona</h2>
-            </div>
-          </div>
-          <div className="rx-steps">
-            {STEPS.map((step, index) => (
-              <div key={step.title} className="rx-step">
-                <div className="rx-step-num">{index + 1}</div>
-                <div>
-                  <p><strong>{step.title}</strong>{step.text}</p>
-                </div>
-              </div>
+        <div style={{ marginTop: 22 }}>
+          <div className="rx-tips">
+            {TIPS.map((tip) => (
+              <button
+                key={tip.id}
+                type="button"
+                className={`rx-tip ${activeTip === tip.id ? 'rx-tip-active' : ''}`}
+                onClick={() => setActiveTip(activeTip === tip.id ? null : tip.id)}
+                aria-expanded={activeTip === tip.id}
+              >
+                💡 {tip.label}
+              </button>
             ))}
           </div>
-        </section>
-      </div>
+          {activeTip && (
+            <p className="rx-tip-panel">{TIPS.find((tip) => tip.id === activeTip)?.text}</p>
+          )}
+        </div>
+      </section>
 
       <section className="rx-panel">
         <div className="rx-panel-head">
           <div>
-            <h2>Codigos canjeados</h2>
+            <h2>Códigos canjeados</h2>
             <p>Tu historial reciente de activaciones.</p>
           </div>
           <span className="rx-badge rx-badge-info">{redemptions.length}</span>
@@ -119,8 +150,8 @@ function RedeemCodePage() {
         {redemptions.length === 0 ? (
           <RxEmptyState
             icon="🎟️"
-            title="Aun no has canjeado codigos"
-            message="Cuando actives el codigo de un libro fisico, quedara registrado aqui."
+            title="Aún no has canjeado códigos"
+            message="Cuando actives el código de un libro físico, quedará registrado aquí."
           />
         ) : (
           <div className="rx-ledger">
@@ -128,7 +159,7 @@ function RedeemCodePage() {
               <div key={redemption.id} className="rx-ledger-row">
                 <div className="rx-ledger-icon" aria-hidden="true">🎟️</div>
                 <div className="rx-ledger-main">
-                  <strong>Codigo activado</strong>
+                  <strong>Código activado</strong>
                   <span>{formatDate(redemption.redeemed_at, { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
                 <div className="rx-ledger-side">
