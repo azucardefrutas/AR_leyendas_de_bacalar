@@ -10,15 +10,18 @@ export async function getActivePlans() {
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: [], error: clientError };
 
+  // subscription_plans exposes `status` (product_status enum), not `is_active`.
+  // The RLS SELECT policy also filters on status = 'active'.
   const { data, error } = await client
     .from('subscription_plans')
     .select('*')
-    .eq('is_active', true);
+    .eq('status', 'active')
+    .order('price', { ascending: true });
 
   return { data: data ?? [], error };
 }
 
-export async function subscribe(planId, checkoutSnapshot, cardLastFour) {
+export async function subscribe(planId, checkoutSnapshot = {}, cardLastFour = '4242') {
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: null, error: clientError };
 
@@ -40,7 +43,7 @@ export async function getMySubscriptions() {
 
   const { data, error } = await client
     .from('subscriptions')
-    .select('*')
+    .select('*, subscription_plans(name, price, currency, duration_days)')
     .eq('user_id', userData.user.id)
     .order('created_at', { ascending: false });
 

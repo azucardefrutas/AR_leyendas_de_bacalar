@@ -10,16 +10,18 @@ export async function getActiveProducts() {
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: [], error: clientError };
 
+  // products exposes `status` (product_status enum), not `is_active`.
+  // The RLS SELECT policy also filters on status = 'active'.
   const { data, error } = await client
     .from('products')
     .select('*')
-    .eq('is_active', true)
-    .order('created_at', { ascending: false });
+    .eq('status', 'active')
+    .order('price', { ascending: true });
 
   return { data: data ?? [], error };
 }
 
-export async function buyProduct(productId, checkoutSnapshot, cardLastFour) {
+export async function buyProduct(productId, checkoutSnapshot = {}, cardLastFour = '4242') {
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: null, error: clientError };
 
@@ -40,7 +42,7 @@ export async function getMyOrders() {
 
   const { data, error } = await client
     .from('orders')
-    .select('*')
+    .select('*, order_items(id, quantity, unit_price, subtotal, products(name, product_type))')
     .eq('user_id', userData.user.id)
     .order('created_at', { ascending: false });
 
@@ -51,6 +53,7 @@ export async function getMyPayments() {
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: [], error: clientError };
 
+  // RLS restricts payments to rows whose order belongs to the current user.
   const { data, error } = await client
     .from('payments')
     .select('*')

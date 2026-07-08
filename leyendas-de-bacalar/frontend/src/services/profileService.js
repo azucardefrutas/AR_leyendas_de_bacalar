@@ -320,6 +320,17 @@ export async function uploadCreatorAvatar(file) {
   return uploadCreatorProfileImage(file, 'avatar');
 }
 
+// Reader profile images: reuse the same validated Storage upload used by the
+// creator profile. The public URL is stored directly on users_profile
+// (avatar_url / cover_url) — no assets row needed for a reader.
+export async function uploadReaderAvatar(file) {
+  return uploadCreatorProfileImage(file, 'avatar');
+}
+
+export async function uploadReaderCover(file) {
+  return uploadCreatorProfileImage(file, 'cover');
+}
+
 export async function uploadCreatorCover(file) {
   const uploadResult = await uploadCreatorProfileImage(file, 'cover');
   if (uploadResult.error) return uploadResult;
