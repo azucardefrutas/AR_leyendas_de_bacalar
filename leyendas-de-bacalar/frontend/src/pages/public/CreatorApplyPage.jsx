@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import Button from '../../components/ui/Button.jsx';
-import Card from '../../components/ui/Card.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useRoles } from '../../hooks/useRoles.js';
@@ -30,6 +29,20 @@ const initialForm = {
   acceptedAuthorshipDeclaration: false,
 };
 
+const creatorBenefits = [
+  { icon: '📚', title: 'Publica tus leyendas', text: 'Comparte relatos y experiencias culturales de Bacalar con lectores de toda la región.' },
+  { icon: '🧊', title: 'Experiencias AR y 3D', text: 'Asocia marcadores de realidad aumentada y modelos 3D a las páginas de tus obras.' },
+  { icon: '📖', title: 'Lectura interactiva', text: 'Sube tu PDF y conviértelo en un libro digital con efecto de página real.' },
+  { icon: '🛡️', title: 'Tu autoría protegida', text: 'Tu obra siempre queda a tu nombre y pasa por revisión editorial antes de publicarse.' },
+];
+
+const creatorProcess = [
+  { title: 'Cuenta y correo', text: 'Regístrate como lector y confirma tu correo electrónico.' },
+  { title: 'Formulario editorial', text: 'Completa tus datos y acepta los términos para creadores.' },
+  { title: 'Confirma por correo', text: 'Activa tu alta con el enlace que te enviamos.' },
+  { title: '¡A crear!', text: 'Se abre tu panel de autor para publicar historias.' },
+];
+
 function getFeedback(application) {
   return application?.admin_feedback || application?.feedback || application?.review_feedback || '';
 }
@@ -40,6 +53,55 @@ function hasVerifiedEmail(user) {
 
 function getApplicationId(application) {
   return application?.id || application?.application_id || application?.applicationId || null;
+}
+
+function StateCard({ variant = '', icon, eyebrow, title, children, actions }) {
+  return (
+    <section className="rx capp">
+      <div className={`capp-state ${variant}`}>
+        {icon && <div className="capp-state-icon" aria-hidden="true">{icon}</div>}
+        {eyebrow && <p className="rx-eyebrow">{eyebrow}</p>}
+        <h1>{title}</h1>
+        {children}
+        {actions && <div className="capp-actions">{actions}</div>}
+      </div>
+    </section>
+  );
+}
+
+function BenefitsAside() {
+  return (
+    <aside className="capp-aside">
+      <div className="capp-aside-panel">
+        <h3>Qué obtienes como creador</h3>
+        <ul className="capp-benefits">
+          {creatorBenefits.map((benefit) => (
+            <li key={benefit.title} className="capp-benefit">
+              <span className="capp-benefit-icon" aria-hidden="true">{benefit.icon}</span>
+              <span>
+                <strong>{benefit.title}</strong>
+                <span>{benefit.text}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <div className="capp-aside-panel">
+        <h3>Cómo funciona</h3>
+        <ol className="capp-process">
+          {creatorProcess.map((step, index) => (
+            <li key={step.title}>
+              <span className="capp-process-num">{index + 1}</span>
+              <span>
+                <strong>{step.title}</strong>
+                <span>{step.text}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
+      </div>
+    </aside>
+  );
 }
 
 function CreatorApplyPage() {
@@ -67,7 +129,7 @@ function CreatorApplyPage() {
     async function loadStatus() {
       if (!isAuthenticated) {
         setStatusLoading(false);
-    
+
         return;
       }
 
@@ -209,32 +271,36 @@ function CreatorApplyPage() {
 
   if (!isAuthenticated) {
     return (
-      <section className="legal-page creator-apply-page">
-        <div className="legal-hero">
-          <p className="eyebrow">Publica historias culturales</p>
-          <h1>Conviertete en creador</h1>
-          <p>
-            Publica leyendas, relatos y experiencias culturales de Bacalar. El
-            proceso requiere cuenta, correo confirmado, declaracion de derechos y terminos estrictos.
+      <section className="rx capp">
+        <div className="capp-hero">
+          <p className="rx-eyebrow">Publica historias culturales</p>
+          <h1>Conviértete en creador</h1>
+          <p className="capp-hero-lead">
+            Publica leyendas, relatos y experiencias culturales de Bacalar. El proceso requiere
+            cuenta, correo confirmado, declaración de derechos y términos claros.
           </p>
         </div>
-
-        <Card className="creator-apply-card">
-          <div className="legal-section">
-            <h2>Antes de continuar</h2>
-            <p>1. Inicia sesion o crea una cuenta de lector.</p>
-            <p>2. Confirma tu correo electronico.</p>
-            <p>3. Completa el formulario editorial y acepta los terminos para creadores.</p>
+        <div className="capp-layout">
+          <div className="capp-panel">
+            <div className="capp-panel-head">
+              <span className="capp-step-badge">✦</span>
+              <div>
+                <h2>Antes de continuar</h2>
+                <p>Tres pasos rápidos para empezar.</p>
+              </div>
+            </div>
+            <ol className="capp-process">
+              <li><span className="capp-process-num">1</span><span><strong>Inicia sesión o crea una cuenta</strong><span>Necesitas una cuenta de lector para comenzar.</span></span></li>
+              <li><span className="capp-process-num">2</span><span><strong>Confirma tu correo electrónico</strong><span>Verifica tu bandeja de entrada.</span></span></li>
+              <li><span className="capp-process-num">3</span><span><strong>Completa el formulario editorial</strong><span>Y acepta los términos para creadores.</span></span></li>
+            </ol>
+            <div className="capp-actions">
+              <Link to={getLoginPathForRedirect('/creator/apply')}><Button>Iniciar sesión para continuar</Button></Link>
+              <Link to={`/register?redirect=${encodeURIComponent('/creator/apply')}`}><Button variant="ghost">Crear cuenta</Button></Link>
+            </div>
           </div>
-          <div className="actions-row">
-            <Link to={getLoginPathForRedirect('/creator/apply')}>
-              <Button>Iniciar sesion para continuar</Button>
-            </Link>
-            <Link to={`/register?redirect=${encodeURIComponent('/creator/apply')}`}>
-              <Button variant="ghost">Crear cuenta</Button>
-            </Link>
-          </div>
-        </Card>
+          <BenefitsAside />
+        </div>
       </section>
     );
   }
@@ -249,56 +315,52 @@ function CreatorApplyPage() {
 
   if (roles.includes('admin')) {
     return (
-      <section className="legal-page creator-apply-page">
-        <Card className="creator-apply-card">
-          <p className="eyebrow">Cuenta administrativa</p>
-          <h1>Tu cuenta es administrativa.</h1>
-          <p>Usa el panel admin para revisar solicitudes de creador y gestionar la plataforma.</p>
-          <Link to="/admin">
-            <Button>Ir al panel admin</Button>
-          </Link>
-        </Card>
-      </section>
+      <StateCard
+        icon="🛡️"
+        eyebrow="Cuenta administrativa"
+        title="Tu cuenta es administrativa"
+        actions={<Link to="/admin"><Button>Ir al panel admin</Button></Link>}
+      >
+        <p>Usa el panel admin para revisar solicitudes de creador y gestionar la plataforma.</p>
+      </StateCard>
     );
   }
 
   if (!hasVerifiedEmail(user)) {
     return (
-      <section className="legal-page creator-apply-page">
-        <Card className="creator-apply-card">
-          <p className="eyebrow">Correo pendiente</p>
-          <h1>Confirma tu correo antes de continuar como creador.</h1>
-          <p>Para activar el panel de autor necesitamos una cuenta con correo verificado. Revisa tu bandeja de entrada o spam.</p>
-          <div className="actions-row">
-            <Link to="/auth/check-email">
-              <Button>Ver instrucciones</Button>
-            </Link>
-            <Link to={getLoginPathForRedirect('/creator/apply')}>
-              <Button variant="ghost">Volver a iniciar sesion</Button>
-            </Link>
-          </div>
-        </Card>
-      </section>
+      <StateCard
+        variant="capp-state-warn"
+        icon="✉️"
+        eyebrow="Correo pendiente"
+        title="Confirma tu correo antes de continuar"
+        actions={(
+          <>
+            <Link to="/auth/check-email"><Button>Ver instrucciones</Button></Link>
+            <Link to={getLoginPathForRedirect('/creator/apply')}><Button variant="ghost">Volver a iniciar sesión</Button></Link>
+          </>
+        )}
+      >
+        <p>Para activar el panel de autor necesitamos una cuenta con correo verificado. Revisa tu bandeja de entrada o spam.</p>
+      </StateCard>
     );
   }
 
   if (statusState.status === 'approved') {
     return (
-      <section className="legal-page creator-apply-page">
-        <Card className="creator-apply-card">
-          <p className="eyebrow">Perfil activo</p>
-          <h1>Tu perfil de creador ya esta activo.</h1>
-          <p>Si el panel no se abre automaticamente, vuelve a iniciar sesion para refrescar tus permisos.</p>
-          <div className="actions-row">
-            <Link to="/creator">
-              <Button>Ir al panel de creador</Button>
-            </Link>
-            <Link to="/reader/library">
-              <Button variant="ghost">Volver a biblioteca</Button>
-            </Link>
-          </div>
-        </Card>
-      </section>
+      <StateCard
+        variant="capp-state-ok"
+        icon="🎉"
+        eyebrow="Perfil activo"
+        title="Tu perfil de creador ya está activo"
+        actions={(
+          <>
+            <Link to="/creator"><Button>Ir al panel de creador</Button></Link>
+            <Link to="/reader/library"><Button variant="ghost">Volver a biblioteca</Button></Link>
+          </>
+        )}
+      >
+        <p>Si el panel no se abre automáticamente, vuelve a iniciar sesión para refrescar tus permisos.</p>
+      </StateCard>
     );
   }
 
@@ -307,253 +369,180 @@ function CreatorApplyPage() {
 
   if (shouldShowEmailSuccess) {
     return (
-      <section className="legal-page creator-apply-page">
-        <Card className="creator-apply-card">
-          <p className="eyebrow">Correo de confirmacion enviado</p>
-          <h1>Revisa tu correo</h1>
-          <p>
-            {message || 'Te enviamos un enlace para confirmar tu alta como creador. Cuando lo confirmes, tu perfil se activara automaticamente.'}
-          </p>
-          <div className="actions-row">
-            <Link to="/">
-              <Button>Volver al inicio</Button>
-            </Link>
-            <Link to="/terms/creators">
-              <Button variant="ghost">Ver terminos</Button>
-            </Link>
-          </div>
-        </Card>
-      </section>
+      <StateCard
+        variant="capp-state-ok"
+        icon="📬"
+        eyebrow="Correo de confirmación enviado"
+        title="Revisa tu correo"
+        actions={(
+          <>
+            <Link to="/"><Button>Volver al inicio</Button></Link>
+            <Link to="/terms/creators"><Button variant="ghost">Ver términos</Button></Link>
+          </>
+        )}
+      >
+        <p>{message || 'Te enviamos un enlace para confirmar tu alta como creador. Cuando lo confirmes, tu perfil se activará automáticamente.'}</p>
+      </StateCard>
     );
   }
 
   if (statusState.status === 'pending' || statusState.status === 'email_failed') {
     return (
-      <section className="legal-page creator-apply-page">
-        <Card className="creator-apply-card">
-          <p className="eyebrow">Confirmacion pendiente</p>
-          <h1>Guardamos tu solicitud, pero no pudimos enviar el correo de confirmacion.</h1>
-          <p>
-            Tu formulario editorial quedo registrado. Reenviaremos el correo de confirmacion sin volver a enviar el formulario.
-          </p>
-          {error && <p className="error-message">{error}</p>}
-          <div className="actions-row">
+      <StateCard
+        variant="capp-state-warn"
+        icon="📮"
+        eyebrow="Confirmación pendiente"
+        title="Guardamos tu solicitud"
+        actions={(
+          <>
             <Button onClick={handleResendEmail} disabled={resending}>
-              {resending ? 'Reenviando...' : 'Reenviar correo de confirmacion'}
+              {resending ? 'Reenviando...' : 'Reenviar correo de confirmación'}
             </Button>
-            <Link to="/">
-              <Button variant="ghost">Volver al inicio</Button>
-            </Link>
-          </div>
-        </Card>
-      </section>
+            <Link to="/"><Button variant="ghost">Volver al inicio</Button></Link>
+          </>
+        )}
+      >
+        <p>Tu formulario editorial quedó registrado. Reenviaremos el correo de confirmación sin volver a enviar el formulario.</p>
+        {error && <div className="rx-alert rx-alert-error">{error}</div>}
+      </StateCard>
     );
   }
 
   const rejectedFeedback = statusState.status === 'rejected' ? getFeedback(statusState.application) : '';
 
   return (
-    <section className="legal-page creator-apply-page">
-      <div className="legal-hero">
-        <p className="eyebrow">Solicitud editorial</p>
-        <h1>Conviertete en creador</h1>
-        <p>
+    <section className="rx capp">
+      <div className="capp-hero">
+        <p className="rx-eyebrow">Solicitud editorial</p>
+        <h1>Conviértete en creador</h1>
+        <p className="capp-hero-lead">
           Completa tu perfil editorial. El acceso de creador se activa con correo verificado,
-          formulario completo y aceptacion de terminos; tus obras seguiran pasando por revision antes de publicarse.
+          formulario completo y aceptación de términos; tus obras seguirán pasando por revisión antes de publicarse.
         </p>
+        <div className="capp-stepper">
+          <span className="capp-step-pill"><b>1</b> Datos editoriales</span>
+          <span className="capp-step-pill"><b>2</b> Perfil creativo</span>
+          <span className="capp-step-pill"><b>3</b> Declaraciones</span>
+        </div>
       </div>
 
-      <form className="creator-apply-form" onSubmit={handleSubmit}>
-        {statusState.status === 'rejected' && (
-          <Card className="creator-apply-card">
-            <p className="eyebrow">Solicitud rechazada</p>
-            <h2>Puedes enviar una nueva propuesta.</h2>
-            <p>{rejectedFeedback ? `Comentario del administrador: ${rejectedFeedback}` : 'Revisa tu informacion y fortalece tu motivo antes de reenviar.'}</p>
-          </Card>
-        )}
-
-        <Card className="creator-apply-card">
-          <div className="legal-section">
-            <p className="eyebrow">Paso 1</p>
-            <h2>Datos personales y editoriales</h2>
-            <p>Estos datos formalizan tu alta como creador. No se solicitan credenciales ni documentos en esta etapa.</p>
-          </div>
-
-          <div className="form-grid">
-            <label className="field" htmlFor="creator-legal-first-name">
-              <span>Nombre legal</span>
-              <input
-                id="creator-legal-first-name"
-                className="standalone-input"
-                value={form.legalFirstName}
-                onChange={(event) => updateField('legalFirstName', event.target.value)}
-                required
-              />
-            </label>
-            <label className="field" htmlFor="creator-legal-last-name">
-              <span>Apellidos</span>
-              <input
-                id="creator-legal-last-name"
-                className="standalone-input"
-                value={form.legalLastName}
-                onChange={(event) => updateField('legalLastName', event.target.value)}
-                required
-              />
-            </label>
-            <label className="field" htmlFor="creator-pen-name">
-              <span>Nombre de autor / seudonimo</span>
-              <input
-                id="creator-pen-name"
-                className="standalone-input"
-                value={form.penName}
-                onChange={(event) => updateField('penName', event.target.value)}
-                required
-              />
-            </label>
-            <label className="field" htmlFor="creator-affiliation">
-              <span>Institucion o afiliacion</span>
-              <input
-                id="creator-affiliation"
-                className="standalone-input"
-                value={form.affiliation}
-                onChange={(event) => updateField('affiliation', event.target.value)}
-                placeholder="Opcional"
-              />
-            </label>
-            <label className="field" htmlFor="creator-city">
-              <span>Ciudad</span>
-              <input
-                id="creator-city"
-                className="standalone-input"
-                value={form.city}
-                onChange={(event) => updateField('city', event.target.value)}
-                required
-              />
-            </label>
-            <label className="field" htmlFor="creator-state-region">
-              <span>Estado</span>
-              <input
-                id="creator-state-region"
-                className="standalone-input"
-                value={form.stateRegion}
-                onChange={(event) => updateField('stateRegion', event.target.value)}
-                required
-              />
-            </label>
-            <label className="field" htmlFor="creator-country">
-              <span>Pais</span>
-              <input
-                id="creator-country"
-                className="standalone-input"
-                value={form.country}
-                onChange={(event) => updateField('country', event.target.value)}
-                required
-              />
-            </label>
-            <label className="field" htmlFor="creator-phone">
-              <span>Telefono opcional</span>
-              <input
-                id="creator-phone"
-                className="standalone-input"
-                value={form.phone}
-                onChange={(event) => updateField('phone', event.target.value)}
-                placeholder="Opcional"
-              />
-            </label>
-          </div>
-        </Card>
-
-        <Card className="creator-apply-card">
-          <div className="legal-section">
-            <p className="eyebrow">Paso 2</p>
-            <h2>Perfil creativo</h2>
-          </div>
-          <label className="field" htmlFor="creator-biography">
-            <span>Biografia breve</span>
-            <textarea
-              id="creator-biography"
-              className="textarea"
-              value={form.biography}
-              onChange={(event) => updateField('biography', event.target.value)}
-              rows={4}
-              required
-            />
-          </label>
-          <label className="field" htmlFor="creator-portfolio-url">
-            <span>Portafolio o enlace opcional</span>
-            <input
-              id="creator-portfolio-url"
-              className="standalone-input"
-              type="url"
-              value={form.portfolioUrl}
-              onChange={(event) => updateField('portfolioUrl', event.target.value)}
-              placeholder="https://..."
-            />
-          </label>
-          <label className="field" htmlFor="creator-motivation">
-            <span>Motivo para ser creador</span>
-            <textarea
-              id="creator-motivation"
-              className="textarea"
-              value={form.reason}
-              onChange={(event) => updateField('reason', event.target.value)}
-              rows={5}
-              required
-            />
-          </label>
-        </Card>
-
-        <Card className="creator-apply-card">
-          <div className="legal-section">
-            <p className="eyebrow">Paso 3</p>
-            <h2>Declaraciones legales</h2>
-          </div>
-          <label className="legal-checkbox">
-            <input
-              type="checkbox"
-              checked={form.acceptedCreatorTerms}
-              onChange={(event) => updateField('acceptedCreatorTerms', event.target.checked)}
-            />
-            <span>
-              Acepto los <Link to="/terms/creators">Terminos para Creadores</Link>.
-            </span>
-          </label>
-          <label className="legal-checkbox">
-            <input
-              type="checkbox"
-              checked={form.acceptedCreatorPrivacy}
-              onChange={(event) => updateField('acceptedCreatorPrivacy', event.target.checked)}
-            />
-            <span>
-              Acepto el <Link to="/privacy/creators">Aviso de Privacidad para Creadores</Link>.
-            </span>
-          </label>
-          <label className="legal-checkbox">
-            <input
-              type="checkbox"
-              checked={form.acceptedAuthorshipDeclaration}
-              onChange={(event) => updateField('acceptedAuthorshipDeclaration', event.target.checked)}
-            />
-            <span>
-              Declaro que la informacion proporcionada es veraz y que cuento o contare con los derechos necesarios sobre las obras, textos, imagenes, modelos 3D, PDFs, marcadores y recursos que publique.
-            </span>
-          </label>
-          {!acceptedLegalTerms && (
-            <p className="admin-muted">
-              Debes aceptar los terminos, el aviso de privacidad y la declaracion de autoria para continuar.
-            </p>
+      <div className="capp-layout">
+        <form className="capp-form" onSubmit={handleSubmit}>
+          {statusState.status === 'rejected' && (
+            <div className="rx-alert rx-alert-error">
+              <strong>Solicitud rechazada.</strong>{' '}
+              {rejectedFeedback ? `Comentario del administrador: ${rejectedFeedback}` : 'Revisa tu información y fortalece tu motivo antes de reenviar.'}
+            </div>
           )}
-          {error && <p className="error-message">{error}</p>}
-          <div className="actions-row">
-            <Button type="submit" disabled={submitting || !acceptedLegalTerms}>
-              {submitting ? 'Enviando confirmacion...' : 'Enviar solicitud y confirmar por correo'}
-            </Button>
-            <Link to="/terms/creators">
-              <Button variant="ghost">Revisar terminos</Button>
-            </Link>
+
+          <div className="capp-panel">
+            <div className="capp-panel-head">
+              <span className="capp-step-badge">1</span>
+              <div>
+                <h2>Datos personales y editoriales</h2>
+                <p>Formalizan tu alta como creador. No se piden credenciales ni documentos en esta etapa.</p>
+              </div>
+            </div>
+            <div className="capp-grid">
+              <label className="capp-field" htmlFor="creator-legal-first-name">
+                <span>Nombre legal</span>
+                <input id="creator-legal-first-name" className="capp-input" value={form.legalFirstName} onChange={(e) => updateField('legalFirstName', e.target.value)} required />
+              </label>
+              <label className="capp-field" htmlFor="creator-legal-last-name">
+                <span>Apellidos</span>
+                <input id="creator-legal-last-name" className="capp-input" value={form.legalLastName} onChange={(e) => updateField('legalLastName', e.target.value)} required />
+              </label>
+              <label className="capp-field" htmlFor="creator-pen-name">
+                <span>Nombre de autor / seudónimo</span>
+                <input id="creator-pen-name" className="capp-input" value={form.penName} onChange={(e) => updateField('penName', e.target.value)} required />
+              </label>
+              <label className="capp-field" htmlFor="creator-affiliation">
+                <span>Institución o afiliación <span className="capp-opt">· opcional</span></span>
+                <input id="creator-affiliation" className="capp-input" value={form.affiliation} onChange={(e) => updateField('affiliation', e.target.value)} placeholder="Opcional" />
+              </label>
+              <label className="capp-field" htmlFor="creator-city">
+                <span>Ciudad</span>
+                <input id="creator-city" className="capp-input" value={form.city} onChange={(e) => updateField('city', e.target.value)} required />
+              </label>
+              <label className="capp-field" htmlFor="creator-state-region">
+                <span>Estado</span>
+                <input id="creator-state-region" className="capp-input" value={form.stateRegion} onChange={(e) => updateField('stateRegion', e.target.value)} required />
+              </label>
+              <label className="capp-field" htmlFor="creator-country">
+                <span>País</span>
+                <input id="creator-country" className="capp-input" value={form.country} onChange={(e) => updateField('country', e.target.value)} required />
+              </label>
+              <label className="capp-field" htmlFor="creator-phone">
+                <span>Teléfono <span className="capp-opt">· opcional</span></span>
+                <input id="creator-phone" className="capp-input" value={form.phone} onChange={(e) => updateField('phone', e.target.value)} placeholder="Opcional" />
+              </label>
+            </div>
           </div>
-        </Card>
-      </form>
+
+          <div className="capp-panel">
+            <div className="capp-panel-head">
+              <span className="capp-step-badge">2</span>
+              <div>
+                <h2>Perfil creativo</h2>
+                <p>Cuéntanos quién eres y por qué quieres publicar.</p>
+              </div>
+            </div>
+            <div className="capp-grid">
+              <label className="capp-field capp-col-full" htmlFor="creator-biography">
+                <span>Biografía breve</span>
+                <textarea id="creator-biography" className="capp-textarea" value={form.biography} onChange={(e) => updateField('biography', e.target.value)} rows={4} placeholder="Al menos 20 caracteres" required />
+              </label>
+              <label className="capp-field capp-col-full" htmlFor="creator-portfolio-url">
+                <span>Portafolio o enlace <span className="capp-opt">· opcional</span></span>
+                <input id="creator-portfolio-url" className="capp-input" type="url" value={form.portfolioUrl} onChange={(e) => updateField('portfolioUrl', e.target.value)} placeholder="https://..." />
+              </label>
+              <label className="capp-field capp-col-full" htmlFor="creator-motivation">
+                <span>Motivo para ser creador</span>
+                <textarea id="creator-motivation" className="capp-textarea" value={form.reason} onChange={(e) => updateField('reason', e.target.value)} rows={5} placeholder="Al menos 10 caracteres" required />
+              </label>
+            </div>
+          </div>
+
+          <div className="capp-panel">
+            <div className="capp-panel-head">
+              <span className="capp-step-badge">3</span>
+              <div>
+                <h2>Declaraciones legales</h2>
+                <p>Necesarias para publicar en la plataforma.</p>
+              </div>
+            </div>
+            <label className="capp-check">
+              <input type="checkbox" checked={form.acceptedCreatorTerms} onChange={(e) => updateField('acceptedCreatorTerms', e.target.checked)} />
+              <span className="capp-check-box" aria-hidden="true" />
+              <span>Acepto los <Link to="/terms/creators">Términos para Creadores</Link>.</span>
+            </label>
+            <label className="capp-check">
+              <input type="checkbox" checked={form.acceptedCreatorPrivacy} onChange={(e) => updateField('acceptedCreatorPrivacy', e.target.checked)} />
+              <span className="capp-check-box" aria-hidden="true" />
+              <span>Acepto el <Link to="/privacy/creators">Aviso de Privacidad para Creadores</Link>.</span>
+            </label>
+            <label className="capp-check">
+              <input type="checkbox" checked={form.acceptedAuthorshipDeclaration} onChange={(e) => updateField('acceptedAuthorshipDeclaration', e.target.checked)} />
+              <span className="capp-check-box" aria-hidden="true" />
+              <span>Declaro que la información proporcionada es veraz y que cuento o contaré con los derechos necesarios sobre las obras, textos, imágenes, modelos 3D, PDFs, marcadores y recursos que publique.</span>
+            </label>
+
+            {!acceptedLegalTerms && (
+              <p className="capp-hint">Debes aceptar los términos, el aviso de privacidad y la declaración de autoría para continuar.</p>
+            )}
+            {error && <div className="rx-alert rx-alert-error" style={{ marginTop: 12 }}>{error}</div>}
+
+            <div className="capp-actions">
+              <Button type="submit" disabled={submitting || !acceptedLegalTerms}>
+                {submitting ? 'Enviando confirmación...' : 'Enviar solicitud y confirmar por correo'}
+              </Button>
+              <Link to="/terms/creators"><Button variant="ghost">Revisar términos</Button></Link>
+            </div>
+          </div>
+        </form>
+
+        <BenefitsAside />
+      </div>
     </section>
   );
 }

@@ -460,7 +460,11 @@ function LegendEditor({ legendId }) {
   // Editor mode: a real source document => PDF/CONALITEG flow; otherwise the manual
   // "crear desde cero" flow with Editor.js. creation_mode is a persisted tiebreaker.
   const isManualMode = !primarySourceDocument && legendCreationMode !== 'source_document';
-  const baseReviewError = validateReadyForReview({ legend: form, pages, hasSourceDocument: Boolean(primarySourceDocument) });
+  // Uploaded legends (source document) render their pages from the PDF
+  // (document_render_pages) instead of manual legend_pages, so we only require
+  // manual pages for the "crear desde cero" flow. For uploaded legends the
+  // rendered-book check below (getCreatorReviewError) enforces the PDF pages.
+  const baseReviewError = validateReadyForReview({ legend: form, pages, requirePages: isManualMode, hasSourceDocument: Boolean(primarySourceDocument) });
   const renderChecklist = getDocumentRenderSummary(primarySourceDocument, documentRenderSummary);
   const modelCount = countScenes(existingResources);
   const markerCount = countMarkers(existingResources);

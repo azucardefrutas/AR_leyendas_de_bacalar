@@ -53,14 +53,20 @@ Deno.serve(async (request) => {
   const supabaseUrl = Deno.env.get('SUPABASE_URL');
   const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
   const resendApiKey = Deno.env.get('RESEND_API_KEY');
-  const siteUrl = Deno.env.get('SITE_URL');
+  // SITE_URL is optional: fall back to the request Origin (the frontend that
+  // invoked the function) so the confirmation link works even when the secret
+  // was never set. RESEND_API_KEY is the only secret an operator must provide.
+  const siteUrlEnv = Deno.env.get('SITE_URL');
+  const originHeader = request.headers.get('Origin') || '';
+  const resolvedSiteUrl = (siteUrlEnv || originHeader).replace(/\/$/, '');
 
   const missingSecrets = [
     ['SUPABASE_URL', supabaseUrl],
     ['SUPABASE_SERVICE_ROLE_KEY', supabaseServiceRoleKey],
     ['RESEND_API_KEY', resendApiKey],
-    ['SITE_URL', siteUrl],
   ].filter(([, value]) => !value).map(([name]) => name);
+
+  if (!resolvedSiteUrl) missingSecrets.push('SITE_URL');
 
   const invalidResendKey = Boolean(resendApiKey && !resendApiKey.startsWith('re_'));
 
@@ -73,6 +79,8 @@ Deno.serve(async (request) => {
       ok: false,
       code: 'missing_secret',
       error: 'La funcion no esta configurada correctamente.',
+      missing: missingSecrets,
+      invalid_resend_key: invalidResendKey,
     }, 500);
   }
 
@@ -216,7 +224,7 @@ Deno.serve(async (request) => {
 
   console.log('creator email token generated', { applicationId });
 
-  const confirmationUrl = `${siteUrl.replace(/\/$/, '')}/creator/confirm?token=${encodeURIComponent(tokenRow.token)}`;
+  const confirmationUrl = `${resolvedSiteUrl}/creator/confirm?token=${encodeURIComponent(tokenRow.token)}`;
   console.log('creator email sending through Resend', {
     applicationId,
     to: email,

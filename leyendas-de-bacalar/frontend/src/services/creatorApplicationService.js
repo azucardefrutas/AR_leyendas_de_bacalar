@@ -7,9 +7,19 @@ function getClient() {
   return { data: supabase, error: null };
 }
 
-function friendlyCreatorApplicationError(error, { context = 'general' } = {}) {
+function friendlyCreatorApplicationError(error, { context = 'general', code = null } = {}) {
   if (!error) return null;
   const message = String(error.message || '');
+
+  // Server-side email is not configured (edge function missing RESEND_API_KEY /
+  // SITE_URL). Retrying will not help, so say so honestly instead of the generic
+  // "intentalo nuevamente".
+  if (code === 'missing_secret' || message.includes('no esta configurada') || message.includes('no está configurada')) {
+    return new Error('El envio de correos aun no esta configurado en el servidor. Un administrador debe configurar el proveedor de correo (Resend) antes de poder confirmar el alta por correo.');
+  }
+  if (code === 'resend_failed' || code === 'resend_no_id') {
+    return new Error('El proveedor de correo rechazo el envio. Revisa que el dominio del remitente este verificado en Resend.');
+  }
 
   if (message.includes('sesion expiro') || message.includes('no hay sesion') || message.includes('no hay session')) {
     return new Error('Tu sesion expiro. Inicia sesion nuevamente para continuar.');
@@ -186,7 +196,7 @@ export async function sendCreatorOnboardingEmail(applicationId, accessToken) {
     if (error) {
       if (import.meta.env.DEV) console.error('[creator onboarding] edge function error', error);
       const functionError = await getFunctionErrorInfo(error);
-      return { data: null, error: friendlyCreatorApplicationError(new Error(functionError.message || error.message), { context: 'email' }) };
+      return { data: null, error: friendlyCreatorApplicationError(new Error(functionError.message || error.message), { context: 'email', code: functionError.code }) };
     }
 
     if (!data?.ok || !data?.resend_id) {
@@ -194,7 +204,7 @@ export async function sendCreatorOnboardingEmail(applicationId, accessToken) {
       if (data?.code && import.meta.env.DEV) console.error('[creator onboarding] email error code', data.code);
       return {
         data: null,
-        error: friendlyCreatorApplicationError(new Error(data?.error || 'Resend no confirmo el envio del correo.'), { context: 'email' }),
+        error: friendlyCreatorApplicationError(new Error(data?.error || 'Resend no confirmo el envio del correo.'), { context: 'email', code: data?.code }),
       };
     }
 

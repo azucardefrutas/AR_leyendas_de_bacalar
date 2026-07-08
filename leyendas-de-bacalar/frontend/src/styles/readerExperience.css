@@ -750,3 +750,205 @@
   .rx-page, .rx-page > *, .rx-profile, .rx-tab-panel, .rx-modal-overlay { animation: none; }
   .rx-quick, .rx-stat, .rx-plan, .rx-product, .rx-media-tile img { transition: none; }
 }
+
+/* =====================================================================
+   Creator application — "Conviertete en creador" (glass redesign)
+   Scoped under .capp so it never restyles the shared legal/terms pages.
+   Prefix: .capp-
+   ===================================================================== */
+.capp {
+  max-width: 1180px;
+  margin-inline: auto;
+  width: 100%;
+  display: grid;
+  gap: clamp(22px, 3vw, 34px);
+  animation: rx-rise 0.5s ease both;
+}
+
+.capp-hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(116, 221, 232, 0.24);
+  border-radius: 28px;
+  padding: clamp(28px, 4.4vw, 52px);
+  background:
+    linear-gradient(120deg, rgba(6, 24, 38, 0.92), rgba(8, 44, 58, 0.5)),
+    radial-gradient(circle at 88% 8%, rgba(48, 207, 242, 0.34), transparent 24rem),
+    radial-gradient(circle at 4% 100%, rgba(23, 184, 201, 0.28), transparent 22rem),
+    linear-gradient(180deg, #082c3a, #061826);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.34);
+}
+.capp-hero::after {
+  content: "";
+  position: absolute; inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 26px 26px;
+  mask-image: linear-gradient(120deg, rgba(0, 0, 0, 0.5), transparent 60%);
+  pointer-events: none;
+}
+.capp-hero > * { position: relative; z-index: 1; }
+.capp-hero h1 {
+  margin: 8px 0 12px;
+  font-family: Fraunces, Georgia, serif;
+  font-weight: 600;
+  font-size: clamp(2.4rem, 6vw, 4.4rem);
+  line-height: 0.98;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+.capp-hero-lead { margin: 0; max-width: 640px; color: rgba(234, 251, 255, 0.82); line-height: 1.6; }
+
+.capp-stepper { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+.capp-step-pill {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 9px 15px; border-radius: 999px;
+  border: 1px solid rgba(116, 221, 232, 0.28);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--rx-muted); font-size: 0.85rem; font-weight: 600;
+}
+.capp-step-pill b {
+  width: 22px; height: 22px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 0.75rem;
+  color: #061826; background: linear-gradient(140deg, var(--rx-primary), var(--rx-blue));
+}
+
+/* Two-column layout: form + sticky benefits aside */
+.capp-layout { display: grid; grid-template-columns: 1.55fr 0.95fr; gap: 22px; align-items: start; }
+.capp-form { display: grid; gap: 20px; }
+
+.capp-panel {
+  position: relative;
+  border: 1px solid var(--rx-line-soft);
+  border-radius: 24px;
+  padding: clamp(20px, 2.6vw, 30px);
+  background: linear-gradient(160deg, var(--rx-glass-2), var(--rx-glass) 60%), rgba(6, 24, 38, 0.42);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.26);
+  backdrop-filter: blur(18px);
+}
+.capp-panel-head { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+.capp-step-badge {
+  width: 46px; height: 46px; flex: none;
+  border-radius: 15px;
+  display: grid; place-items: center;
+  font-family: Fraunces, Georgia, serif; font-weight: 700; font-size: 1.25rem;
+  color: #061826; background: linear-gradient(140deg, var(--rx-primary), var(--rx-blue));
+  box-shadow: 0 10px 24px rgba(4, 157, 217, 0.34);
+}
+.capp-panel-head h2 { margin: 0; font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 1.35rem; color: #fff; }
+.capp-panel-head p { margin: 2px 0 0; color: var(--rx-faint); font-size: 0.86rem; }
+
+.capp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.capp-grid .capp-col-full { grid-column: 1 / -1; }
+
+.capp-field { display: grid; gap: 7px; }
+.capp-field > span { font-size: 0.82rem; color: var(--rx-muted); font-weight: 600; }
+.capp-field > span .capp-opt { color: var(--rx-faint); font-weight: 500; }
+.capp-input, .capp-textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(116, 221, 232, 0.22);
+  background: rgba(6, 24, 38, 0.5);
+  color: #fff; font-size: 0.95rem;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
+}
+.capp-input::placeholder, .capp-textarea::placeholder { color: rgba(226, 248, 255, 0.3); }
+.capp-textarea { resize: vertical; min-height: 96px; line-height: 1.55; }
+.capp-input:focus, .capp-textarea:focus { outline: none; border-color: var(--rx-primary); box-shadow: 0 0 0 3px rgba(48, 207, 242, 0.16); }
+
+/* Custom legal checkboxes */
+.capp-check {
+  display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start;
+  padding: 14px; border-radius: 14px;
+  border: 1px solid var(--rx-line-soft);
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer; transition: border-color 0.16s ease, background 0.16s ease;
+}
+.capp-check:hover { border-color: rgba(48, 207, 242, 0.34); background: rgba(255, 255, 255, 0.05); }
+.capp-check + .capp-check { margin-top: 10px; }
+.capp-check input { position: absolute; opacity: 0; width: 0; height: 0; }
+.capp-check-box {
+  width: 24px; height: 24px; border-radius: 8px;
+  border: 2px solid rgba(116, 221, 232, 0.4);
+  display: grid; place-items: center;
+  color: #061826; font-size: 0.85rem; font-weight: 900;
+  transition: background 0.16s ease, border-color 0.16s ease;
+}
+.capp-check input:checked + .capp-check-box { background: var(--rx-primary); border-color: var(--rx-primary); }
+.capp-check input:checked + .capp-check-box::after { content: "✓"; }
+.capp-check input:focus-visible + .capp-check-box { box-shadow: 0 0 0 3px rgba(48, 207, 242, 0.3); }
+.capp-check span:last-child { color: var(--rx-muted); font-size: 0.9rem; line-height: 1.5; }
+.capp-check a { color: var(--rx-primary); font-weight: 600; }
+
+.capp-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 18px; }
+.capp-hint { color: var(--rx-faint); font-size: 0.84rem; display: flex; gap: 7px; align-items: flex-start; }
+.capp-hint::before { content: "ℹ️"; }
+
+/* Sticky benefits aside */
+.capp-aside { display: grid; gap: 18px; position: sticky; top: 120px; }
+.capp-aside-panel {
+  border: 1px solid var(--rx-line-soft);
+  border-radius: 22px;
+  padding: 24px;
+  background:
+    linear-gradient(170deg, rgba(48, 207, 242, 0.12), rgba(4, 157, 217, 0.04)),
+    rgba(6, 24, 38, 0.5);
+  backdrop-filter: blur(16px);
+}
+.capp-aside-panel h3 { margin: 0 0 14px; font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 1.2rem; color: #fff; }
+.capp-benefits { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; }
+.capp-benefit { display: grid; grid-template-columns: 40px 1fr; gap: 12px; align-items: start; }
+.capp-benefit-icon {
+  width: 40px; height: 40px; border-radius: 12px;
+  display: grid; place-items: center; font-size: 1.2rem;
+  background: rgba(48, 207, 242, 0.14); color: var(--rx-primary);
+}
+.capp-benefit strong { color: #fff; display: block; font-size: 0.95rem; margin-bottom: 2px; }
+.capp-benefit span { color: var(--rx-muted); font-size: 0.85rem; line-height: 1.5; }
+
+.capp-process { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.capp-process li { display: grid; grid-template-columns: 30px 1fr; gap: 12px; padding-bottom: 18px; position: relative; }
+.capp-process li:not(:last-child)::before {
+  content: ""; position: absolute; left: 14px; top: 30px; bottom: 0; width: 2px;
+  background: linear-gradient(var(--rx-primary), transparent);
+}
+.capp-process-num {
+  width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center; font-weight: 800; font-size: 0.82rem;
+  color: var(--rx-primary); background: rgba(48, 207, 242, 0.14);
+  border: 1px solid rgba(48, 207, 242, 0.3);
+}
+.capp-process strong { color: #fff; display: block; font-size: 0.9rem; }
+.capp-process span { color: var(--rx-muted); font-size: 0.82rem; line-height: 1.45; }
+
+/* Centered state cards (pending / success / verify / approved) */
+.capp-state {
+  max-width: 680px; margin-inline: auto;
+  border: 1px solid var(--rx-line-soft);
+  border-radius: 26px;
+  padding: clamp(30px, 4vw, 48px);
+  text-align: center;
+  background: linear-gradient(165deg, var(--rx-glass-2), var(--rx-glass)), rgba(6, 24, 38, 0.5);
+  box-shadow: 0 26px 70px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(18px);
+  display: grid; gap: 14px; justify-items: center;
+}
+.capp-state-icon {
+  width: 72px; height: 72px; border-radius: 22px;
+  display: grid; place-items: center; font-size: 2.1rem;
+  background: rgba(48, 207, 242, 0.14); color: var(--rx-primary);
+}
+.capp-state.capp-state-warn .capp-state-icon { background: rgba(242, 193, 78, 0.16); color: #ffd98a; }
+.capp-state.capp-state-ok .capp-state-icon { background: rgba(59, 224, 164, 0.16); color: #7ff0c4; }
+.capp-state h1 { margin: 0; font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: clamp(1.6rem, 3.4vw, 2.4rem); color: #fff; line-height: 1.08; }
+.capp-state p { margin: 0; color: var(--rx-muted); max-width: 520px; line-height: 1.6; }
+.capp-state .capp-actions { justify-content: center; }
+.capp-state .rx-alert { width: 100%; }
+
+@media (max-width: 940px) {
+  .capp-layout { grid-template-columns: 1fr; }
+  .capp-aside { position: static; order: -1; }
+}
+@media (max-width: 560px) {
+  .capp-grid { grid-template-columns: 1fr; }
+}
