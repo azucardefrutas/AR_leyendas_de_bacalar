@@ -843,6 +843,32 @@
 .capp-field { display: grid; gap: 7px; }
 .capp-field > span { font-size: 0.82rem; color: var(--rx-muted); font-weight: 600; }
 .capp-field > span .capp-opt { color: var(--rx-faint); font-weight: 500; }
+.capp-field > span .capp-req { color: #ff9b9b; font-weight: 700; margin-left: 2px; }
+.capp-field-err {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.8rem; color: #ffb4b4; font-weight: 500;
+}
+.capp-field-err::before { content: "⚠"; font-size: 0.85rem; }
+.capp-input-error, .capp-textarea.capp-input-error {
+  border-color: rgba(255, 120, 120, 0.6);
+  box-shadow: 0 0 0 3px rgba(255, 120, 120, 0.12);
+}
+.capp-input-error:focus, .capp-textarea.capp-input-error:focus {
+  border-color: #ff9b9b;
+  box-shadow: 0 0 0 3px rgba(255, 120, 120, 0.2);
+}
+
+/* Live completion progress in the hero */
+.capp-progress-wrap { margin-top: 22px; display: grid; gap: 8px; max-width: 420px; }
+.capp-progress-head { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--rx-muted); }
+.capp-progress-head b { color: var(--rx-primary); }
+.capp-progress-track { height: 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
+.capp-progress-fill {
+  height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--rx-blue), var(--rx-primary));
+  box-shadow: 0 0 12px rgba(48, 207, 242, 0.55);
+  transition: width 0.4s ease;
+}
 .capp-input, .capp-textarea {
   width: 100%;
   padding: 12px 14px;

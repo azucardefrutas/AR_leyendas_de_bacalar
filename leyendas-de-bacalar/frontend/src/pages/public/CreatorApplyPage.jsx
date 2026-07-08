@@ -29,6 +29,21 @@ const initialForm = {
   acceptedAuthorshipDeclaration: false,
 };
 
+// Per-field validators for inline (on-blur) validation. Each returns an error
+// string or null. Used both for the live progress bar and the field messages.
+const FIELD_VALIDATORS = {
+  legalFirstName: (v) => (v.trim() ? null : 'Escribe tu nombre legal.'),
+  legalLastName: (v) => (v.trim() ? null : 'Escribe tus apellidos.'),
+  penName: (v) => (v.trim() ? null : 'Escribe tu nombre de autor o seudónimo.'),
+  city: (v) => (v.trim() ? null : 'Escribe tu ciudad.'),
+  stateRegion: (v) => (v.trim() ? null : 'Escribe tu estado.'),
+  country: (v) => (v.trim() ? null : 'Escribe tu país.'),
+  biography: (v) => (v.trim().length >= 20 ? null : 'Mínimo 20 caracteres.'),
+  reason: (v) => (v.trim().length >= 10 ? null : 'Mínimo 10 caracteres.'),
+};
+
+const REQUIRED_TEXT_FIELDS = Object.keys(FIELD_VALIDATORS);
+
 const creatorBenefits = [
   { icon: '📚', title: 'Publica tus leyendas', text: 'Comparte relatos y experiencias culturales de Bacalar con lectores de toda la región.' },
   { icon: '🧊', title: 'Experiencias AR y 3D', text: 'Asocia marcadores de realidad aumentada y modelos 3D a las páginas de tus obras.' },
@@ -118,6 +133,7 @@ function CreatorApplyPage() {
   const [resending, setResending] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
+  const [touched, setTouched] = useState({});
   const acceptedLegalTerms =
     form.acceptedCreatorTerms &&
     form.acceptedCreatorPrivacy &&
@@ -410,6 +426,43 @@ function CreatorApplyPage() {
 
   const rejectedFeedback = statusState.status === 'rejected' ? getFeedback(statusState.application) : '';
 
+  // Inline validation: only surface a field error once it has been blurred.
+  const errorFor = (name) => (touched[name] && FIELD_VALIDATORS[name] ? FIELD_VALIDATORS[name](form[name]) : null);
+  const markTouched = (name) => setTouched((current) => ({ ...current, [name]: true }));
+
+  // Live completion progress across the required fields + legal checkboxes.
+  const filledRequired = REQUIRED_TEXT_FIELDS.filter((name) => FIELD_VALIDATORS[name](form[name]) === null).length
+    + [form.acceptedCreatorTerms, form.acceptedCreatorPrivacy, form.acceptedAuthorshipDeclaration].filter(Boolean).length;
+  const totalRequired = REQUIRED_TEXT_FIELDS.length + 3;
+  const progressPct = Math.round((filledRequired / totalRequired) * 100);
+
+  function renderField(name, label, { textarea = false, type = 'text', placeholder, optional = false, colFull = false, rows = 4 } = {}) {
+    const err = errorFor(name);
+    const shared = {
+      id: `creator-${name}`,
+      value: form[name],
+      onChange: (event) => updateField(name, event.target.value),
+      onBlur: () => markTouched(name),
+      placeholder,
+      'aria-invalid': err ? 'true' : undefined,
+      'aria-describedby': err ? `creator-${name}-err` : undefined,
+    };
+    return (
+      <label className={`capp-field ${colFull ? 'capp-col-full' : ''}`} htmlFor={`creator-${name}`}>
+        <span>
+          {label}
+          {optional ? <span className="capp-opt"> · opcional</span> : <span className="capp-req" aria-hidden="true"> *</span>}
+        </span>
+        {textarea ? (
+          <textarea {...shared} rows={rows} className={`capp-textarea ${err ? 'capp-input-error' : ''}`} />
+        ) : (
+          <input {...shared} type={type} className={`capp-input ${err ? 'capp-input-error' : ''}`} />
+        )}
+        {err && <span className="capp-field-err" id={`creator-${name}-err`}>{err}</span>}
+      </label>
+    );
+  }
+
   return (
     <section className="rx capp">
       <div className="capp-hero">
@@ -423,6 +476,15 @@ function CreatorApplyPage() {
           <span className="capp-step-pill"><b>1</b> Datos editoriales</span>
           <span className="capp-step-pill"><b>2</b> Perfil creativo</span>
           <span className="capp-step-pill"><b>3</b> Declaraciones</span>
+        </div>
+        <div className="capp-progress-wrap">
+          <div className="capp-progress-head">
+            <span>Progreso del formulario</span>
+            <b>{progressPct}%</b>
+          </div>
+          <div className="capp-progress-track" role="progressbar" aria-valuenow={progressPct} aria-valuemin={0} aria-valuemax={100}>
+            <div className="capp-progress-fill" style={{ width: `${progressPct}%` }} />
+          </div>
         </div>
       </div>
 
@@ -444,38 +506,14 @@ function CreatorApplyPage() {
               </div>
             </div>
             <div className="capp-grid">
-              <label className="capp-field" htmlFor="creator-legal-first-name">
-                <span>Nombre legal</span>
-                <input id="creator-legal-first-name" className="capp-input" value={form.legalFirstName} onChange={(e) => updateField('legalFirstName', e.target.value)} required />
-              </label>
-              <label className="capp-field" htmlFor="creator-legal-last-name">
-                <span>Apellidos</span>
-                <input id="creator-legal-last-name" className="capp-input" value={form.legalLastName} onChange={(e) => updateField('legalLastName', e.target.value)} required />
-              </label>
-              <label className="capp-field" htmlFor="creator-pen-name">
-                <span>Nombre de autor / seudónimo</span>
-                <input id="creator-pen-name" className="capp-input" value={form.penName} onChange={(e) => updateField('penName', e.target.value)} required />
-              </label>
-              <label className="capp-field" htmlFor="creator-affiliation">
-                <span>Institución o afiliación <span className="capp-opt">· opcional</span></span>
-                <input id="creator-affiliation" className="capp-input" value={form.affiliation} onChange={(e) => updateField('affiliation', e.target.value)} placeholder="Opcional" />
-              </label>
-              <label className="capp-field" htmlFor="creator-city">
-                <span>Ciudad</span>
-                <input id="creator-city" className="capp-input" value={form.city} onChange={(e) => updateField('city', e.target.value)} required />
-              </label>
-              <label className="capp-field" htmlFor="creator-state-region">
-                <span>Estado</span>
-                <input id="creator-state-region" className="capp-input" value={form.stateRegion} onChange={(e) => updateField('stateRegion', e.target.value)} required />
-              </label>
-              <label className="capp-field" htmlFor="creator-country">
-                <span>País</span>
-                <input id="creator-country" className="capp-input" value={form.country} onChange={(e) => updateField('country', e.target.value)} required />
-              </label>
-              <label className="capp-field" htmlFor="creator-phone">
-                <span>Teléfono <span className="capp-opt">· opcional</span></span>
-                <input id="creator-phone" className="capp-input" value={form.phone} onChange={(e) => updateField('phone', e.target.value)} placeholder="Opcional" />
-              </label>
+              {renderField('legalFirstName', 'Nombre legal')}
+              {renderField('legalLastName', 'Apellidos')}
+              {renderField('penName', 'Nombre de autor / seudónimo')}
+              {renderField('affiliation', 'Institución o afiliación', { optional: true, placeholder: 'Opcional' })}
+              {renderField('city', 'Ciudad')}
+              {renderField('stateRegion', 'Estado')}
+              {renderField('country', 'País')}
+              {renderField('phone', 'Teléfono', { optional: true, type: 'tel', placeholder: 'Opcional' })}
             </div>
           </div>
 
@@ -488,18 +526,9 @@ function CreatorApplyPage() {
               </div>
             </div>
             <div className="capp-grid">
-              <label className="capp-field capp-col-full" htmlFor="creator-biography">
-                <span>Biografía breve</span>
-                <textarea id="creator-biography" className="capp-textarea" value={form.biography} onChange={(e) => updateField('biography', e.target.value)} rows={4} placeholder="Al menos 20 caracteres" required />
-              </label>
-              <label className="capp-field capp-col-full" htmlFor="creator-portfolio-url">
-                <span>Portafolio o enlace <span className="capp-opt">· opcional</span></span>
-                <input id="creator-portfolio-url" className="capp-input" type="url" value={form.portfolioUrl} onChange={(e) => updateField('portfolioUrl', e.target.value)} placeholder="https://..." />
-              </label>
-              <label className="capp-field capp-col-full" htmlFor="creator-motivation">
-                <span>Motivo para ser creador</span>
-                <textarea id="creator-motivation" className="capp-textarea" value={form.reason} onChange={(e) => updateField('reason', e.target.value)} rows={5} placeholder="Al menos 10 caracteres" required />
-              </label>
+              {renderField('biography', 'Biografía breve', { textarea: true, colFull: true, rows: 4, placeholder: 'Al menos 20 caracteres' })}
+              {renderField('portfolioUrl', 'Portafolio o enlace', { optional: true, colFull: true, type: 'url', placeholder: 'https://...' })}
+              {renderField('reason', 'Motivo para ser creador', { textarea: true, colFull: true, rows: 5, placeholder: 'Al menos 10 caracteres' })}
             </div>
           </div>
 
