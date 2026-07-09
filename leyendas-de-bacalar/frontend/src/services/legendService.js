@@ -74,7 +74,7 @@ async function getCreatorsByUserId(client, creatorIds = []) {
 
   const { data, error } = await client
     .from('creator_profiles')
-    .select('id, user_id, pen_name')
+    .select('user_id, pen_name')
     .in('user_id', ids);
 
   if (error) {
@@ -93,7 +93,7 @@ async function getGenresByLegendId(client, legendIds = []) {
 
   const { data, error } = await client
     .from('legend_genres')
-    .select('legend_id, genres(id, name, slug)')
+    .select('legend_id, genres(id, name)')
     .in('legend_id', legendIds);
 
   if (error) {
