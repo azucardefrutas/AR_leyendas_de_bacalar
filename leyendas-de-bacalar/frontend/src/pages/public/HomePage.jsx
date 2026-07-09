@@ -69,12 +69,6 @@ function HomePage() {
         <div className="hero-background" aria-hidden="true" />
         <div className="hero-content">
           <div className="home-hero-copy">
-            <img
-              className="home-hero-logo"
-              src="/upb-logo_2025.webp"
-              alt="Universidad Politecnica de Bacalar"
-              loading="eager"
-            />
             <p className="eyebrow">Bienvenido a</p>
             <h1>Leyendas de Bacalar</h1>
             <p>

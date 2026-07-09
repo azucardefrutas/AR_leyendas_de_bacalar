@@ -794,15 +794,6 @@ pre {
   max-width: 620px;
 }
 
-.home-hero-logo {
-  justify-self: start;
-  height: clamp(56px, 7vw, 88px);
-  width: auto;
-  margin-bottom: 4px;
-  border-radius: 18px;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
-}
-
 .home-hero-copy h1 {
   margin: 0;
   font-family: Georgia, "Times New Roman", serif;
