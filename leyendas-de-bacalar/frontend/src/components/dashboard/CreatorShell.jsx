@@ -2,6 +2,7 @@ import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.js';
 import { UserIcon } from '../ui/CreatorIcons.jsx';
+import AppIcon from '../ui/AppIcon.jsx';
 import LoadingState from '../ui/LoadingState.jsx';
 
 function useCreatorClock() {
@@ -100,7 +101,7 @@ function CreatorShell({ items }) {
 
       <aside className="creator-sidebar">
         <div className="creator-sidebar-brand">
-          <span className="creator-sidebar-mark" aria-hidden="true">LB</span>
+          <span className="creator-sidebar-mark" aria-hidden="true"><AppIcon name="draw" size={22} /></span>
           <span className="creator-sidebar-brand-copy">
             <strong>Leyendas de Bacalar</strong>
             <span>Estudio de publicacion</span>
@@ -110,7 +111,7 @@ function CreatorShell({ items }) {
         <nav aria-label="Navegacion de creador">
           {items.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} aria-label={item.label} title={item.label}>
-              <span className="creator-nav-icon" aria-hidden="true">{item.icon}</span>
+              <span className="creator-nav-icon" aria-hidden="true"><AppIcon name={item.icon} size={22} /></span>
               <span className="creator-nav-label">{item.label}</span>
             </NavLink>
           ))}

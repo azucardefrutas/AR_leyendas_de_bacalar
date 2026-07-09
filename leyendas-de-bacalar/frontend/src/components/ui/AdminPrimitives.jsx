@@ -2,22 +2,24 @@ import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.js';
 import StatusBadge from '../../shared/status/StatusBadge.jsx';
+import AppIcon from './AppIcon.jsx';
 import Button from './Button.jsx';
 import LoadingState from './LoadingState.jsx';
 
+// Sidebar icons use Material Symbols names (rendered via AppIcon).
 export const adminNavItems = [
   { label: 'Dashboard', to: '/admin', icon: 'dashboard', end: true },
-  { label: 'Usuarios', to: '/admin/users', icon: 'users' },
-  { label: 'Registro creador', to: '/admin/creator-applications', icon: 'application' },
-  { label: 'Autores', to: '/admin/authors', icon: 'author' },
-  { label: 'Leyendas', to: '/admin/legends', icon: 'book' },
-  { label: 'Revisiones', to: '/admin/reviews', icon: 'review' },
-  { label: 'Recursos', to: '/admin/assets', icon: 'asset' },
-  { label: 'Codigos', to: '/admin/codes', icon: 'request' },
-  { label: 'Lotes de codigos', to: '/admin/code-batches', icon: 'codes' },
-  { label: 'Compras', to: '/admin/purchases', icon: 'orders' },
-  { label: 'Suscripciones', to: '/admin/subscriptions', icon: 'subscription' },
-  { label: 'Actividad', to: '/admin/activity', icon: 'activity' },
+  { label: 'Usuarios', to: '/admin/users', icon: 'group' },
+  { label: 'Registro creador', to: '/admin/creator-applications', icon: 'how_to_reg' },
+  { label: 'Autores', to: '/admin/authors', icon: 'draw' },
+  { label: 'Leyendas', to: '/admin/legends', icon: 'auto_stories' },
+  { label: 'Revisiones', to: '/admin/reviews', icon: 'rate_review' },
+  { label: 'Recursos', to: '/admin/assets', icon: 'perm_media' },
+  { label: 'Codigos', to: '/admin/codes', icon: 'confirmation_number' },
+  { label: 'Lotes de codigos', to: '/admin/code-batches', icon: 'qr_code_2' },
+  { label: 'Compras', to: '/admin/purchases', icon: 'shopping_bag' },
+  { label: 'Suscripciones', to: '/admin/subscriptions', icon: 'workspace_premium' },
+  { label: 'Actividad', to: '/admin/activity', icon: 'monitoring' },
   { label: 'Configuracion', to: '/admin/settings', icon: 'settings' },
 ];
 
@@ -134,7 +136,7 @@ export function AdminLayoutShell() {
 
       <aside className="admin-sidebar">
         <div className="admin-sidebar-heading">
-          <span className="admin-sidebar-mark" aria-hidden="true">LB</span>
+          <span className="admin-sidebar-mark" aria-hidden="true"><AppIcon name="shield_person" size={22} /></span>
           <span className="admin-sidebar-heading-copy">
             <strong>Leyendas de Bacalar</strong>
             <span>Administracion cultural</span>
@@ -143,7 +145,7 @@ export function AdminLayoutShell() {
         <nav aria-label="Navegacion administrativa">
           {adminNavItems.map((item) => (
             <NavLink key={item.to} to={item.to} end={item.end} aria-label={item.label} title={item.label}>
-              <span className="admin-nav-icon" aria-hidden="true"><AdminIcon name={item.icon} /></span>
+              <span className="admin-nav-icon" aria-hidden="true"><AppIcon name={item.icon} size={22} /></span>
               <span className="admin-nav-label">{item.label}</span>
             </NavLink>
           ))}
