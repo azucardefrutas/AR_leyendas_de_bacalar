@@ -1,54 +1,57 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import LegendCard from '../../components/catalog/LegendCard.jsx';
+import AppIcon from '../../components/ui/AppIcon.jsx';
 import Button from '../../components/ui/Button.jsx';
 import CreatorApplyCtaCard from '../../components/reader/creator-request/CreatorApplyCtaCard.jsx';
 import RxEmptyState from '../../components/reader/experience/RxEmptyState.jsx';
 import RxStatTile from '../../components/reader/experience/RxStatTile.jsx';
+import LegendCarousel from '../../components/reader/experience/LegendCarousel.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useProfile } from '../../hooks/useProfile.js';
-import { useRoles } from '../../hooks/useRoles.js';
 import { getPublishedLegends } from '../../services/legendService.js';
 import { getContinueReading, getMyLibrary, getReaderStats } from '../../services/readerService.js';
 import { getLoginPathForRedirect } from '../../utils/authRedirect.js';
 
+// Placeholder banner artwork for the library hero (eLibro-style). Swap this
+// file (or path) for custom artwork later — it's the single source to change.
+const LIBRARY_BANNER = '/assets/backgraoud collage.png';
+
 const quickAccess = [
-  { title: 'Canjear codigo', text: 'Activa una leyenda con el codigo de tu libro fisico.', to: '/reader/redeem', icon: '🎟️' },
-  { title: 'Compras', text: 'Explora la tienda y revisa tus ordenes y pagos.', to: '/reader/purchases', icon: '🛍️' },
-  { title: 'Suscripcion', text: 'Gestiona tu membresia cultural y sus beneficios.', to: '/reader/subscription', icon: '🎫' },
-  { title: 'Perfil', text: 'Edita tu identidad publica y revisa tu actividad.', to: '/reader/profile', icon: '👤' },
+  { title: 'Canjear codigo', text: 'Activa una leyenda con el codigo de tu libro fisico.', to: '/reader/redeem', icon: 'confirmation_number' },
+  { title: 'Compras', text: 'Explora la tienda y revisa tus ordenes y pagos.', to: '/reader/purchases', icon: 'shopping_bag' },
+  { title: 'Suscripcion', text: 'Gestiona tu membresia cultural y sus beneficios.', to: '/reader/subscription', icon: 'workspace_premium' },
+  { title: 'Perfil', text: 'Edita tu identidad publica y revisa tu actividad.', to: '/reader/profile', icon: 'person' },
 ];
 
 const visitorActions = [
-  { title: 'Explorar leyendas', text: 'Navega el catalogo publico y descubre relatos de Bacalar.', to: '/catalog', icon: '🧭' },
-  { title: 'Tengo un codigo', text: 'Inicia sesion para activar el codigo de tu libro fisico.', to: getLoginPathForRedirect('/reader/redeem'), icon: '🎟️' },
-  { title: 'Crear cuenta', text: 'Guarda accesos, compras y tu progreso de lectura.', to: getLoginPathForRedirect('/reader/library'), icon: '✨' },
+  { title: 'Explorar leyendas', text: 'Navega el catalogo publico y descubre relatos de Bacalar.', to: '/catalog', icon: 'explore' },
+  { title: 'Tengo un codigo', text: 'Inicia sesion para activar el codigo de tu libro fisico.', to: getLoginPathForRedirect('/reader/redeem'), icon: 'confirmation_number' },
+  { title: 'Crear cuenta', text: 'Guarda accesos, compras y tu progreso de lectura.', to: getLoginPathForRedirect('/reader/library'), icon: 'auto_awesome' },
 ];
 
 function getDisplayName(profile) {
   return profile?.full_name || profile?.name || profile?.display_name || profile?.username || null;
 }
 
-function initials(name) {
-  return (name || 'L').trim().slice(0, 1).toUpperCase();
-}
-
-// Placeholder banner artwork for the library hero (eLibro-style). Swap this
-// file (or path) for custom artwork later — it's the single source to change.
-const LIBRARY_BANNER = '/assets/backgraoud collage.png';
-
-// Friendly greeting name: prefer a real name; if it's an email, show only the
-// local part; otherwise fall back to "Lector".
+// Friendly greeting: prefer a real name; if it's an email, show only the local
+// part; otherwise fall back to "Lector".
 function greetingName(name) {
   if (!name) return 'Lector';
   return name.includes('@') ? name.split('@')[0] : name;
 }
 
+function initials(name) {
+  return (name || 'L').trim().slice(0, 1).toUpperCase();
+}
+
+function toStory(legend) {
+  return { id: legend.id, title: legend.title, slug: legend.slug, coverUrl: legend.coverUrl || legend.cover_url || null };
+}
+
 function LibraryPage() {
   const { isAuthenticated } = useAuth();
-  const { profile, loading: profileLoading } = useProfile();
-  const { roles, loading: rolesLoading } = useRoles();
+  const { profile } = useProfile();
 
   const [legends, setLegends] = useState([]);
   const [library, setLibrary] = useState([]);
@@ -85,45 +88,38 @@ function LibraryPage() {
         <section className="rx-libhero">
           <div className="rx-libhero-bg" style={{ backgroundImage: `url("${LIBRARY_BANNER}")` }} aria-hidden="true" />
           <div className="rx-libhero-body">
-            <div className="rx-libhero-top"><span>Biblioteca publica</span></div>
             <h1>Explora Bacalar</h1>
-            <p className="rx-libhero-lead">
-              Recorre leyendas publicadas, conoce el proyecto y descubre que historias puedes
-              desbloquear con cuenta, codigo fisico o suscripcion.
-            </p>
-            <div className="rx-libhero-cta">
-              <Link to="/catalog"><Button>Explorar catalogo</Button></Link>
-              <Link to={getLoginPathForRedirect('/reader/library')}><Button variant="ghost">Iniciar sesion</Button></Link>
-            </div>
+            <span className="rx-libhero-name">Leyendas, relatos y experiencias culturales</span>
           </div>
         </section>
 
-        <div className="rx-quick-grid">
-          {visitorActions.map((item) => (
-            <Link key={item.title} className="rx-quick" to={item.to}>
-              <span className="rx-quick-icon" aria-hidden="true">{item.icon}</span>
-              <h3>{item.title}</h3>
-              <p>{item.text}</p>
-              <span className="rx-quick-arrow">Continuar →</span>
-            </Link>
-          ))}
-        </div>
+        <section className="rx-lib-sec">
+          <div className="rx-quick-grid">
+            {visitorActions.map((item) => (
+              <Link key={item.title} className="rx-quick" to={item.to}>
+                <span className="rx-quick-icon" aria-hidden="true"><AppIcon name={item.icon} size={22} filled /></span>
+                <h3>{item.title}</h3>
+                <p>{item.text}</p>
+                <span className="rx-quick-arrow">Continuar →</span>
+              </Link>
+            ))}
+          </div>
+        </section>
 
-        <section className="rx-panel">
-          <div className="rx-panel-head">
+        <section className="rx-lib-sec">
+          <div className="rx-lib-head">
             <div>
               <h2>Historias publicadas</h2>
               <p>Biblioteca cultural abierta al publico.</p>
             </div>
+            <Link to="/catalog"><Button variant="ghost">Ver catalogo</Button></Link>
           </div>
           {loading ? (
-            <LoadingState message="Cargando leyendas publicadas..." />
+            <LoadingState message="Cargando leyendas..." />
           ) : legends.length > 0 ? (
-            <div className="catalog-grid">
-              {legends.map((legend) => <LegendCard key={legend.id} legend={legend} />)}
-            </div>
+            <LegendCarousel stories={legends.map(toStory)} ctaLabel="Ver" />
           ) : (
-            <RxEmptyState icon="📖" title="Aun no hay leyendas publicadas" message="Vuelve pronto para descubrir nuevas historias de Bacalar." />
+            <RxEmptyState icon="menu_book" title="Aun no hay leyendas publicadas" message="Vuelve pronto para descubrir nuevas historias de Bacalar." />
           )}
         </section>
       </div>
@@ -135,42 +131,24 @@ function LibraryPage() {
       <section className="rx-libhero">
         <div className="rx-libhero-bg" style={{ backgroundImage: `url("${LIBRARY_BANNER}")` }} aria-hidden="true" />
         <div className="rx-libhero-body">
-          <div className="rx-libhero-top">
-            <div className="rx-libhero-avatar" aria-hidden="true">
-              {profile?.avatar_url ? <img src={profile.avatar_url} alt="" /> : initials(greetingName(displayName))}
-            </div>
-            <span>Experiencia del lector</span>
-          </div>
-          <h1>Hola, {greetingName(displayName)}</h1>
-          <p className="rx-libhero-lead">
-            Tu biblioteca cultural de Bacalar: aqui viven las leyendas que has desbloqueado, tu
-            progreso de lectura y todo lo que puedes explorar.
-          </p>
-          <div className="rx-libhero-cta">
-            <Link to="/catalog"><Button>Explorar catalogo</Button></Link>
-            <Link to="/reader/redeem"><Button variant="ghost">Canjear codigo</Button></Link>
-          </div>
-          {!rolesLoading && roles.length > 0 && (
-            <div className="rx-chips">
-              {roles.map((role) => <span key={role} className="rx-chip">{role}</span>)}
-            </div>
-          )}
+          <h1>Hola</h1>
+          <span className="rx-libhero-name">{greetingName(displayName)}</span>
         </div>
       </section>
 
       {stats && (
         <div className="rx-stats">
-          <RxStatTile icon="📚" value={stats.library} label="En tu biblioteca" />
-          <RxStatTile icon="📖" value={stats.reading} label="Leyendo ahora" />
-          <RxStatTile icon="✅" value={stats.completed} label="Completadas" />
-          <RxStatTile icon="❤️" value={stats.favorites} label="Favoritas" />
-          <RxStatTile icon="⭐" value={stats.reviews} label="Reseñas" />
+          <RxStatTile icon="auto_stories" value={stats.library} label="En tu biblioteca" />
+          <RxStatTile icon="menu_book" value={stats.reading} label="Leyendo ahora" />
+          <RxStatTile icon="task_alt" value={stats.completed} label="Completadas" />
+          <RxStatTile icon="favorite" value={stats.favorites} label="Favoritas" />
+          <RxStatTile icon="reviews" value={stats.reviews} label="Reseñas" />
         </div>
       )}
 
       {continueReading.length > 0 && (
-        <section className="rx-panel">
-          <div className="rx-panel-head">
+        <section className="rx-lib-sec">
+          <div className="rx-lib-head">
             <div>
               <h2>Continuar leyendo</h2>
               <p>Retoma justo donde lo dejaste.</p>
@@ -202,8 +180,8 @@ function LibraryPage() {
         </section>
       )}
 
-      <section className="rx-panel">
-        <div className="rx-panel-head">
+      <section className="rx-lib-sec">
+        <div className="rx-lib-head">
           <div>
             <h2>Mi coleccion</h2>
             <p>Leyendas desbloqueadas con codigo, compra o suscripcion.</p>
@@ -213,12 +191,10 @@ function LibraryPage() {
         {loading ? (
           <LoadingState message="Cargando tu coleccion..." />
         ) : library.length > 0 ? (
-          <div className="catalog-grid">
-            {library.map((item) => <LegendCard key={item.id} legend={item.legend} />)}
-          </div>
+          <LegendCarousel stories={library.map((item) => toStory(item.legend))} ctaLabel="Abrir" />
         ) : (
           <RxEmptyState
-            icon="🔓"
+            icon="lock_open"
             title="Aun no tienes leyendas desbloqueadas"
             message="Canjea un codigo, compra una leyenda o activa una suscripcion para comenzar tu coleccion."
           >
@@ -228,19 +204,24 @@ function LibraryPage() {
         )}
       </section>
 
-      <div className="rx-quick-grid">
-        {quickAccess.map((item) => (
-          <Link key={item.title} className="rx-quick" to={item.to}>
-            <span className="rx-quick-icon" aria-hidden="true">{item.icon}</span>
-            <h3>{item.title}</h3>
-            <p>{item.text}</p>
-            <span className="rx-quick-arrow">Abrir →</span>
-          </Link>
-        ))}
-      </div>
+      <section className="rx-lib-sec">
+        <div className="rx-lib-head">
+          <div><h2>Tu cuenta</h2></div>
+        </div>
+        <div className="rx-quick-grid">
+          {quickAccess.map((item) => (
+            <Link key={item.title} className="rx-quick" to={item.to}>
+              <span className="rx-quick-icon" aria-hidden="true"><AppIcon name={item.icon} size={22} filled /></span>
+              <h3>{item.title}</h3>
+              <p>{item.text}</p>
+              <span className="rx-quick-arrow">Abrir →</span>
+            </Link>
+          ))}
+        </div>
+      </section>
 
-      <section className="rx-panel">
-        <div className="rx-panel-head">
+      <section className="rx-lib-sec">
+        <div className="rx-lib-head">
           <div>
             <h2>Catalogo publico</h2>
             <p>Descubre nuevas historias para leer y desbloquear.</p>
@@ -250,11 +231,9 @@ function LibraryPage() {
         {loading ? (
           <LoadingState message="Cargando leyendas..." />
         ) : legends.length > 0 ? (
-          <div className="catalog-grid">
-            {legends.map((legend) => <LegendCard key={legend.id} legend={legend} />)}
-          </div>
+          <LegendCarousel stories={legends.map(toStory)} ctaLabel="Ver" />
         ) : (
-          <RxEmptyState icon="📖" title="Aun no hay leyendas publicadas" message="Vuelve pronto para descubrir nuevas historias de Bacalar." />
+          <RxEmptyState icon="menu_book" title="Aun no hay leyendas publicadas" message="Vuelve pronto para descubrir nuevas historias de Bacalar." />
         )}
       </section>
 
