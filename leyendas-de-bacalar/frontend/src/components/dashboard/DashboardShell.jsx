@@ -6,7 +6,7 @@ import LoadingState from '../ui/LoadingState.jsx';
 
 const STORAGE_KEY = 'rx-sidebar-collapsed';
 
-function DashboardShell({ title, items }) {
+function DashboardShell({ title, titleIcon, items }) {
   const [collapsed, setCollapsed] = useState(() => {
     try { return localStorage.getItem(STORAGE_KEY) === '1'; } catch { return false; }
   });
@@ -23,7 +23,7 @@ function DashboardShell({ title, items }) {
     <div className="dashboard-frame">
       <SiteNavbar />
       <div className={`dashboard-shell ${collapsed ? 'sidebar-collapsed' : ''}`}>
-        <Sidebar title={title} items={items} collapsed={collapsed} onToggle={toggle} />
+        <Sidebar title={title} titleIcon={titleIcon} items={items} collapsed={collapsed} onToggle={toggle} />
         <section className="dashboard-content">
           <Suspense fallback={<LoadingState />}>
             <Outlet />

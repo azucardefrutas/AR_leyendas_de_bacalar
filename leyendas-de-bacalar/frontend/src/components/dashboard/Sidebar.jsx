@@ -6,13 +6,16 @@ import { useAuth } from '../../hooks/useAuth.js';
 // Glass rail with icon + label items, a collapse toggle, and a logout at the
 // bottom. Collapsing narrows it to an icon rail so the content area gets the
 // full width.
-function Sidebar({ title, items = [], collapsed = false, onToggle }) {
+function Sidebar({ title, titleIcon, items = [], collapsed = false, onToggle }) {
   const { signOut } = useAuth();
 
   return (
     <aside className={`rx-sidebar ${collapsed ? 'is-collapsed' : ''}`} aria-label={title}>
       <div className="rx-sidebar-head">
-        <span className="rx-sidebar-title">{title}</span>
+        <span className="rx-sidebar-brand">
+          {titleIcon && <span className="rx-sidebar-brand-ico" aria-hidden="true"><AppIcon name={titleIcon} size={22} filled /></span>}
+          <span className="rx-sidebar-title">{title}</span>
+        </span>
         <button
           type="button"
           className="rx-sidebar-toggle"

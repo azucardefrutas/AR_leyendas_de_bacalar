@@ -9,8 +9,9 @@ import LegendCarousel from '../../components/reader/experience/LegendCarousel.js
 import LoadingState from '../../components/ui/LoadingState.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useProfile } from '../../hooks/useProfile.js';
+import { useSaved } from '../../context/SavedContext.jsx';
 import { getPublishedLegends } from '../../services/legendService.js';
-import { getContinueReading, getMyLibrary, getReaderStats } from '../../services/readerService.js';
+import { getContinueReading, getReaderStats } from '../../services/readerService.js';
 import { getLoginPathForRedirect } from '../../utils/authRedirect.js';
 
 // Placeholder banner artwork for the library hero (eLibro-style). Swap this
@@ -52,9 +53,9 @@ function toStory(legend) {
 function LibraryPage() {
   const { isAuthenticated } = useAuth();
   const { profile } = useProfile();
+  const { shelf } = useSaved();
 
   const [legends, setLegends] = useState([]);
-  const [library, setLibrary] = useState([]);
   const [continueReading, setContinueReading] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -66,13 +67,12 @@ function LibraryPage() {
     async function load() {
       const tasks = [getPublishedLegends()];
       if (isAuthenticated) {
-        tasks.push(getMyLibrary(), getContinueReading(), getReaderStats());
+        tasks.push(getContinueReading(), getReaderStats());
       }
-      const [legendsResult, libraryResult, continueResult, statsResult] = await Promise.all(tasks);
+      const [legendsResult, continueResult, statsResult] = await Promise.all(tasks);
       if (!active) return;
       setLegends(legendsResult?.data ?? []);
       if (isAuthenticated) {
-        setLibrary(libraryResult?.data ?? []);
         setContinueReading(continueResult?.data ?? []);
         setStats(statsResult?.data ?? null);
       }
@@ -183,23 +183,21 @@ function LibraryPage() {
       <section className="rx-lib-sec">
         <div className="rx-lib-head">
           <div>
-            <h2>Mi coleccion</h2>
-            <p>Leyendas desbloqueadas con codigo, compra o suscripcion.</p>
+            <h2>Mi estanteria</h2>
+            <p>Las historias que has guardado con el boton ＋.</p>
           </div>
-          {library.length > 0 && <span className="rx-badge rx-badge-info">{library.length}</span>}
+          {shelf.length > 0 && <span className="rx-badge rx-badge-info">{shelf.length}</span>}
         </div>
-        {loading ? (
-          <LoadingState message="Cargando tu coleccion..." />
-        ) : library.length > 0 ? (
-          <LegendCarousel stories={library.map((item) => toStory(item.legend))} ctaLabel="Abrir" />
+        {shelf.length > 0 ? (
+          <LegendCarousel stories={shelf.map((item) => item.legend)} ctaLabel="Abrir" />
         ) : (
           <RxEmptyState
-            icon="lock_open"
-            title="Aun no tienes leyendas desbloqueadas"
-            message="Canjea un codigo, compra una leyenda o activa una suscripcion para comenzar tu coleccion."
+            icon="shelves"
+            title="Tu estanteria esta vacia"
+            message="Explora la Biblioteca y guarda historias con el boton ＋ para tenerlas aqui."
           >
-            <Link to="/reader/redeem"><Button>Canjear codigo</Button></Link>
-            <Link to="/catalog"><Button variant="ghost">Explorar catalogo</Button></Link>
+            <Link to="/catalog"><Button>Explorar biblioteca</Button></Link>
+            <Link to="/reader/redeem"><Button variant="ghost">Canjear codigo</Button></Link>
           </RxEmptyState>
         )}
       </section>
@@ -218,23 +216,6 @@ function LibraryPage() {
             </Link>
           ))}
         </div>
-      </section>
-
-      <section className="rx-lib-sec">
-        <div className="rx-lib-head">
-          <div>
-            <h2>Catalogo publico</h2>
-            <p>Descubre nuevas historias para leer y desbloquear.</p>
-          </div>
-          <Link to="/catalog"><Button variant="ghost">Ver todo</Button></Link>
-        </div>
-        {loading ? (
-          <LoadingState message="Cargando leyendas..." />
-        ) : legends.length > 0 ? (
-          <LegendCarousel stories={legends.map(toStory)} ctaLabel="Ver" />
-        ) : (
-          <RxEmptyState icon="menu_book" title="Aun no hay leyendas publicadas" message="Vuelve pronto para descubrir nuevas historias de Bacalar." />
-        )}
       </section>
 
       <CreatorApplyCtaCard />

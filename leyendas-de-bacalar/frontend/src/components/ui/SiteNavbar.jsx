@@ -44,8 +44,8 @@ function SiteNavbar() {
   // Shared nav model — drives both the desktop bar and the mobile drawer (no duplication).
   const drawerItems = [
     { to: '/', label: 'Inicio', icon: 'home', end: true },
-    { to: '/reader/library', label: 'Biblioteca', icon: 'local_library' },
-    { to: '/#acerca', label: 'Acerca de', icon: 'info' },
+    { to: '/reader/library', label: 'Estanteria', icon: 'shelves' },
+    { to: '/catalog', label: 'Biblioteca', icon: 'local_library' },
     { to: creatorPath, label: 'Creador', icon: 'edit_square' },
     ...(isAuthenticated ? [{ to: '/reader/redeem', label: 'Canjear codigo', icon: 'redeem' }] : []),
     ...(isAdmin ? [{ to: '/admin', label: 'Admin', icon: 'admin_panel_settings' }] : []),
@@ -61,7 +61,7 @@ function SiteNavbar() {
     <header className="site-header site-header-centered">
       <nav className="nav-left" aria-label="Navegacion principal">
         <NavLink to="/">Inicio</NavLink>
-        <NavLink to="/reader/library">Biblioteca</NavLink>
+        <NavLink to="/reader/library">Estanteria</NavLink>
       </nav>
 
       {/* Logo temporarily hidden on the home page only; placeholder keeps the
@@ -76,7 +76,7 @@ function SiteNavbar() {
 
       <div className="nav-right">
         <nav className="nav-right-links" aria-label="Mas navegacion">
-          <Link to="/#acerca">Acerca de</Link>
+          <NavLink to="/catalog">Biblioteca</NavLink>
           <NavLink to={creatorPath}>Creador</NavLink>
           {isAuthenticated && <NavLink to="/reader/redeem">Canjear codigo</NavLink>}
           {isAdmin && <NavLink to="/admin">Admin</NavLink>}

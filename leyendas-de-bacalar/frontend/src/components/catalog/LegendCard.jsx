@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import StoryActions from '../ui/StoryActions.jsx';
 
 const premiumLabels = {
   paid: 'Premium',
@@ -23,21 +24,24 @@ function LegendCard({ legend }) {
   const badge = isFree ? 'Gratis' : (premiumLabels[legend.access_type] || 'Premium');
 
   return (
-    <Link className="poster-card" to={`/legend/${legend.slug}`} aria-label={legend.title}>
-      <div className="poster-card-art">
-        {coverUrl ? (
-          <img src={coverUrl} alt={`Portada de ${legend.title}`} loading="lazy" decoding="async" />
-        ) : (
-          <div className="poster-card-fallback"><span>{getInitials(legend.title)}</span></div>
-        )}
-        <span className={`poster-badge ${isFree ? 'free' : 'premium'}`}>{badge}</span>
-        <div className="poster-card-shade" aria-hidden="true" />
-      </div>
-      <div className="poster-card-meta">
-        <h3 title={legend.title}>{legend.title}</h3>
-        {author && <p>{author}</p>}
-      </div>
-    </Link>
+    <div className="poster-card-wrap">
+      <Link className="poster-card" to={`/legend/${legend.slug}`} aria-label={legend.title}>
+        <div className="poster-card-art">
+          {coverUrl ? (
+            <img src={coverUrl} alt={`Portada de ${legend.title}`} loading="lazy" decoding="async" />
+          ) : (
+            <div className="poster-card-fallback"><span>{getInitials(legend.title)}</span></div>
+          )}
+          <span className={`poster-badge ${isFree ? 'free' : 'premium'}`}>{badge}</span>
+          <div className="poster-card-shade" aria-hidden="true" />
+        </div>
+        <div className="poster-card-meta">
+          <h3 title={legend.title}>{legend.title}</h3>
+          {author && <p>{author}</p>}
+        </div>
+      </Link>
+      <StoryActions legend={legend} className="poster-card-actions" />
+    </div>
   );
 }
 

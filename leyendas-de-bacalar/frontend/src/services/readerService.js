@@ -136,6 +136,79 @@ export async function getMyFavorites() {
   return { data: items, error: null };
 }
 
+// "Mi estanteria": stories the reader saved (shelf_items), with legend briefs
+// for the carousel.
+export async function getMyShelf() {
+  const { data: client, error: clientError } = getClient();
+  if (clientError) return { data: [], error: clientError };
+  const { user, error } = await requireUser();
+  if (error) return { data: [], error };
+  if (!user) return { data: [], error: null };
+
+  const { data, error: shelfError } = await client
+    .from('shelf_items')
+    .select('legend_id, created_at')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
+
+  if (shelfError) return { data: [], error: shelfError };
+
+  const rows = data ?? [];
+  const briefs = await getLegendsBriefByIds(client, rows.map((r) => r.legend_id));
+  const items = rows
+    .map((row) => ({ ...row, legend: briefs.get(row.legend_id) || null }))
+    .filter((row) => row.legend);
+
+  return { data: items, error: null };
+}
+
+// Just the ids the reader saved / favorited — used to light up the icons.
+export async function getMyShelfIds() {
+  const { data: client, error: clientError } = getClient();
+  if (clientError) return { data: [], error: clientError };
+  const { user, error } = await requireUser();
+  if (error || !user) return { data: [], error: error || null };
+  const { data, error: e } = await client.from('shelf_items').select('legend_id').eq('user_id', user.id);
+  return { data: (data ?? []).map((r) => r.legend_id), error: e };
+}
+
+export async function getMyFavoriteIds() {
+  const { data: client, error: clientError } = getClient();
+  if (clientError) return { data: [], error: clientError };
+  const { user, error } = await requireUser();
+  if (error || !user) return { data: [], error: error || null };
+  const { data, error: e } = await client.from('favorites').select('legend_id').eq('user_id', user.id);
+  return { data: (data ?? []).map((r) => r.legend_id), error: e };
+}
+
+export async function setShelf(legendId, on) {
+  const { data: client, error: clientError } = getClient();
+  if (clientError) return { error: clientError };
+  const { user, error } = await requireUser();
+  if (error) return { error };
+  if (!user) return { error: new Error('Inicia sesion para usar tu estanteria.') };
+  if (on) {
+    const { error: e } = await client.from('shelf_items').insert({ user_id: user.id, legend_id: legendId });
+    return { error: e };
+  }
+  const { error: e } = await client.from('shelf_items').delete().eq('user_id', user.id).eq('legend_id', legendId);
+  return { error: e };
+}
+
+export async function setFavorite(legendId, on) {
+  const { data: client, error: clientError } = getClient();
+  if (clientError) return { error: clientError };
+  const { user, error } = await requireUser();
+  if (error) return { error };
+  if (!user) return { error: new Error('Inicia sesion para guardar favoritos.') };
+  if (on) {
+    const { error: e } = await client.from('favorites').insert({ user_id: user.id, legend_id: legendId });
+    return { error: e };
+  }
+  const { error: e } = await client.from('favorites').delete().eq('user_id', user.id).eq('legend_id', legendId);
+  return { error: e };
+}
+
 export async function getMyReviews() {
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: [], error: clientError };

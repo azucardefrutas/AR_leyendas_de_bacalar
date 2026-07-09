@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import LegendHero from '../../components/legend/LegendHero.jsx';
 import GlassButton from '../../components/ui/GlassButton.jsx';
+import StoryActions from '../../components/ui/StoryActions.jsx';
 import PhysicalBookActivationModal from '../../components/reader/PhysicalBookActivationModal.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
@@ -139,6 +140,10 @@ function LegendDetailPage() {
       <GlassButton to="/catalog" variant="glass" icon="keyboard_return">
         Regresar
       </GlassButton>
+      <StoryActions
+        legend={{ id: legend.id, title: legend.title, slug: legend.slug, coverUrl }}
+        className="legend-hero-actions-icons"
+      />
     </>
   );
 

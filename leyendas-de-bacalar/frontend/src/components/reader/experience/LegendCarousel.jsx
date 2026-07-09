@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { EffectCoverflow, Pagination } from 'swiper/modules';
+import StoryActions from '../../ui/StoryActions.jsx';
 import 'swiper/css';
 import 'swiper/css/pagination';
 import 'swiper/css/effect-coverflow';
@@ -36,6 +37,7 @@ export default function LegendCarousel({ stories = [], ctaLabel = 'Abrir' }) {
             style={story.coverUrl ? { backgroundImage: `url("${story.coverUrl}")` } : undefined}
           >
             {!story.coverUrl && <span className="rx-cw-fallback">{initials(story.title)}</span>}
+            <StoryActions legend={story} className="rx-cw-actions" />
             <div className="rx-cw-cap">
               <h3>{story.title}</h3>
               <Link to={`/legend/${story.slug}`}>{ctaLabel}</Link>

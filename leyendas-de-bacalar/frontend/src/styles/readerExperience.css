@@ -1424,10 +1424,18 @@
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 6px 10px 12px;
 }
+.rx-sidebar-brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.rx-sidebar-brand-ico {
+  width: 34px; height: 34px; flex: none; border-radius: 11px;
+  display: grid; place-items: center; color: #061826;
+  background: linear-gradient(140deg, var(--reader-accent, #30cff2), var(--reader-primary, #049dd9));
+  box-shadow: 0 8px 20px rgba(4, 157, 217, 0.35);
+}
 .rx-sidebar-title {
   font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 1.2rem; color: #fff;
   white-space: nowrap; overflow: hidden;
 }
+.rx-sidebar.is-collapsed .rx-sidebar-brand { justify-content: center; }
 .rx-sidebar-toggle {
   flex: none; width: 34px; height: 34px; border-radius: 10px;
   display: grid; place-items: center; cursor: pointer;
@@ -1469,6 +1477,40 @@
   .rx-sidebar-nav { flex-direction: row; flex-wrap: wrap; flex: 1; }
   .rx-sidebar-foot { margin: 0; border-top: 0; padding-top: 0; }
 }
+
+/* ---- Story actions (+ estanteria / heart favorito) ------------------ */
+.story-actions { display: inline-flex; gap: 8px; }
+.story-action {
+  width: 34px; height: 34px; flex: none; border-radius: 50%;
+  display: grid; place-items: center; cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(6, 24, 38, 0.62); color: #fff;
+  backdrop-filter: blur(6px);
+  transition: background 0.16s ease, transform 0.14s ease, border-color 0.16s ease, color 0.16s ease;
+}
+.story-action:hover { background: rgba(6, 24, 38, 0.88); transform: translateY(-1px); }
+.story-action.is-on { background: var(--reader-accent, #30cff2); border-color: var(--reader-accent, #30cff2); color: #061826; }
+.story-action-fav.is-on { background: #ff5a7a; border-color: #ff7d95; color: #fff; }
+
+/* Overlay on catalog poster cards */
+.poster-card-wrap { position: relative; }
+.poster-card-wrap > .poster-card { width: 100%; }
+.poster-card-actions {
+  position: absolute; top: 9px; right: 9px; z-index: 3;
+  opacity: 0; transition: opacity 0.2s ease;
+}
+.poster-card-wrap:hover .poster-card-actions,
+.poster-card-wrap:focus-within .poster-card-actions { opacity: 1; }
+/* keep visible when a state is active, and on touch devices */
+.poster-card-actions:has(.is-on) { opacity: 1; }
+@media (hover: none) { .poster-card-actions { opacity: 1; } }
+
+/* On carousel slides (active slide only) */
+.rx-cw-actions { position: absolute; top: 12px; right: 12px; z-index: 2; opacity: 0; transition: opacity 0.28s ease; }
+.rx-cw .swiper-slide-active .rx-cw-actions { opacity: 1; }
+
+/* In the legend detail hero action row */
+.legend-hero-actions-icons { align-self: center; }
 
 /* Navbar avatar menu */
 button.user-bubble { border: 0; cursor: pointer; font: inherit; }
