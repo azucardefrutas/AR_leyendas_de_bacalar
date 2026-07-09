@@ -45,6 +45,14 @@ function formatWebsite(url = '') {
   return url.replace(/^https?:\/\//i, '').replace(/\/$/, '');
 }
 
+// Secciones del panel "Información" (estilo Facebook, adaptado al proyecto).
+const ABOUT_SECTIONS = [
+  { key: 'detalles', label: 'Detalles' },
+  { key: 'presentacion', label: 'Presentación' },
+  { key: 'personales', label: 'Datos personales' },
+  { key: 'enlaces', label: 'Enlaces' },
+];
+
 function CreatorProfilePage() {
   const {
     profile,
@@ -62,6 +70,8 @@ function CreatorProfilePage() {
   const [uploading, setUploading] = useState('');
   const [message, setMessage] = useState('');
   const [activeTab, setActiveTab] = useState('works');
+  const [aboutSection, setAboutSection] = useState('detalles');
+  const [editingField, setEditingField] = useState(null);
   const [form, setForm] = useState({
     full_name: '',
     username: '',
@@ -109,21 +119,23 @@ function CreatorProfilePage() {
     loadCreatorProfile();
   }, []);
 
+  const formFromSources = useMemo(() => ({
+    full_name: (profile || accountProfile)?.full_name || '',
+    username: (profile || accountProfile)?.username || '',
+    avatar_url: (profile || accountProfile)?.avatar_url || '',
+    pen_name: creatorProfile?.pen_name || '',
+    biography: creatorProfile?.biography || (profile || accountProfile)?.bio || '',
+    headline: creatorProfile?.headline || '',
+    location_label: creatorProfile?.location_label || '',
+    website_url: creatorProfile?.website_url || '',
+    profile_visibility: creatorProfile?.profile_visibility || 'public',
+    cover_asset_id: creatorProfile?.cover_asset_id || '',
+    cover_url: creatorProfile?.coverAsset?.file_url || creatorProfile?.cover_url || '',
+  }), [profile, accountProfile, creatorProfile]);
+
   useEffect(() => {
-    setForm({
-      full_name: (profile || accountProfile)?.full_name || '',
-      username: (profile || accountProfile)?.username || '',
-      avatar_url: (profile || accountProfile)?.avatar_url || '',
-      pen_name: creatorProfile?.pen_name || '',
-      biography: creatorProfile?.biography || (profile || accountProfile)?.bio || '',
-      headline: creatorProfile?.headline || '',
-      location_label: creatorProfile?.location_label || '',
-      website_url: creatorProfile?.website_url || '',
-      profile_visibility: creatorProfile?.profile_visibility || 'public',
-      cover_asset_id: creatorProfile?.cover_asset_id || '',
-      cover_url: creatorProfile?.coverAsset?.file_url || creatorProfile?.cover_url || '',
-    });
-  }, [profile, accountProfile, creatorProfile]);
+    setForm(formFromSources);
+  }, [formFromSources]);
 
   const stats = useMemo(() => ([
     { key: 'total', label: 'Total de leyendas', value: legends.length, tone: 'neutral' },
@@ -151,15 +163,58 @@ function CreatorProfilePage() {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
-  async function handleSave(event) {
-    event.preventDefault();
+  function startEdit(fieldKey) {
+    setCreatorError(null);
+    setMessage('');
+    setEditingField(fieldKey);
+  }
+
+  function renderRow({ fieldKey, icon, label, display, emptyLabel = 'Sin especificar', editor, canEdit = true }) {
+    const editing = editingField === fieldKey;
+    return (
+      <div className={`fbinfo-row${editing ? ' is-editing' : ''}`}>
+        <span className="fbinfo-row-icon material-symbols-rounded" aria-hidden="true">{icon}</span>
+        <div className="fbinfo-row-body">
+          <small>{label}</small>
+          {editing ? (
+            <div className="fbinfo-editor">
+              {editor}
+              <div className="fbinfo-editor-actions">
+                <button className="btn btn-ghost fbinfo-btn" type="button" onClick={cancelEdit} disabled={saving}>
+                  Cancelar
+                </button>
+                <button className="btn btn-primary fbinfo-btn" type="button" onClick={commitEdit} disabled={saving}>
+                  {saving ? 'Guardando...' : 'Guardar'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <strong className={display ? '' : 'is-empty'}>{display || emptyLabel}</strong>
+          )}
+        </div>
+        {canEdit && !editing && (
+          <button
+            className="fbinfo-row-edit"
+            type="button"
+            title={`Editar ${label}`}
+            aria-label={`Editar ${label}`}
+            onClick={() => startEdit(fieldKey)}
+          >
+            <span className="material-symbols-rounded" aria-hidden="true">edit</span>
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  async function persistProfile() {
     if (!activeProfile?.id) {
       setCreatorError(new Error('No se encontro el perfil autenticado.'));
-      return;
+      return false;
     }
     if (!form.pen_name.trim()) {
       setCreatorError(new Error('Agrega un nombre de autor para guardar el perfil.'));
-      return;
+      return false;
     }
 
     setSaving(true);
@@ -182,14 +237,25 @@ function CreatorProfilePage() {
 
     if (error) {
       setCreatorError(error);
-      return;
+      return false;
     }
 
     await refreshProfile();
     if (data?.profile) setAccountProfile(data.profile);
     setCreatorProfile(data?.creatorProfile || creatorProfile);
-    setIsEditing(false);
     setMessage(data?.warning || 'Perfil actualizado correctamente.');
+    return true;
+  }
+
+  function cancelEdit() {
+    setForm(formFromSources);
+    setEditingField(null);
+    setCreatorError(null);
+  }
+
+  async function commitEdit() {
+    const ok = await persistProfile();
+    if (ok) setEditingField(null);
   }
 
   async function handleAvatarUpload(event) {
@@ -272,13 +338,9 @@ function CreatorProfilePage() {
           <button
             className="btn btn-ghost"
             type="button"
-            onClick={() => {
-              const next = !isEditing;
-              setIsEditing(next);
-              if (next) setActiveTab('about');
-            }}
+            onClick={() => setIsEditing((value) => !value)}
           >
-            {isEditing ? 'Cancelar edicion' : 'Editar perfil'}
+            {isEditing ? 'Listo' : 'Editar portada y foto'}
           </button>
           <Link className="btn btn-primary" to="/creator">Ver panel</Link>
         </div>
@@ -389,91 +451,173 @@ function CreatorProfilePage() {
           </div>
         )
       ) : (
-        <Card className="fbig-about">
-          <div className="fbig-about-head">
-            <h3>Acerca del autor</h3>
-            {!isEditing && (
-              <button type="button" className="btn btn-ghost fbig-about-edit" onClick={() => setIsEditing(true)}>
-                <span className="material-symbols-rounded" aria-hidden="true">edit</span>Editar
+        <Card className="fbinfo-card">
+          <aside className="fbinfo-menu" aria-label="Secciones de información">
+            <h3>Información</h3>
+            {ABOUT_SECTIONS.map((section) => (
+              <button
+                key={section.key}
+                type="button"
+                className={aboutSection === section.key ? 'is-active' : ''}
+                onClick={() => { setAboutSection(section.key); setEditingField(null); }}
+              >
+                {section.label}
               </button>
+            ))}
+          </aside>
+
+          <div className="fbinfo-panel">
+            {aboutSection === 'presentacion' && (
+              <div className="fbinfo-block">
+                <h4>Presentación</h4>
+                {renderRow({
+                  fieldKey: 'biography',
+                  icon: 'format_quote',
+                  label: 'Biografía',
+                  display: creatorProfile?.biography || form.biography || activeProfile?.bio || '',
+                  emptyLabel: 'Escribe una presentación para tus lectores',
+                  editor: (
+                    <textarea
+                      className="textarea"
+                      rows={5}
+                      value={form.biography}
+                      onChange={(event) => updateField('biography', event.target.value)}
+                      placeholder="Cuenta quién eres y qué leyendas te inspiran..."
+                    />
+                  ),
+                })}
+              </div>
+            )}
+
+            {aboutSection === 'detalles' && (
+              <div className="fbinfo-block">
+                <h4>Detalles fijados</h4>
+                {renderRow({
+                  fieldKey: 'headline',
+                  icon: 'work',
+                  label: 'Rol / frase',
+                  display: form.headline,
+                  emptyLabel: 'Agregar rol o frase corta',
+                  editor: (
+                    <input
+                      className="standalone-input"
+                      value={form.headline}
+                      onChange={(event) => updateField('headline', event.target.value)}
+                      placeholder="Creador(a) digital / Autor Leyendas Bacalar"
+                    />
+                  ),
+                })}
+                {renderRow({
+                  fieldKey: 'location_label',
+                  icon: 'location_on',
+                  label: 'Ubicación',
+                  display: form.location_label,
+                  emptyLabel: 'Agregar ciudad',
+                  editor: (
+                    <input
+                      className="standalone-input"
+                      value={form.location_label}
+                      onChange={(event) => updateField('location_label', event.target.value)}
+                      placeholder="Bacalar, Quintana Roo"
+                    />
+                  ),
+                })}
+                {renderRow({
+                  fieldKey: 'profile_visibility',
+                  icon: form.profile_visibility === 'public' ? 'public' : 'lock',
+                  label: 'Visibilidad',
+                  display: form.profile_visibility === 'public' ? 'Público' : 'Privado',
+                  editor: (
+                    <select
+                      className="select"
+                      value={form.profile_visibility}
+                      onChange={(event) => updateField('profile_visibility', event.target.value)}
+                    >
+                      <option value="public">Público</option>
+                      <option value="private">Privado</option>
+                    </select>
+                  ),
+                })}
+                {renderRow({
+                  fieldKey: 'joined',
+                  icon: 'calendar_month',
+                  label: 'Se unió',
+                  display: formatDate(creatorProfile?.created_at),
+                  canEdit: false,
+                })}
+              </div>
+            )}
+
+            {aboutSection === 'personales' && (
+              <div className="fbinfo-block">
+                <h4>Datos personales</h4>
+                {renderRow({
+                  fieldKey: 'full_name',
+                  icon: 'badge',
+                  label: 'Nombre público',
+                  display: form.full_name,
+                  emptyLabel: 'Agregar nombre',
+                  editor: (
+                    <input
+                      className="standalone-input"
+                      value={form.full_name}
+                      onChange={(event) => updateField('full_name', event.target.value)}
+                    />
+                  ),
+                })}
+                {renderRow({
+                  fieldKey: 'username',
+                  icon: 'alternate_email',
+                  label: 'Nombre de usuario',
+                  display: form.username ? `@${form.username}` : '',
+                  emptyLabel: 'Agregar nombre de usuario',
+                  editor: (
+                    <input
+                      className="standalone-input"
+                      value={form.username}
+                      onChange={(event) => updateField('username', event.target.value)}
+                    />
+                  ),
+                })}
+                {renderRow({
+                  fieldKey: 'pen_name',
+                  icon: 'draw',
+                  label: 'Nombre de autor',
+                  display: form.pen_name,
+                  emptyLabel: 'Agregar nombre de autor (obligatorio)',
+                  editor: (
+                    <input
+                      className="standalone-input"
+                      value={form.pen_name}
+                      onChange={(event) => updateField('pen_name', event.target.value)}
+                    />
+                  ),
+                })}
+              </div>
+            )}
+
+            {aboutSection === 'enlaces' && (
+              <div className="fbinfo-block">
+                <h4>Enlaces</h4>
+                {renderRow({
+                  fieldKey: 'website_url',
+                  icon: 'link',
+                  label: 'Sitio web',
+                  display: form.website_url ? formatWebsite(form.website_url) : '',
+                  emptyLabel: 'Agregar sitio web',
+                  editor: (
+                    <input
+                      className="standalone-input"
+                      type="url"
+                      value={form.website_url}
+                      onChange={(event) => updateField('website_url', event.target.value)}
+                      placeholder="https://..."
+                    />
+                  ),
+                })}
+              </div>
             )}
           </div>
-
-          {isEditing ? (
-            <form className="fbig-about-form" onSubmit={handleSave}>
-              <div className="fbig-about-fields">
-                <label className="field">
-                  <span>Nombre público</span>
-                  <input className="standalone-input" value={form.full_name} onChange={(event) => updateField('full_name', event.target.value)} />
-                </label>
-                <label className="field">
-                  <span>Username</span>
-                  <input className="standalone-input" value={form.username} onChange={(event) => updateField('username', event.target.value)} />
-                </label>
-                <label className="field">
-                  <span>Nombre de autor / pen name</span>
-                  <input className="standalone-input" value={form.pen_name} onChange={(event) => updateField('pen_name', event.target.value)} />
-                </label>
-                <label className="field">
-                  <span>Frase corta</span>
-                  <input className="standalone-input" value={form.headline} onChange={(event) => updateField('headline', event.target.value)} placeholder="Creador(a) digital / Autor Leyendas Bacalar" />
-                </label>
-                <label className="field">
-                  <span>Ubicación</span>
-                  <input className="standalone-input" value={form.location_label} onChange={(event) => updateField('location_label', event.target.value)} placeholder="Bacalar, Quintana Roo" />
-                </label>
-                <label className="field">
-                  <span>Sitio web</span>
-                  <input className="standalone-input" type="url" value={form.website_url} onChange={(event) => updateField('website_url', event.target.value)} placeholder="https://..." />
-                </label>
-                <label className="field">
-                  <span>Visibilidad</span>
-                  <select className="select" value={form.profile_visibility} onChange={(event) => updateField('profile_visibility', event.target.value)}>
-                    <option value="public">Público</option>
-                    <option value="private">Privado</option>
-                  </select>
-                </label>
-                <label className="field fbig-about-wide">
-                  <span>Biografía</span>
-                  <textarea className="textarea" rows={5} value={form.biography} onChange={(event) => updateField('biography', event.target.value)} />
-                </label>
-              </div>
-              <div className="fbig-about-actions">
-                <button className="btn btn-ghost" type="button" onClick={() => setIsEditing(false)} disabled={saving}>Cancelar</button>
-                <button className="btn btn-primary" type="submit" disabled={saving}>{saving ? 'Guardando...' : 'Guardar cambios'}</button>
-              </div>
-            </form>
-          ) : (
-            <>
-              <p className="fbig-about-bio">{biography}</p>
-              <div className="fbig-about-grid">
-                <div className="fbig-about-item">
-                  <span className="material-symbols-rounded" aria-hidden="true">badge</span>
-                  <div><small>Nombre de autor</small><strong>{form.pen_name || displayName}</strong></div>
-                </div>
-                {location && (
-                  <div className="fbig-about-item">
-                    <span className="material-symbols-rounded" aria-hidden="true">location_on</span>
-                    <div><small>Ubicacion</small><strong>{location}</strong></div>
-                  </div>
-                )}
-                {websiteUrl && (
-                  <div className="fbig-about-item">
-                    <span className="material-symbols-rounded" aria-hidden="true">link</span>
-                    <div><small>Sitio web</small><a href={websiteUrl} target="_blank" rel="noreferrer">{formatWebsite(websiteUrl)}</a></div>
-                  </div>
-                )}
-                <div className="fbig-about-item">
-                  <span className="material-symbols-rounded" aria-hidden="true">calendar_month</span>
-                  <div><small>Se unio</small><strong>{formatDate(creatorProfile?.created_at)}</strong></div>
-                </div>
-                <div className="fbig-about-item">
-                  <span className="material-symbols-rounded" aria-hidden="true">visibility</span>
-                  <div><small>Visibilidad</small><strong>{form.profile_visibility === 'public' ? 'Publico' : 'Privado'}</strong></div>
-                </div>
-              </div>
-            </>
-          )}
         </Card>
       )}
     </section>
