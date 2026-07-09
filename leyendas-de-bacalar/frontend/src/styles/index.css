@@ -11843,15 +11843,20 @@ body.fullscreen-editorial-open .site-header { display: none; }
    ============================================================================ */
 .legend-hero {
   position: relative;
-  /* Break out of the padded .page-container so the banner is full-bleed and the
-     image sits behind the translucent fixed navbar — a cinematic streaming banner
-     that blends into the page, not a dark boxed card. The negative inline margins
-     match the container's horizontal padding; the negative top cancels its top pad. */
-  margin-left: calc(-1 * clamp(18px, 4vw, 54px));
-  margin-right: calc(-1 * clamp(18px, 4vw, 54px));
+  /* Full-bleed banner: break out of the centered, max-width .page-container to
+     the FULL viewport width (not just its padding), so the image reaches both
+     screen edges and sits behind the translucent fixed navbar — a cinematic
+     Netflix-style banner, never a boxed card. body has overflow-x:hidden so the
+     100vw breakout can't introduce a horizontal scrollbar. The content inside
+     stays centered via .legend-hero__content. */
+  width: 100vw;
+  max-width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
   margin-top: -108px;
   min-height: clamp(580px, 84vh, 900px);
   overflow: hidden;
+  border-radius: 0;
   background: #061826;
   isolation: isolate;
 }

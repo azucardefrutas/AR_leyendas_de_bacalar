@@ -778,11 +778,26 @@
 }
 .rx-cine-count { color: var(--rx-faint); font-size: 0.88rem; }
 
-/* Poster grid tuned for a streaming look (denser, hover lift) */
+/* Poster grid, Netflix-desktop scale: large fixed-width posters, left-aligned,
+   wrapping, with a pronounced hover zoom. */
 .rx-cine-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(clamp(140px, 20vw, 200px), 1fr));
-  gap: clamp(14px, 1.6vw, 22px);
+  grid-template-columns: repeat(auto-fill, 256px);
+  justify-content: start;
+  gap: clamp(18px, 2vw, 30px);
+}
+.rx-cine-grid .poster-card:hover .poster-card-art,
+.rx-cine-grid .poster-card:focus-visible .poster-card-art {
+  transform: translateY(-6px) scale(1.05);
+  box-shadow: 0 28px 62px rgba(0, 98, 111, 0.5);
+  z-index: 2;
+}
+.rx-cine-grid .poster-card-meta h3 { font-size: 1.02rem; }
+@media (max-width: 900px) {
+  .rx-cine-grid { grid-template-columns: repeat(auto-fill, 200px); }
+}
+@media (max-width: 620px) {
+  .rx-cine-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 }
 
 @media (max-width: 680px) {

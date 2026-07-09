@@ -35,9 +35,15 @@ export async function updateCurrentProfile(payload) {
   if (userError) return { data: null, error: userError };
   if (!userData.user) return { data: null, error: new Error('No authenticated user found.') };
 
+  // Update (not upsert): the profile row is created by the handle_new_user
+  // trigger on signup, so it always exists. Using upsert would attempt an
+  // INSERT (ON CONFLICT), which RLS blocks — users_profile only has SELECT +
+  // UPDATE policies for the owner, no INSERT policy — causing
+  // "new row violates row-level security policy".
   return client
     .from('users_profile')
-    .upsert({ id: userData.user.id, ...payload })
+    .update(payload)
+    .eq('id', userData.user.id)
     .select()
     .single();
 }
