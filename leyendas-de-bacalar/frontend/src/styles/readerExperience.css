@@ -1512,6 +1512,37 @@
 /* In the legend detail hero action row */
 .legend-hero-actions-icons { align-self: center; }
 
+/* ---- Creator / Admin sidebars: reader "glass" look (visual only) -----
+   Restyles ONLY the existing fixed rails to the reader's teal glass + cyan
+   pills. Position, hover-expand behaviour and the content margins are left
+   exactly as they were — nothing else is touched. */
+.creator-sidebar,
+.admin-sidebar {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02)),
+    rgba(6, 24, 38, 0.92);
+  border-right: 1px solid rgba(116, 221, 232, 0.18);
+  border-radius: 0 22px 22px 0;
+  box-shadow: 14px 0 40px rgba(0, 8, 16, 0.42);
+  backdrop-filter: blur(22px);
+}
+.creator-sidebar-brand,
+.admin-sidebar-heading {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(116, 221, 232, 0.14);
+}
+.creator-sidebar a:hover,
+.admin-sidebar nav a:hover {
+  background: rgba(48, 207, 242, 0.1);
+  color: #ffffff;
+}
+.creator-sidebar a.active,
+.admin-sidebar nav a.active {
+  background: linear-gradient(90deg, rgba(48, 207, 242, 0.22), rgba(48, 207, 242, 0.05));
+  color: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(48, 207, 242, 0.32);
+}
+
 /* Navbar avatar menu */
 button.user-bubble { border: 0; cursor: pointer; font: inherit; }
 .user-menu { position: relative; display: inline-flex; }
