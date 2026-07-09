@@ -34,6 +34,17 @@ function initials(name) {
   return (name || 'L').trim().slice(0, 1).toUpperCase();
 }
 
+// Placeholder banner artwork for the library hero (eLibro-style). Swap this
+// file (or path) for custom artwork later — it's the single source to change.
+const LIBRARY_BANNER = '/assets/backgraoud collage.png';
+
+// Friendly greeting name: prefer a real name; if it's an email, show only the
+// local part; otherwise fall back to "Lector".
+function greetingName(name) {
+  if (!name) return 'Lector';
+  return name.includes('@') ? name.split('@')[0] : name;
+}
+
 function LibraryPage() {
   const { isAuthenticated } = useAuth();
   const { profile, loading: profileLoading } = useProfile();
@@ -71,16 +82,19 @@ function LibraryPage() {
   if (!isAuthenticated) {
     return (
       <div className="rx rx-page">
-        <section className="rx-hero">
-          <p className="rx-eyebrow">Biblioteca publica</p>
-          <h1>Explora Bacalar</h1>
-          <p className="rx-hero-lead">
-            Recorre leyendas publicadas, conoce el proyecto y descubre que historias puedes
-            desbloquear con cuenta, codigo fisico o suscripcion.
-          </p>
-          <div className="rx-hero-cta">
-            <Link to="/catalog"><Button>Explorar catalogo</Button></Link>
-            <Link to={getLoginPathForRedirect('/reader/library')}><Button variant="ghost">Iniciar sesion</Button></Link>
+        <section className="rx-libhero">
+          <div className="rx-libhero-bg" style={{ backgroundImage: `url("${LIBRARY_BANNER}")` }} aria-hidden="true" />
+          <div className="rx-libhero-body">
+            <div className="rx-libhero-top"><span>Biblioteca publica</span></div>
+            <h1>Explora Bacalar</h1>
+            <p className="rx-libhero-lead">
+              Recorre leyendas publicadas, conoce el proyecto y descubre que historias puedes
+              desbloquear con cuenta, codigo fisico o suscripcion.
+            </p>
+            <div className="rx-libhero-cta">
+              <Link to="/catalog"><Button>Explorar catalogo</Button></Link>
+              <Link to={getLoginPathForRedirect('/reader/library')}><Button variant="ghost">Iniciar sesion</Button></Link>
+            </div>
           </div>
         </section>
 
@@ -118,30 +132,30 @@ function LibraryPage() {
 
   return (
     <div className="rx rx-page">
-      <section className="rx-hero">
-        <div className="rx-hero-top">
-          <div className="rx-hero-avatar" aria-hidden="true">
-            {profile?.avatar_url ? <img src={profile.avatar_url} alt="" /> : initials(displayName)}
-          </div>
-          <div className="rx-hero-greeting">
+      <section className="rx-libhero">
+        <div className="rx-libhero-bg" style={{ backgroundImage: `url("${LIBRARY_BANNER}")` }} aria-hidden="true" />
+        <div className="rx-libhero-body">
+          <div className="rx-libhero-top">
+            <div className="rx-libhero-avatar" aria-hidden="true">
+              {profile?.avatar_url ? <img src={profile.avatar_url} alt="" /> : initials(greetingName(displayName))}
+            </div>
             <span>Experiencia del lector</span>
-            <strong>Hola{displayName ? `, ${displayName}` : ''}</strong>
           </div>
-        </div>
-        <h1>Mi biblioteca</h1>
-        <p className="rx-hero-lead">
-          Aqui viven las leyendas que has desbloqueado, tu progreso de lectura y todo lo que puedes
-          explorar en la plataforma.
-        </p>
-        <div className="rx-hero-cta">
-          <Link to="/catalog"><Button>Explorar catalogo</Button></Link>
-          <Link to="/reader/redeem"><Button variant="ghost">Canjear codigo</Button></Link>
-        </div>
-        {!rolesLoading && roles.length > 0 && (
-          <div className="rx-chips" style={{ marginTop: 18 }}>
-            {roles.map((role) => <span key={role} className="rx-chip">{role}</span>)}
+          <h1>Hola, {greetingName(displayName)}</h1>
+          <p className="rx-libhero-lead">
+            Tu biblioteca cultural de Bacalar: aqui viven las leyendas que has desbloqueado, tu
+            progreso de lectura y todo lo que puedes explorar.
+          </p>
+          <div className="rx-libhero-cta">
+            <Link to="/catalog"><Button>Explorar catalogo</Button></Link>
+            <Link to="/reader/redeem"><Button variant="ghost">Canjear codigo</Button></Link>
           </div>
-        )}
+          {!rolesLoading && roles.length > 0 && (
+            <div className="rx-chips">
+              {roles.map((role) => <span key={role} className="rx-chip">{role}</span>)}
+            </div>
+          )}
+        </div>
       </section>
 
       {stats && (

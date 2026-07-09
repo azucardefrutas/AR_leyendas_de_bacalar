@@ -210,6 +210,69 @@
   box-shadow: 0 0 10px var(--rx-primary);
 }
 
+/* ---- Library photo hero (eLibro-inspired) --------------------------- */
+/* Full-width banner with a background photo and the greeting overlaid at the
+   bottom-left. The image is passed inline (LIBRARY_BANNER) so it's trivial to
+   swap for a custom artwork later. */
+.rx-libhero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 26px;
+  min-height: clamp(300px, 44vh, 470px);
+  display: flex;
+  align-items: flex-end;
+  border: 1px solid var(--rx-line-soft);
+  box-shadow: var(--rx-clay);
+  background: #061826;
+}
+.rx-libhero-bg {
+  position: absolute;
+  inset: 0;
+  background-size: cover;
+  background-position: center;
+  transform: scale(1.03);
+}
+.rx-libhero-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(6, 24, 38, 0.28) 0%, rgba(6, 24, 38, 0.08) 36%, rgba(6, 24, 38, 0.93) 100%),
+    linear-gradient(90deg, rgba(6, 24, 38, 0.78) 0%, rgba(6, 24, 38, 0.28) 46%, rgba(6, 24, 38, 0) 76%);
+}
+.rx-libhero-body {
+  position: relative;
+  z-index: 1;
+  padding: clamp(24px, 4vw, 48px);
+  display: grid;
+  gap: 12px;
+  max-width: 720px;
+}
+.rx-libhero-top { display: flex; align-items: center; gap: 14px; }
+.rx-libhero-avatar {
+  width: 56px; height: 56px; flex: none;
+  border-radius: 18px;
+  display: grid; place-items: center;
+  font-family: Fraunces, Georgia, serif; font-size: 1.5rem; font-weight: 700;
+  color: #061826; background: linear-gradient(140deg, var(--rx-primary), var(--rx-blue));
+  box-shadow: 0 10px 26px rgba(4, 157, 217, 0.4);
+  overflow: hidden;
+}
+.rx-libhero-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.rx-libhero-top span { color: rgba(226, 248, 255, 0.72); font-size: 0.74rem; letter-spacing: 0.22em; text-transform: uppercase; font-weight: 700; }
+.rx-libhero h1 {
+  margin: 0;
+  font-family: Fraunces, Georgia, serif;
+  font-weight: 600;
+  font-size: clamp(2.1rem, 5vw, 3.6rem);
+  line-height: 1.02;
+  letter-spacing: -0.01em;
+  color: #fff;
+  text-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+}
+.rx-libhero-lead { margin: 0; max-width: 560px; color: rgba(234, 251, 255, 0.86); line-height: 1.55; }
+.rx-libhero-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
+
 /* ---- Stat tiles ----------------------------------------------------- */
 .rx-stats {
   display: grid;
