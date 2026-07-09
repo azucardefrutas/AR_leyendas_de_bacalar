@@ -61,6 +61,7 @@ const PurchasesPage = lazy(() => import('../pages/reader/PurchasesPage.jsx'));
 const ReadingPage = lazy(() => import('../pages/reader/ReadingPage.jsx'));
 const RedeemCodePage = lazy(() => import('../pages/reader/RedeemCodePage.jsx'));
 const SubscriptionPage = lazy(() => import('../pages/reader/SubscriptionPage.jsx'));
+const SettingsPage = lazy(() => import('../pages/reader/SettingsPage.jsx'));
 
 export const router = createBrowserRouter([
   {
@@ -118,6 +119,7 @@ export const router = createBrowserRouter([
           { path: 'purchases', element: <PurchasesPage /> },
           { path: 'subscription', element: <SubscriptionPage /> },
           { path: 'profile', element: <ProfilePage /> },
+          { path: 'settings', element: <SettingsPage /> },
           { path: 'read/:slug', element: <ReadingPage /> },
         ],
       },

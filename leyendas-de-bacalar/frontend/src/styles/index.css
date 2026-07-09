@@ -1634,7 +1634,12 @@ pre {
 .dashboard-shell {
   min-height: calc(100vh - 104px);
   display: grid;
-  grid-template-columns: 260px 1fr;
+  grid-template-columns: 276px 1fr;
+  transition: grid-template-columns 0.28s ease;
+}
+
+.dashboard-shell.sidebar-collapsed {
+  grid-template-columns: 94px 1fr;
 }
 
 .dashboard-frame {

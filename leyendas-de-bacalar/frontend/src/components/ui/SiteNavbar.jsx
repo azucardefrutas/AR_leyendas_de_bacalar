@@ -3,8 +3,8 @@ import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useRoles } from '../../hooks/useRoles.js';
 import { getLoginPathForRedirect } from '../../utils/authRedirect.js';
-import Button from './Button.jsx';
 import IconButton from './IconButton.jsx';
+import UserMenu from './UserMenu.jsx';
 import MobileNavDrawer from '../layout/MobileNavDrawer.jsx';
 
 const FacebookGlyph = (
@@ -96,10 +96,7 @@ function SiteNavbar() {
           </div>
 
           {isAuthenticated ? (
-            <>
-              <Link className="user-bubble" to="/reader/profile" aria-label="Perfil de usuario">{initial}</Link>
-              <Button variant="ghost" onClick={signOut}>Salir</Button>
-            </>
+            <UserMenu initial={initial} onSignOut={signOut} />
           ) : (
             <>
               <Link className="login-link" to={loginPath}>Iniciar sesion</Link>
