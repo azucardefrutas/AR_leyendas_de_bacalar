@@ -864,6 +864,15 @@
   pointer-events: none; z-index: 3; opacity: 0;
 }
 
+/* Canvas-based access ticket (Bacalar-themed, physics tear + magic scan) */
+.rx-ticket-canvas-wrap { position: relative; width: 100%; max-width: 560px; margin: 0 auto; }
+.rx-ticket-canvas-wrap canvas { display: block; width: 100%; cursor: text; border-radius: 18px; }
+.rx-ticket-hidden-input {
+  position: absolute; opacity: 0; top: 45%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 140px; height: 60px; z-index: -1; pointer-events: none; border: 0; background: transparent;
+}
+
 /* interactive tips (replaces the old "como funciona" panel) */
 .rx-tips { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
 .rx-tip {
