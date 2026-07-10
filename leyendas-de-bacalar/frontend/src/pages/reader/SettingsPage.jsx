@@ -29,6 +29,13 @@ function SettingsPage() {
     loadSubs();
   }, []);
 
+  // El mensaje de confirmacion se oculta solo a los pocos segundos.
+  useEffect(() => {
+    if (!membershipMsg) return undefined;
+    const timer = setTimeout(() => setMembershipMsg(''), 6000);
+    return () => clearTimeout(timer);
+  }, [membershipMsg]);
+
   const activeSub = subs.find((sub) => sub.status === 'active') || null;
   // Una suscripción cancelada sigue dando acceso hasta ends_at (fin de periodo).
   const cancelledButValid = subs.find(

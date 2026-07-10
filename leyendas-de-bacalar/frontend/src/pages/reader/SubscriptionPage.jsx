@@ -55,6 +55,13 @@ function SubscriptionPage() {
     reload();
   }, []);
 
+  // Los mensajes de confirmacion se ocultan solos a los pocos segundos.
+  useEffect(() => {
+    if (!notice) return undefined;
+    const timer = setTimeout(() => setNotice(''), 6000);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
   async function handleCancel(subscriptionId) {
     setCancelingId(subscriptionId);
     setError(null);

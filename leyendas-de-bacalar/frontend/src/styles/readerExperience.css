@@ -640,10 +640,26 @@
   text-decoration: none;
 }
 .rx-membership-notice-cta:hover { background: #ffd982; }
+.rx-membership-notice-close {
+  flex-shrink: 0;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--rx-faint);
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+.rx-membership-notice-close:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
 
 @media (max-width: 560px) {
   .rx-membership-notice { flex-wrap: wrap; }
-  .rx-membership-notice-cta { width: 100%; text-align: center; }
+  .rx-membership-notice-cta { flex: 1; text-align: center; }
 }
 .rx-cancel-confirm-actions { display: flex; gap: 8px; }
 .rx-cancel-confirm-actions .btn { padding: 8px 14px; font-size: 0.82rem; border-radius: 12px; }
