@@ -286,6 +286,41 @@ export async function createLegendPage(payload) {
   return result;
 }
 
+// Los codigos se generan contra una edicion fisica (physical_editions), no contra
+// la leyenda directa; el canje deriva la leyenda desde edition.legend_id. Para que el
+// admin no pueda emitir codigos de la edicion equivocada, cada solicitud debe traer
+// su edition_id. Esta funcion reutiliza una edicion existente de la leyenda o crea una
+// borrador (permitido por RLS al creador dueno de la leyenda).
+async function ensurePhysicalEditionForLegend(client, legendId) {
+  const { data: existing, error: readError } = await client
+    .from('physical_editions')
+    .select('id')
+    .eq('legend_id', legendId)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (readError) return { data: null, error: readError };
+  if (existing?.id) return { data: existing.id, error: null };
+
+  const { data: userData, error: userError } = await getCurrentUser();
+  if (userError) return { data: null, error: userError };
+  const uid = userData?.user?.id;
+  if (!uid) return { data: null, error: new Error('Sesion no valida. Vuelve a iniciar sesion.') };
+
+  const { data: created, error: insertError } = await client
+    .from('physical_editions')
+    .insert({
+      legend_id: legendId,
+      edition_name: 'Edicion fisica',
+      status: 'draft',
+      created_by: uid,
+    })
+    .select('id')
+    .single();
+  if (insertError) return { data: null, error: insertError };
+  return { data: created.id, error: null };
+}
+
 export async function createCodeRequest(legendId, quantity, reason) {
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: null, error: clientError };
@@ -295,11 +330,16 @@ export async function createCodeRequest(legendId, quantity, reason) {
   const creatorCandidates = getCreatorIdCandidates(accessStatus);
   if (!creatorCandidates.length) return { data: null, error: new Error('Tu perfil de creador no se encontro. Vuelve a iniciar sesion o contacta al administrador.') };
 
+  // Asegura la edicion fisica de la leyenda y ata la solicitud a ella.
+  const { data: editionId, error: editionError } = await ensurePhysicalEditionForLegend(client, legendId);
+  if (editionError) return { data: null, error: editionError };
+
   return client
     .from('code_requests')
     .insert({
       creator_id: creatorCandidates[0],
       legend_id: legendId,
+      edition_id: editionId,
       quantity_requested: Number(quantity),
       reason,
       status: 'pending',

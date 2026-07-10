@@ -34,8 +34,11 @@ function AdminCodeRequestsPage() {
 
   function openGenerateModal(request) {
     setModal(request);
+    // La edicion debe pertenecer a la leyenda de la solicitud (evita emitir
+    // codigos que desbloquean otra leyenda).
+    const legendEditions = editions.filter((edition) => edition.legend_id === request.legend_id);
     setForm({
-      editionId: request.edition_id || editions[0]?.id || '',
+      editionId: request.edition_id || legendEditions[0]?.id || '',
       quantity: request.quantity_requested || 25,
       prefix: '',
       notes: '',
@@ -56,6 +59,10 @@ function AdminCodeRequestsPage() {
     setModal(null);
     loadData();
   }
+
+  const modalEditions = modal
+    ? editions.filter((edition) => edition.legend_id === modal.legend_id)
+    : [];
 
   return (
     <section className="admin-page">
@@ -82,22 +89,29 @@ function AdminCodeRequestsPage() {
       <AdminConfirmModal
         open={Boolean(modal)}
         title="Generar lote de codigos"
-        description="Se usara la funcion RPC create_code_batch."
+        description={modal ? `Leyenda: ${modal.legends?.title || 'Sin leyenda'} · los codigos desbloquearan esta leyenda.` : 'Se usara la funcion RPC create_code_batch.'}
         confirmLabel="Generar lote"
         onCancel={() => setModal(null)}
         onConfirm={handleGenerate}
         loading={processing}
+        confirmDisabled={!form.editionId}
       >
         <label className="field">
-          <span>Edicion fisica</span>
+          <span>Edicion fisica (de esta leyenda)</span>
           <select className="select" value={form.editionId} onChange={(event) => setForm((current) => ({ ...current, editionId: event.target.value }))}>
-            {editions.length === 0 && <option value="">Sin ediciones disponibles</option>}
-            {editions.map((edition) => (
+            {modalEditions.length === 0 && <option value="">Sin ediciones para esta leyenda</option>}
+            {modalEditions.map((edition) => (
               <option key={edition.id} value={edition.id}>
                 {edition.edition_name || edition.legends?.title || edition.id}
               </option>
             ))}
           </select>
+          {modalEditions.length === 0 && (
+            <small className="admin-muted">
+              Esta leyenda no tiene edicion fisica. El autor debe volver a solicitar codigos
+              (se crea automaticamente) o crea la edicion antes de generar.
+            </small>
+          )}
         </label>
         <label className="field">
           <span>Cantidad</span>
