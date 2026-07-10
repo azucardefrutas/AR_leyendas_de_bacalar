@@ -33,6 +33,17 @@ export async function subscribe(planId, checkoutSnapshot = {}, cardLastFour = '4
   });
 }
 
+export async function cancelSubscription(subscriptionId) {
+  const { data: client, error: clientError } = getClient();
+  if (clientError) return { data: null, error: clientError };
+
+  // cancel_subscription (SECURITY DEFINER): valida que la suscripción activa sea
+  // del usuario, la marca 'cancelled' con corte inmediato y revoca sus accesos.
+  return client.rpc('cancel_subscription', {
+    p_subscription_id: subscriptionId,
+  });
+}
+
 export async function getMySubscriptions() {
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: [], error: clientError };

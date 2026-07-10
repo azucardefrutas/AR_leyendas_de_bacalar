@@ -6,6 +6,7 @@ import CreatorApplyCtaCard from '../../components/reader/creator-request/Creator
 import RxEmptyState from '../../components/reader/experience/RxEmptyState.jsx';
 import RxStatTile from '../../components/reader/experience/RxStatTile.jsx';
 import LegendCarousel from '../../components/reader/experience/LegendCarousel.jsx';
+import MembershipNotice from '../../components/reader/experience/MembershipNotice.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useProfile } from '../../hooks/useProfile.js';
@@ -135,6 +136,8 @@ function LibraryPage() {
           <span className="rx-libhero-name">{greetingName(displayName)}</span>
         </div>
       </section>
+
+      <MembershipNotice />
 
       {stats && (
         <div className="rx-stats">

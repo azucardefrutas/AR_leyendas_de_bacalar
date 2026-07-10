@@ -579,8 +579,74 @@
 .rx-ledger-main { display: grid; gap: 3px; min-width: 0; }
 .rx-ledger-main strong { color: #fff; font-size: 0.98rem; }
 .rx-ledger-main span { color: var(--rx-faint); font-size: 0.8rem; }
-.rx-ledger-side { text-align: right; display: grid; gap: 5px; justify-items: end; }
+.rx-ledger-side { text-align: right; display: grid; gap: 6px; justify-items: end; }
 .rx-ledger-amount { font-family: Fraunces, Georgia, serif; font-weight: 600; font-size: 1.15rem; color: #fff; }
+.rx-cancel-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #ff9aa8;
+  font-size: 0.82rem;
+  font-weight: 700;
+  padding: 2px 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.rx-cancel-link:hover { color: #ffc2cb; }
+.rx-cancel-confirm {
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(244, 63, 94, 0.35);
+  background: rgba(244, 63, 94, 0.1);
+}
+.rx-cancel-confirm > span { color: #ffd7dd; font-size: 0.82rem; font-weight: 700; }
+.rx-cancel-hint { color: var(--rx-faint); font-size: 0.74rem; text-align: right; }
+
+/* Aviso de membresía cancelada pero vigente (acceso hasta fin de periodo) */
+.rx-membership-notice {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  border: 1px solid rgba(245, 200, 92, 0.32);
+  background: rgba(245, 200, 92, 0.1);
+}
+.rx-membership-notice-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(245, 200, 92, 0.16);
+  color: #f5c85c;
+  flex-shrink: 0;
+}
+.rx-membership-notice-body { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.rx-membership-notice-body strong { color: #ffe6a8; font-size: 0.95rem; }
+.rx-membership-notice-body span { color: var(--rx-faint); font-size: 0.82rem; }
+.rx-membership-notice-cta {
+  flex-shrink: 0;
+  padding: 8px 16px;
+  border-radius: 12px;
+  font-weight: 800;
+  font-size: 0.85rem;
+  color: #1a1205;
+  background: #f5c85c;
+  text-decoration: none;
+}
+.rx-membership-notice-cta:hover { background: #ffd982; }
+
+@media (max-width: 560px) {
+  .rx-membership-notice { flex-wrap: wrap; }
+  .rx-membership-notice-cta { width: 100%; text-align: center; }
+}
+.rx-cancel-confirm-actions { display: flex; gap: 8px; }
+.rx-cancel-confirm-actions .btn { padding: 8px 14px; font-size: 0.82rem; border-radius: 12px; }
 
 /* ---- Empty state ---------------------------------------------------- */
 .rx-empty {

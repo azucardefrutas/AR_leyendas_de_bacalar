@@ -376,6 +376,12 @@ pre {
   box-shadow: none;
 }
 
+.btn-danger {
+  color: #ffffff;
+  background: linear-gradient(135deg, #e11d48, #f43f5e);
+  box-shadow: 0 14px 28px rgba(225, 29, 72, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
 .btn-wide {
   width: 100%;
   min-height: 54px;

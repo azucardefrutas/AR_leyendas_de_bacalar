@@ -4,7 +4,7 @@ import Button from '../../components/ui/Button.jsx';
 import ReaderSectionHeader from '../../components/reader/experience/ReaderSectionHeader.jsx';
 import RxEmptyState from '../../components/reader/experience/RxEmptyState.jsx';
 import CheckoutModal from '../../components/reader/experience/CheckoutModal.jsx';
-import { getActivePlans, getMySubscriptions, subscribe } from '../../services/subscriptionService.js';
+import { cancelSubscription, getActivePlans, getMySubscriptions, subscribe } from '../../services/subscriptionService.js';
 import { formatDate, formatMoney, splitPrice } from '../../utils/formatters.js';
 
 function planPeriod(days) {
@@ -26,6 +26,7 @@ function planFeatures(plan) {
 function subStatusBadge(status) {
   if (status === 'active') return <span className="rx-badge rx-badge-ok">Activa</span>;
   if (status === 'expired') return <span className="rx-badge rx-badge-off">Expirada</span>;
+  if (status === 'cancelled') return <span className="rx-badge rx-badge-off">Cancelada</span>;
   return <span className="rx-badge rx-badge-wait">{status}</span>;
 }
 
@@ -35,6 +36,9 @@ function SubscriptionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [checkoutPlan, setCheckoutPlan] = useState(null);
+  const [confirmCancelId, setConfirmCancelId] = useState(null);
+  const [cancelingId, setCancelingId] = useState(null);
+  const [notice, setNotice] = useState('');
 
   async function reload() {
     const [{ data: planData, error: planError }, { data: subscriptionData, error: subscriptionError }] = await Promise.all([
@@ -50,6 +54,25 @@ function SubscriptionPage() {
   useEffect(() => {
     reload();
   }, []);
+
+  async function handleCancel(subscriptionId) {
+    setCancelingId(subscriptionId);
+    setError(null);
+    setNotice('');
+    const target = subscriptions.find((sub) => sub.id === subscriptionId);
+    const { error: cancelError } = await cancelSubscription(subscriptionId);
+    setCancelingId(null);
+    setConfirmCancelId(null);
+    if (cancelError) {
+      setError(cancelError);
+      return;
+    }
+    const until = target?.ends_at ? formatDate(target.ends_at) : null;
+    setNotice(until
+      ? `Cancelaste la renovacion. Conservas el acceso hasta el ${until}.`
+      : 'Cancelaste la renovacion de tu suscripcion.');
+    await reload();
+  }
 
   // Best value = lowest price per day. Highlighted as the featured plan.
   const featuredId = useMemo(() => {
@@ -72,6 +95,7 @@ function SubscriptionPage() {
       </ReaderSectionHeader>
 
       {error && <div className="rx-alert rx-alert-error">{error.message}</div>}
+      {notice && <div className="rx-alert rx-alert-ok">{notice}</div>}
 
       <section className="rx-panel">
         <div className="rx-panel-head">
@@ -139,6 +163,38 @@ function SubscriptionPage() {
                   {subStatusBadge(sub.status)}
                   {sub.subscription_plans?.price != null && (
                     <span className="rx-ledger-amount">{formatMoney(sub.subscription_plans.price, sub.subscription_plans.currency)}</span>
+                  )}
+                  {sub.status === 'active' && (
+                    confirmCancelId === sub.id ? (
+                      <div className="rx-cancel-confirm">
+                        <span>¿Cancelar la renovacion?</span>
+                        <small className="rx-cancel-hint">Conservas el acceso hasta el {formatDate(sub.ends_at)}.</small>
+                        <div className="rx-cancel-confirm-actions">
+                          <Button
+                            variant="danger"
+                            onClick={() => handleCancel(sub.id)}
+                            disabled={cancelingId === sub.id}
+                          >
+                            {cancelingId === sub.id ? 'Cancelando...' : 'Si, cancelar'}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            onClick={() => setConfirmCancelId(null)}
+                            disabled={cancelingId === sub.id}
+                          >
+                            No
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="rx-cancel-link"
+                        onClick={() => { setNotice(''); setConfirmCancelId(sub.id); }}
+                      >
+                        Cancelar suscripcion
+                      </button>
+                    )
                   )}
                 </div>
               </div>
