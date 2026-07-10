@@ -7,13 +7,17 @@ import {
   AdminToast,
 } from '../../components/ui/AdminPrimitives.jsx';
 import Button from '../../components/ui/Button.jsx';
-import { createCodeBatch, getCodeRequests, getPhysicalEditions } from '../../services/adminCodeService.js';
+import { createCodeBatch, getCodeRequests, getPhysicalEditions, reviewCodeRequest, setEditionQuota } from '../../services/adminCodeService.js';
 
 function AdminCodeRequestsPage() {
   const [requests, setRequests] = useState([]);
   const [editions, setEditions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(null);
+  const [rejectModal, setRejectModal] = useState(null);
+  const [rejectFeedback, setRejectFeedback] = useState('');
+  const [quotaModal, setQuotaModal] = useState(null);
+  const [quotaValue, setQuotaValue] = useState(0);
   const [form, setForm] = useState({ editionId: '', quantity: 25, prefix: '', notes: '' });
   const [processing, setProcessing] = useState(false);
   const [toast, setToast] = useState(null);
@@ -60,6 +64,64 @@ function AdminCodeRequestsPage() {
     loadData();
   }
 
+  async function handleApprove(request) {
+    setProcessing(true);
+    const result = await reviewCodeRequest(request.id, 'approved');
+    setProcessing(false);
+    if (result.error) {
+      setToast({ type: 'error', message: result.error.message });
+      return;
+    }
+    setToast({ type: 'success', message: 'Solicitud aprobada. Ya puedes generar el lote.' });
+    loadData();
+  }
+
+  async function handleReject() {
+    if (!rejectFeedback.trim()) {
+      setToast({ type: 'error', message: 'Escribe un motivo para el rechazo.' });
+      return;
+    }
+    setProcessing(true);
+    const result = await reviewCodeRequest(rejectModal.id, 'rejected', rejectFeedback.trim());
+    setProcessing(false);
+    if (result.error) {
+      setToast({ type: 'error', message: result.error.message });
+      return;
+    }
+    setToast({ type: 'success', message: 'Solicitud rechazada.' });
+    setRejectModal(null);
+    setRejectFeedback('');
+    loadData();
+  }
+
+  function openRejectModal(request) {
+    setRejectModal(request);
+    setRejectFeedback('');
+  }
+
+  function openQuotaModal(request) {
+    setQuotaModal(request);
+    setQuotaValue(request.physical_editions?.code_quota ?? 0);
+  }
+
+  async function handleSetQuota() {
+    const editionId = quotaModal?.physical_editions?.id || quotaModal?.edition_id;
+    if (!editionId) {
+      setToast({ type: 'error', message: 'Esta solicitud no tiene edicion asociada.' });
+      return;
+    }
+    setProcessing(true);
+    const result = await setEditionQuota(editionId, quotaValue);
+    setProcessing(false);
+    if (result.error) {
+      setToast({ type: 'error', message: result.error.message });
+      return;
+    }
+    setToast({ type: 'success', message: `Cupo del autor actualizado a ${result.data?.code_quota ?? quotaValue}.` });
+    setQuotaModal(null);
+    loadData();
+  }
+
   const modalEditions = modal
     ? editions.filter((edition) => edition.legend_id === modal.legend_id)
     : [];
@@ -78,11 +140,34 @@ function AdminCodeRequestsPage() {
           { key: 'author', header: 'Autor', render: (row) => row.creator_profiles?.pen_name || 'Sin autor' },
           { key: 'legend', header: 'Leyenda', render: (row) => row.legends?.title || 'Sin leyenda' },
           { key: 'edition', header: 'Edicion', render: (row) => row.physical_editions?.edition_name || row.edition_id || 'Sin edicion' },
+          { key: 'quota', header: 'Cupo autor', render: (row) => row.physical_editions?.code_quota ?? 0 },
           { key: 'quantity_requested', header: 'Cantidad' },
           { key: 'reason', header: 'Motivo' },
-          { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status || 'pending'} context="code" /> },
+          { key: 'status', header: 'Estado', render: (row) => (
+            <div className="admin-stack-xs">
+              <AdminStatusBadge status={row.status || 'pending'} context="code" />
+              {row.status === 'rejected' && row.admin_feedback && (
+                <small className="admin-muted">Motivo: {row.admin_feedback}</small>
+              )}
+            </div>
+          ) },
           { key: 'created_at', header: 'Fecha', render: (row) => row.created_at ? new Date(row.created_at).toLocaleDateString() : 'Sin fecha' },
-          { key: 'actions', header: 'Acciones', render: (row) => <Button onClick={() => openGenerateModal(row)}>Generar lote</Button> },
+          { key: 'actions', header: 'Acciones', render: (row) => {
+            const status = row.status || 'pending';
+            if (status === 'generated') return <span className="admin-muted">Codigos generados</span>;
+            if (status === 'rejected') return <span className="admin-muted">Rechazada</span>;
+            if (status === 'cancelled') return <span className="admin-muted">Cancelada</span>;
+            return (
+              <div className="admin-actions-row">
+                {status === 'pending' && (
+                  <Button variant="ghost" onClick={() => handleApprove(row)} disabled={processing}>Aprobar</Button>
+                )}
+                <Button onClick={() => openGenerateModal(row)} disabled={processing}>Generar lote</Button>
+                <Button variant="ghost" onClick={() => openQuotaModal(row)} disabled={processing}>Cupo</Button>
+                <Button variant="danger" onClick={() => openRejectModal(row)} disabled={processing}>Rechazar</Button>
+              </div>
+            );
+          } },
         ]}
       />
 
@@ -124,6 +209,49 @@ function AdminCodeRequestsPage() {
         <label className="field">
           <span>Notas</span>
           <textarea className="textarea" rows={3} value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} />
+        </label>
+      </AdminConfirmModal>
+
+      <AdminConfirmModal
+        open={Boolean(rejectModal)}
+        title="Rechazar solicitud"
+        description={rejectModal ? `Solicitud de "${rejectModal.legends?.title || 'leyenda'}". El autor vera este motivo.` : ''}
+        confirmLabel="Rechazar solicitud"
+        onCancel={() => { setRejectModal(null); setRejectFeedback(''); }}
+        onConfirm={handleReject}
+        loading={processing}
+        confirmDisabled={!rejectFeedback.trim()}
+      >
+        <label className="field">
+          <span>Motivo del rechazo</span>
+          <textarea
+            className="textarea"
+            rows={4}
+            value={rejectFeedback}
+            onChange={(event) => setRejectFeedback(event.target.value)}
+            placeholder="Explica por que se rechaza (el autor lo vera)."
+          />
+        </label>
+      </AdminConfirmModal>
+
+      <AdminConfirmModal
+        open={Boolean(quotaModal)}
+        title="Cupo self-service del autor"
+        description={quotaModal ? `Leyenda "${quotaModal.legends?.title || 'leyenda'}": cuantos codigos puede generar el autor por su cuenta (sin aprobacion). 0 = siempre requiere aprobacion.` : ''}
+        confirmLabel="Guardar cupo"
+        onCancel={() => setQuotaModal(null)}
+        onConfirm={handleSetQuota}
+        loading={processing}
+      >
+        <label className="field">
+          <span>Cupo de codigos (por edicion)</span>
+          <input
+            className="standalone-input"
+            type="number"
+            min="0"
+            value={quotaValue}
+            onChange={(event) => setQuotaValue(event.target.value)}
+          />
         </label>
       </AdminConfirmModal>
     </section>

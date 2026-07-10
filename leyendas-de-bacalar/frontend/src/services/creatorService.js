@@ -321,6 +321,25 @@ async function ensurePhysicalEditionForLegend(client, legendId) {
   return { data: created.id, error: null };
 }
 
+// Self-service: el autor genera sus codigos dentro del cupo que el admin le fijo en la
+// edicion; si lo excede (o no hay cupo), el RPC crea una solicitud pendiente de aprobacion.
+// Devuelve una fila con { outcome, code_request_id, batch_id, generated, remaining_quota, message }.
+export async function selfGenerateCodes(legendId, quantity, prefix, reason) {
+  const { data: client, error: clientError } = getClient();
+  if (clientError) return { data: null, error: clientError };
+
+  const { data: accessStatus, error: accessError } = await ensureCreatorCanCreate();
+  if (accessError) return { data: null, error: accessError };
+
+  const { data, error } = await client.rpc('self_generate_codes', {
+    p_legend_id: legendId,
+    p_quantity: Number(quantity),
+    p_prefix: prefix || null,
+    p_reason: reason || null,
+  });
+  return { data: Array.isArray(data) ? data[0] : data, error };
+}
+
 export async function createCodeRequest(legendId, quantity, reason) {
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: null, error: clientError };

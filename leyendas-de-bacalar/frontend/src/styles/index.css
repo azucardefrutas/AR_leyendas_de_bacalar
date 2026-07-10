@@ -7323,6 +7323,25 @@ pre {
   color: #64748b;
 }
 
+.admin-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.admin-actions-row .btn {
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  border-radius: 12px;
+}
+.admin-stack-xs {
+  display: grid;
+  gap: 4px;
+}
+.admin-stack-xs small { max-width: 320px; }
+
+.code-status-cell { display: grid; gap: 4px; }
+.code-status-feedback { color: #b45309; max-width: 320px; }
+
 .admin-toast {
   border-radius: 12px;
   padding: 12px 14px;
@@ -7375,6 +7394,15 @@ pre {
   color: #0f172a;
   background: #ffffff;
   box-shadow: 0 24px 80px rgba(15, 23, 42, 0.22);
+}
+
+.admin-modal .field > span:first-child {
+  color: #334155;
+  font-weight: 700;
+}
+
+.admin-modal .field small {
+  color: #64748b;
 }
 
 .admin-modal .textarea,

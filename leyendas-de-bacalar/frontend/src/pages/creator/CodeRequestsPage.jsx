@@ -4,9 +4,9 @@ import Card from '../../components/ui/Card.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
 import StatusBadge from '../../shared/status/StatusBadge.jsx';
 import {
-  createCodeRequest,
   getMyCodeRequests,
   getMyLegends,
+  selfGenerateCodes,
 } from '../../services/creatorService.js';
 
 function getRequestQuantity(request) {
@@ -43,11 +43,17 @@ function downloadCsv(filename, rows = []) {
 function CodeRequestsPage() {
   const [legends, setLegends] = useState([]);
   const [requests, setRequests] = useState([]);
-  const [form, setForm] = useState({ legendId: '', quantity: 25, reason: '' });
+  const [form, setForm] = useState({ legendId: '', quantity: 25, prefix: '', reason: '' });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
+
+  async function reloadRequests() {
+    const requestsResult = await getMyCodeRequests();
+    setRequests(requestsResult.data ?? []);
+    if (requestsResult.error) setError(requestsResult.error);
+  }
 
   useEffect(() => {
     async function loadData() {
@@ -105,9 +111,10 @@ function CodeRequestsPage() {
     setError(null);
     setMessage(null);
 
-    const { data, error: submitError } = await createCodeRequest(
+    const { data, error: submitError } = await selfGenerateCodes(
       form.legendId,
       form.quantity,
+      form.prefix,
       form.reason,
     );
 
@@ -118,9 +125,15 @@ function CodeRequestsPage() {
       return;
     }
 
-    setRequests((current) => [data, ...current]);
-    setForm((current) => ({ ...current, quantity: 25, reason: '' }));
-    setMessage('Solicitud enviada. Cuando se generen los codigos, apareceran aqui.');
+    await reloadRequests();
+    setForm((current) => ({ ...current, quantity: 25, prefix: '', reason: '' }));
+
+    if (data?.outcome === 'generated') {
+      const remaining = Number.isFinite(data.remaining_quota) ? ` Cupo restante: ${data.remaining_quota}.` : '';
+      setMessage(`${data.message || 'Codigos generados.'}${remaining} Exportalos abajo.`);
+    } else {
+      setMessage(data?.message || 'Solicitud enviada. Un administrador la revisara.');
+    }
   }
 
   if (loading) return <LoadingState message="Cargando solicitudes..." />;
@@ -130,7 +143,7 @@ function CodeRequestsPage() {
       <div>
         <p className="eyebrow">Edicion fisica</p>
         <h1>Solicitudes de codigos</h1>
-        <p className="state-message">Solicita codigos para tus ediciones fisicas y consulta aqui los codigos generados.</p>
+        <p className="state-message">Genera codigos para tus ediciones fisicas. Si tienes cupo asignado, se crean al instante; si no, tu solicitud pasa a revision del administrador.</p>
       </div>
 
       {error && <p className="error-message">{error.message}</p>}
@@ -163,6 +176,17 @@ function CodeRequestsPage() {
               required
             />
           </label>
+          <label className="field form-span-2" htmlFor="code-prefix">
+            <span>Prefijo (opcional)</span>
+            <input
+              id="code-prefix"
+              className="input standalone-input"
+              value={form.prefix}
+              onChange={(event) => updateField('prefix', event.target.value)}
+              placeholder="Ej. BRUJA (2-10 letras/numeros). Si lo dejas vacio se usa BAC."
+              maxLength={10}
+            />
+          </label>
           <label className="field form-span-2" htmlFor="code-reason">
             <span>Razon</span>
             <textarea
@@ -177,7 +201,7 @@ function CodeRequestsPage() {
           </label>
           <div className="form-actions form-span-2">
             <Button type="submit" disabled={submitting || legends.length === 0}>
-              {submitting ? 'Enviando...' : 'Solicitar codigos'}
+              {submitting ? 'Procesando...' : 'Generar / solicitar codigos'}
             </Button>
           </div>
         </form>
@@ -216,7 +240,14 @@ function CodeRequestsPage() {
                 <tr key={request.id}>
                   <td>{request.legends?.title || 'Leyenda'}</td>
                   <td>{getRequestQuantity(request)}</td>
-                  <td><StatusBadge status={request.status || 'pending'} context="code" size="small" /></td>
+                  <td>
+                    <div className="code-status-cell">
+                      <StatusBadge status={request.status || 'pending'} context="code" size="small" />
+                      {request.status === 'rejected' && request.admin_feedback && (
+                        <small className="code-status-feedback">Motivo: {request.admin_feedback}</small>
+                      )}
+                    </div>
+                  </td>
                   <td>{requestCodes.length}</td>
                   <td>{request.reason || '-'}</td>
                   <td>

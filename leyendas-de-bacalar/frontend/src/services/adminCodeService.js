@@ -1,4 +1,7 @@
 import { getAdminClient } from './adminService.js';
+import { getCurrentUser } from './authService.js';
+
+const REQUEST_SELECT = '*, legends(title), creator_profiles(pen_name), physical_editions(id, edition_name, edition_number, code_quota)';
 
 function logAdminCodesError(operation, { batchId = null, table = 'unknown', error } = {}) {
   if (!import.meta.env.DEV) return;
@@ -23,7 +26,7 @@ export async function getCodeRequests() {
 
   const { data, error } = await client
     .from('code_requests')
-    .select('*, legends(title), creator_profiles(pen_name), physical_editions(edition_name, edition_number)')
+    .select(REQUEST_SELECT)
     .order('created_at', { ascending: false });
 
   return {
@@ -32,6 +35,42 @@ export async function getCodeRequests() {
       operation: 'load code requests',
       table: 'code_requests',
       message: 'No pudimos cargar solicitudes de codigos.',
+    }) : null,
+  };
+}
+
+// Aprobar / rechazar una solicitud con feedback. RLS (creqs_admin_manage) permite
+// al admin actualizar code_requests. status: 'approved' | 'rejected'.
+export async function reviewCodeRequest(requestId, status, feedback = null) {
+  if (!requestId || !['approved', 'rejected'].includes(status)) {
+    return { data: null, error: new Error('Solicitud o estado invalido.') };
+  }
+  const { data: client, error: clientError } = getAdminClient();
+  if (clientError) return { data: null, error: clientError };
+
+  const { data: userData } = await getCurrentUser();
+  const reviewerId = userData?.user?.id || null;
+  const nowIso = new Date().toISOString();
+
+  const { data, error } = await client
+    .from('code_requests')
+    .update({
+      status,
+      admin_feedback: feedback,
+      reviewed_by: reviewerId,
+      reviewed_at: nowIso,
+      updated_at: nowIso,
+    })
+    .eq('id', requestId)
+    .select(REQUEST_SELECT)
+    .single();
+
+  return {
+    data,
+    error: error ? codeError(error, {
+      operation: 'review code request',
+      table: 'code_requests',
+      message: 'No pudimos actualizar la solicitud.',
     }) : null,
   };
 }
@@ -118,6 +157,31 @@ export async function getAccessCodesByBatch(batchId) {
       };
     }),
     error: null,
+  };
+}
+
+// Fija el cupo self-service de una edicion (solo admin; un trigger en la DB tambien lo
+// protege). code_quota = cuantos codigos puede generar el autor por su cuenta.
+export async function setEditionQuota(editionId, quota) {
+  if (!editionId) return { data: null, error: new Error('Edicion invalida.') };
+  const { data: client, error: clientError } = getAdminClient();
+  if (clientError) return { data: null, error: clientError };
+
+  const safeQuota = Math.max(0, Math.floor(Number(quota) || 0));
+  const { data, error } = await client
+    .from('physical_editions')
+    .update({ code_quota: safeQuota, updated_at: new Date().toISOString() })
+    .eq('id', editionId)
+    .select('id, code_quota')
+    .single();
+
+  return {
+    data,
+    error: error ? codeError(error, {
+      operation: 'set edition quota',
+      table: 'physical_editions',
+      message: 'No pudimos actualizar el cupo del autor.',
+    }) : null,
   };
 }
 
