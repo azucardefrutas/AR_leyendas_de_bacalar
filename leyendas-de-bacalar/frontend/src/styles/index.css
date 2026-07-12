@@ -7342,6 +7342,31 @@ pre {
 .code-status-cell { display: grid; gap: 4px; }
 .code-status-feedback { color: #b45309; max-width: 320px; }
 
+.admin-filter-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.admin-filter-chip {
+  appearance: none;
+  border: 1px solid #dbe3ec;
+  background: #ffffff;
+  color: #475569;
+  padding: 7px 16px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+}
+.admin-filter-chip:hover { border-color: #049dd9; color: #0369a1; }
+.admin-filter-chip.is-active { background: #049dd9; border-color: #049dd9; color: #ffffff; }
+.admin-code-cell {
+  font-family: 'Courier New', ui-monospace, monospace;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #0e1830;
+  background: #eef4f8;
+  padding: 3px 8px;
+  border-radius: 8px;
+}
+
 .admin-toast {
   border-radius: 12px;
   padding: 12px 14px;

@@ -75,6 +75,38 @@ export async function reviewCodeRequest(requestId, status, feedback = null) {
   };
 }
 
+// Codigos con leyenda (via edicion) y datos del lector que lo canjeo. Para la vista
+// de "codigos canjeados" del admin.
+export async function getAccessCodesDetailed() {
+  const { data: client, error: clientError } = getAdminClient();
+  if (clientError) return { data: [], error: clientError };
+
+  const { data, error } = await client
+    .from('access_codes')
+    .select('id, display_code, status, prefix, assigned_to_user_id, assigned_at, created_at, physical_editions(edition_name, legends(title))')
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    return { data: [], error: codeError(error, { operation: 'load access codes detailed', table: 'access_codes', message: 'No pudimos cargar los codigos.' }) };
+  }
+
+  const codes = data ?? [];
+  const userIds = [...new Set(codes.map((code) => code.assigned_to_user_id).filter(Boolean))];
+  let usersById = {};
+  if (userIds.length) {
+    const { data: users } = await client
+      .from('users_profile')
+      .select('id, full_name, username')
+      .in('id', userIds);
+    usersById = Object.fromEntries((users ?? []).map((user) => [user.id, user]));
+  }
+
+  return {
+    data: codes.map((code) => ({ ...code, redeemer: usersById[code.assigned_to_user_id] || null })),
+    error: null,
+  };
+}
+
 export async function getPhysicalEditions() {
   const { data: client, error: clientError } = getAdminClient();
   if (clientError) return { data: [], error: clientError };
