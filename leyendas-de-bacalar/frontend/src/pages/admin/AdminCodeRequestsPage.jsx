@@ -7,7 +7,7 @@ import {
   AdminToast,
 } from '../../components/ui/AdminPrimitives.jsx';
 import Button from '../../components/ui/Button.jsx';
-import { createCodeBatch, getCodeRequests, getPhysicalEditions, reviewCodeRequest, setEditionQuota } from '../../services/adminCodeService.js';
+import { createCodeBatch, getCodeRequests, getPhysicalEditions, reviewCodeRequest } from '../../services/adminCodeService.js';
 
 function AdminCodeRequestsPage() {
   const [requests, setRequests] = useState([]);
@@ -16,8 +16,6 @@ function AdminCodeRequestsPage() {
   const [modal, setModal] = useState(null);
   const [rejectModal, setRejectModal] = useState(null);
   const [rejectFeedback, setRejectFeedback] = useState('');
-  const [quotaModal, setQuotaModal] = useState(null);
-  const [quotaValue, setQuotaValue] = useState(0);
   const [form, setForm] = useState({ editionId: '', quantity: 25, prefix: '', notes: '' });
   const [processing, setProcessing] = useState(false);
   const [toast, setToast] = useState(null);
@@ -38,8 +36,8 @@ function AdminCodeRequestsPage() {
 
   function openGenerateModal(request) {
     setModal(request);
-    // La edicion debe pertenecer a la leyenda de la solicitud (evita emitir
-    // codigos que desbloquean otra leyenda).
+    // La edicion debe pertenecer a la leyenda de la entrega (evita emitir codigos que
+    // desbloquean otra leyenda).
     const legendEditions = editions.filter((edition) => edition.legend_id === request.legend_id);
     setForm({
       editionId: request.edition_id || legendEditions[0]?.id || '',
@@ -53,18 +51,17 @@ function AdminCodeRequestsPage() {
     setProcessing(true);
     const result = await createCodeBatch({ ...form, codeRequestId: modal?.id });
     setProcessing(false);
-
     if (result.error) {
       setToast({ type: 'error', message: result.error.message });
       return;
     }
-
-    setToast({ type: 'success', message: 'Lote generado correctamente.' });
+    setToast({ type: 'success', message: 'Lote adicional generado correctamente.' });
     setModal(null);
     loadData();
   }
 
-  async function handleApprove(request) {
+  // Acuse informativo (no bloquea): "Recibido" = codigos recibidos y legibles.
+  async function handleAcknowledge(request) {
     setProcessing(true);
     const result = await reviewCodeRequest(request.id, 'approved');
     setProcessing(false);
@@ -72,13 +69,14 @@ function AdminCodeRequestsPage() {
       setToast({ type: 'error', message: result.error.message });
       return;
     }
-    setToast({ type: 'success', message: 'Solicitud aprobada. Ya puedes generar el lote.' });
+    setToast({ type: 'success', message: 'Marcado como recibido.' });
     loadData();
   }
 
-  async function handleReject() {
+  // "Reportar problema" = algo anda mal con los codigos (el autor vera el motivo).
+  async function handleReport() {
     if (!rejectFeedback.trim()) {
-      setToast({ type: 'error', message: 'Escribe un motivo para el rechazo.' });
+      setToast({ type: 'error', message: 'Describe el problema.' });
       return;
     }
     setProcessing(true);
@@ -88,38 +86,15 @@ function AdminCodeRequestsPage() {
       setToast({ type: 'error', message: result.error.message });
       return;
     }
-    setToast({ type: 'success', message: 'Solicitud rechazada.' });
+    setToast({ type: 'success', message: 'Problema reportado al autor.' });
     setRejectModal(null);
     setRejectFeedback('');
     loadData();
   }
 
-  function openRejectModal(request) {
+  function openReportModal(request) {
     setRejectModal(request);
     setRejectFeedback('');
-  }
-
-  function openQuotaModal(request) {
-    setQuotaModal(request);
-    setQuotaValue(request.physical_editions?.code_quota ?? 0);
-  }
-
-  async function handleSetQuota() {
-    const editionId = quotaModal?.physical_editions?.id || quotaModal?.edition_id;
-    if (!editionId) {
-      setToast({ type: 'error', message: 'Esta solicitud no tiene edicion asociada.' });
-      return;
-    }
-    setProcessing(true);
-    const result = await setEditionQuota(editionId, quotaValue);
-    setProcessing(false);
-    if (result.error) {
-      setToast({ type: 'error', message: result.error.message });
-      return;
-    }
-    setToast({ type: 'success', message: `Cupo del autor actualizado a ${result.data?.code_quota ?? quotaValue}.` });
-    setQuotaModal(null);
-    loadData();
   }
 
   const modalEditions = modal
@@ -128,43 +103,43 @@ function AdminCodeRequestsPage() {
 
   return (
     <section className="admin-page">
-      <AdminSectionHeader eyebrow="Codigos fisicos" title="Solicitudes de codigos" description="Los autores solicitan codigos; el admin genera los lotes." />
+      <AdminSectionHeader
+        eyebrow="Codigos fisicos"
+        title="Entregas de codigos"
+        description="Los autores generan sus codigos; aqui recibes una copia. Puedes acusar recibido, reportar un problema o generar mas."
+      />
       <AdminToast type={toast?.type} message={toast?.message} />
       {error && <p className="admin-error">{error.message}</p>}
       <AdminDataTable
         loading={loading}
         rows={requests}
-        emptyTitle="No hay solicitudes de codigos"
-        emptyMessage="Las solicitudes de autores apareceran aqui."
+        emptyTitle="No hay entregas de codigos"
+        emptyMessage="Cuando un autor genere codigos, la copia aparecera aqui."
         columns={[
           { key: 'author', header: 'Autor', render: (row) => row.creator_profiles?.pen_name || 'Sin autor' },
           { key: 'legend', header: 'Leyenda', render: (row) => row.legends?.title || 'Sin leyenda' },
           { key: 'edition', header: 'Edicion', render: (row) => row.physical_editions?.edition_name || row.edition_id || 'Sin edicion' },
-          { key: 'quota', header: 'Cupo autor', render: (row) => row.physical_editions?.code_quota ?? 0 },
           { key: 'quantity_requested', header: 'Cantidad' },
-          { key: 'reason', header: 'Motivo' },
           { key: 'status', header: 'Estado', render: (row) => (
             <div className="admin-stack-xs">
-              <AdminStatusBadge status={row.status || 'pending'} context="code" />
+              <AdminStatusBadge status={row.status || 'generated'} context="code" />
               {row.status === 'rejected' && row.admin_feedback && (
-                <small className="admin-muted">Motivo: {row.admin_feedback}</small>
+                <small className="admin-muted">Problema: {row.admin_feedback}</small>
               )}
             </div>
           ) },
           { key: 'created_at', header: 'Fecha', render: (row) => row.created_at ? new Date(row.created_at).toLocaleDateString() : 'Sin fecha' },
           { key: 'actions', header: 'Acciones', render: (row) => {
-            const status = row.status || 'pending';
-            if (status === 'generated') return <span className="admin-muted">Codigos generados</span>;
-            if (status === 'rejected') return <span className="admin-muted">Rechazada</span>;
-            if (status === 'cancelled') return <span className="admin-muted">Cancelada</span>;
+            const status = row.status || 'generated';
             return (
               <div className="admin-actions-row">
-                {status === 'pending' && (
-                  <Button variant="ghost" onClick={() => handleApprove(row)} disabled={processing}>Aprobar</Button>
+                {status !== 'approved' && (
+                  <Button variant="ghost" onClick={() => handleAcknowledge(row)} disabled={processing}>Recibido</Button>
                 )}
-                <Button onClick={() => openGenerateModal(row)} disabled={processing}>Generar lote</Button>
-                <Button variant="ghost" onClick={() => openQuotaModal(row)} disabled={processing}>Cupo</Button>
-                <Button variant="danger" onClick={() => openRejectModal(row)} disabled={processing}>Rechazar</Button>
+                {status !== 'rejected' && (
+                  <Button variant="danger" onClick={() => openReportModal(row)} disabled={processing}>Reportar problema</Button>
+                )}
+                <Button onClick={() => openGenerateModal(row)} disabled={processing}>Generar mas</Button>
               </div>
             );
           } },
@@ -173,9 +148,9 @@ function AdminCodeRequestsPage() {
 
       <AdminConfirmModal
         open={Boolean(modal)}
-        title="Generar lote de codigos"
-        description={modal ? `Leyenda: ${modal.legends?.title || 'Sin leyenda'} · los codigos desbloquearan esta leyenda.` : 'Se usara la funcion RPC create_code_batch.'}
-        confirmLabel="Generar lote"
+        title="Generar mas codigos"
+        description={modal ? `Leyenda: ${modal.legends?.title || 'Sin leyenda'} · los codigos desbloquearan esta leyenda.` : ''}
+        confirmLabel="Generar"
         onCancel={() => setModal(null)}
         onConfirm={handleGenerate}
         loading={processing}
@@ -191,12 +166,6 @@ function AdminCodeRequestsPage() {
               </option>
             ))}
           </select>
-          {modalEditions.length === 0 && (
-            <small className="admin-muted">
-              Esta leyenda no tiene edicion fisica. El autor debe volver a solicitar codigos
-              (se crea automaticamente) o crea la edicion antes de generar.
-            </small>
-          )}
         </label>
         <label className="field">
           <span>Cantidad</span>
@@ -214,43 +183,22 @@ function AdminCodeRequestsPage() {
 
       <AdminConfirmModal
         open={Boolean(rejectModal)}
-        title="Rechazar solicitud"
-        description={rejectModal ? `Solicitud de "${rejectModal.legends?.title || 'leyenda'}". El autor vera este motivo.` : ''}
-        confirmLabel="Rechazar solicitud"
+        title="Reportar problema"
+        description={rejectModal ? `Entrega de "${rejectModal.legends?.title || 'leyenda'}". El autor vera este mensaje.` : ''}
+        confirmLabel="Reportar"
         onCancel={() => { setRejectModal(null); setRejectFeedback(''); }}
-        onConfirm={handleReject}
+        onConfirm={handleReport}
         loading={processing}
         confirmDisabled={!rejectFeedback.trim()}
       >
         <label className="field">
-          <span>Motivo del rechazo</span>
+          <span>Que problema tiene?</span>
           <textarea
             className="textarea"
             rows={4}
             value={rejectFeedback}
             onChange={(event) => setRejectFeedback(event.target.value)}
-            placeholder="Explica por que se rechaza (el autor lo vera)."
-          />
-        </label>
-      </AdminConfirmModal>
-
-      <AdminConfirmModal
-        open={Boolean(quotaModal)}
-        title="Cupo self-service del autor"
-        description={quotaModal ? `Leyenda "${quotaModal.legends?.title || 'leyenda'}": cuantos codigos puede generar el autor por su cuenta (sin aprobacion). 0 = siempre requiere aprobacion.` : ''}
-        confirmLabel="Guardar cupo"
-        onCancel={() => setQuotaModal(null)}
-        onConfirm={handleSetQuota}
-        loading={processing}
-      >
-        <label className="field">
-          <span>Cupo de codigos (por edicion)</span>
-          <input
-            className="standalone-input"
-            type="number"
-            min="0"
-            value={quotaValue}
-            onChange={(event) => setQuotaValue(event.target.value)}
+            placeholder="Ej. los codigos no se ven bien / el prefijo esta mal / reenvia el lote."
           />
         </label>
       </AdminConfirmModal>

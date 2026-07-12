@@ -131,7 +131,6 @@ export async function getCreatorCodesOverview({ userId }) {
   const legendOptions = legends.map((legend) => {
     const edition = firstEditionByLegend.get(String(legend.id)) ?? null;
     const editionCodes = edition ? (codesByEdition.get(String(edition.id)) ?? []) : [];
-    const quota = Number(edition?.code_quota || 0);
     return {
       id: legend.id,
       title: legend.title,
@@ -139,9 +138,8 @@ export async function getCreatorCodesOverview({ userId }) {
       status: legend.status,
       editionId: edition?.id || null,
       editionName: edition?.edition_name || 'Edicion fisica',
-      quota,
       generated: editionCodes.length,
-      remainingQuota: Math.max(quota - editionCodes.length, 0),
+      redeemed: editionCodes.filter((code) => code.status === 'redeemed').length,
     };
   });
 
@@ -213,7 +211,7 @@ export async function getCreatorCodesOverview({ userId }) {
   return {
     legends: legendOptions,
     summary: {
-      remainingQuota: legendOptions.reduce((total, legend) => total + legend.remainingQuota, 0),
+      generated: codes.length,
       generatedThisMonth: codes.filter((code) => new Date(code.created_at) >= monthStart).length,
       redeemed: codes.filter((code) => code.status === 'redeemed').length,
     },

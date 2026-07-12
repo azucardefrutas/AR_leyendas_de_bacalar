@@ -7,7 +7,7 @@ const creatorItems = [
   { label: 'Mis leyendas', to: '/creator/legends', icon: 'auto_stories' },
   { label: 'Borradores', to: '/creator/drafts', icon: 'draft' },
   { label: 'Revisiones', to: '/creator/reviews', icon: 'rate_review' },
-  { label: 'Solicitar codigos', to: '/creator/code-requests', icon: 'confirmation_number' },
+  { label: 'Generar codigos', to: '/creator/code-requests', icon: 'confirmation_number' },
   { label: 'Mi perfil', to: '/creator/profile', icon: 'person' },
 ];
 

@@ -15,7 +15,7 @@ export const adminNavItems = [
   { label: 'Leyendas', to: '/admin/legends', icon: 'auto_stories' },
   { label: 'Revisiones', to: '/admin/reviews', icon: 'rate_review' },
   { label: 'Recursos', to: '/admin/assets', icon: 'perm_media' },
-  { label: 'Codigos', to: '/admin/codes', icon: 'confirmation_number' },
+  { label: 'Entregas de codigos', to: '/admin/codes', icon: 'confirmation_number' },
   { label: 'Lotes de codigos', to: '/admin/code-batches', icon: 'qr_code_2' },
   { label: 'Compras', to: '/admin/purchases', icon: 'shopping_bag' },
   { label: 'Suscripciones', to: '/admin/subscriptions', icon: 'workspace_premium' },

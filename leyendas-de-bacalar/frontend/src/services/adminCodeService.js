@@ -124,7 +124,7 @@ export async function getPhysicalEditions() {
 export async function getCodeBatches() {
   const { data: client, error: clientError } = getAdminClient();
   if (clientError) return { data: [], error: clientError };
-  const { data, error } = await client.from('code_batches').select('*, physical_editions(*)').order('created_at', { ascending: false });
+  const { data, error } = await client.from('code_batches').select('*, physical_editions(*, legends(title))').order('created_at', { ascending: false });
   return {
     data: data ?? [],
     error: error ? codeError(error, {

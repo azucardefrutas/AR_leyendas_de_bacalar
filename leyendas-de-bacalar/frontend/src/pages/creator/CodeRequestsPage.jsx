@@ -13,7 +13,7 @@ import {
 
 const EMPTY_OVERVIEW = {
   legends: [],
-  summary: { remainingQuota: 0, generatedThisMonth: 0, redeemed: 0 },
+  summary: { generated: 0, generatedThisMonth: 0, redeemed: 0 },
   history: [],
 };
 
@@ -78,9 +78,6 @@ function CodeRequestsPage() {
     [overview.legends, form.legendId],
   );
   const quantity = Number(form.quantity) || 0;
-  const canGenerateAutomatically = Boolean(
-    selectedLegend?.quota > 0 && quantity > 0 && quantity <= selectedLegend.remainingQuota,
-  );
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -132,7 +129,7 @@ function CodeRequestsPage() {
       <header className="creator-code-heading">
         <div>
           <p className="eyebrow">Ediciones fisicas</p>
-          <h1>Solicitar codigos</h1>
+          <h1>Generar codigos</h1>
           <p>Genera accesos unicos para incluir en tus libros impresos y desbloquear su version digital.</p>
         </div>
       </header>
@@ -167,7 +164,7 @@ function CodeRequestsPage() {
               </select>
               {selectedLegend && (
                 <small>
-                  {selectedLegend.editionName} · {selectedLegend.remainingQuota} codigos disponibles
+                  {selectedLegend.editionName} · {selectedLegend.generated} generados · {selectedLegend.redeemed} canjeados
                 </small>
               )}
             </label>
@@ -186,9 +183,9 @@ function CodeRequestsPage() {
                   required
                 />
               </label>
-              <span className={`creator-code-approval ${canGenerateAutomatically ? 'is-automatic' : 'is-review'}`}>
-                <AppIcon name={canGenerateAutomatically ? 'check_circle' : 'schedule'} size={18} />
-                {canGenerateAutomatically ? 'Generacion inmediata' : 'Requiere revision'}
+              <span className="creator-code-approval is-automatic">
+                <AppIcon name="check_circle" size={18} />
+                Generacion inmediata
               </span>
             </div>
 
@@ -226,7 +223,7 @@ function CodeRequestsPage() {
 
             <div className="creator-code-submit-row">
               <Button type="submit" disabled={submitting || !form.legendId || quantity < 1}>
-                {submitting ? 'Procesando...' : canGenerateAutomatically ? 'Generar codigos ahora' : 'Enviar solicitud'}
+                {submitting ? 'Generando...' : 'Generar codigos'}
               </Button>
             </div>
           </form>
@@ -235,9 +232,9 @@ function CodeRequestsPage() {
         <Card className="creator-code-summary-card">
           <div className="creator-code-summary-title">
             <div>
-              <span>Cupo disponible</span>
-              <strong>{overview.summary.remainingQuota}</strong>
-              <small>codigos disponibles</small>
+              <span>Codigos generados</span>
+              <strong>{overview.summary.generated}</strong>
+              <small>en total</small>
             </div>
             <AppIcon name="info" size={20} />
           </div>
@@ -251,7 +248,7 @@ function CodeRequestsPage() {
               <dd>{overview.summary.redeemed}</dd>
             </div>
           </dl>
-          <p>Si una solicitud supera tu cupo disponible, se enviara al administrador sin generar codigos anticipadamente.</p>
+          <p>Los codigos se generan al instante. El administrador recibe una copia y puede generar mas si se amerita.</p>
         </Card>
       </div>
 
@@ -276,7 +273,7 @@ function CodeRequestsPage() {
             </thead>
             <tbody>
               {overview.history.length === 0 ? (
-                <tr><td colSpan={5}>Aun no hay solicitudes ni lotes generados.</td></tr>
+                <tr><td colSpan={5}>Aun no has generado codigos.</td></tr>
               ) : overview.history.map((item) => {
                 const batch = item.batches?.find((candidate) => candidate.exportable);
                 return (
@@ -299,7 +296,7 @@ function CodeRequestsPage() {
                           <AppIcon name="download" size={17} />
                           {exportingBatchId === batch.id ? 'Exportando' : 'CSV'}
                         </button>
-                      ) : <span className="creator-code-no-action">Pendiente</span>}
+                      ) : <span className="creator-code-no-action">—</span>}
                     </td>
                   </tr>
                 );

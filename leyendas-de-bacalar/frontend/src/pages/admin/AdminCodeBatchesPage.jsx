@@ -6,6 +6,10 @@ import {
 } from '../../components/ui/AdminPrimitives.jsx';
 import { getAccessCodesByBatch, getCodeBatches } from '../../services/adminCodeService.js';
 
+function getLegendLabel(batch) {
+  return batch.physical_editions?.legends?.title || 'Sin leyenda';
+}
+
 function getEditionLabel(batch) {
   return batch.physical_editions?.edition_name
     || batch.physical_editions?.legends?.title
@@ -85,6 +89,7 @@ function AdminCodeBatchesPage() {
         emptyMessage="Los lotes creados por administracion apareceran aqui."
         columns={[
           { key: 'id', header: 'Lote', render: (row) => String(row.id).slice(0, 8) },
+          { key: 'legend', header: 'Leyenda', render: getLegendLabel },
           { key: 'edition', header: 'Edicion', render: getEditionLabel },
           { key: 'quantity', header: 'Cantidad' },
           { key: 'status', header: 'Estado', render: (row) => <AdminStatusBadge status={row.status || 'generated'} context="code" /> },
