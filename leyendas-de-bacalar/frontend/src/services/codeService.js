@@ -1,16 +1,28 @@
 import { getCurrentUser } from './authService.js';
 import { getSupabaseConfigError, supabase } from '../lib/supabaseClient.js';
+import { BackendApiError, redeemCodeBackend } from './backendApiService.js';
 
 function getClient() {
   if (!supabase) return { data: null, error: getSupabaseConfigError() };
   return { data: supabase, error: null };
 }
 
+// El canje se procesa en el BACKEND (normaliza, rate-limit, valida y canjea). El frontend
+// solo envia el codigo. Si el backend esta caido/no configurado, cae al RPC directo para
+// no romper el flujo (la DB tambien normaliza y valida).
 export async function redeemCode(code) {
-  const { data: client, error: clientError } = getClient();
-  if (clientError) return { data: null, error: clientError };
-
-  return client.rpc('redeem_access_code', { p_code: code });
+  try {
+    const data = await redeemCodeBackend(code);
+    return { data, error: null };
+  } catch (err) {
+    const backendUnreachable = err instanceof BackendApiError && err.status === 0;
+    if (backendUnreachable) {
+      const { data: client, error: clientError } = getClient();
+      if (clientError) return { data: null, error: clientError };
+      return client.rpc('redeem_access_code', { p_code: code });
+    }
+    return { data: null, error: err };
+  }
 }
 
 export async function getMyCodeRedemptions() {

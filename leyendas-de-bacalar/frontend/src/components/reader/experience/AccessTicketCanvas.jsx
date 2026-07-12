@@ -117,8 +117,10 @@ function AccessTicketCanvas({ onValidate, onSuccess }) {
 
     function onInput(e) {
       if (S.appState === 'LOADING' || S.appState === 'SUCCESS' || S.appState === 'RESETTING') return;
-      let val = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
-      if (val.length > 4) val = `${val.substring(0, 4)}-${val.substring(4, 8)}`;
+      // Sin reformatear: el codigo real es PREFIJO-XXXX-XXXXX (largo variable). Solo
+      // dejamos mayusculas, alfanumericos y guiones; el backend normaliza y valida.
+      let val = e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '');
+      if (val.length > 24) val = val.slice(0, 24);
       S.currentCode = val;
       e.target.value = val;
       if (S.appState === 'ERROR') resetTicket();
@@ -336,33 +338,31 @@ function AccessTicketCanvas({ onValidate, onSuccess }) {
 
       if (S.currentCode.length === 0 && !S.isFocused) {
         ctx.fillStyle = 'rgba(255,255,255,0.4)';
-        ctx.font = '500 18px "Space Mono", monospace';
+        ctx.font = '500 16px "Space Mono", monospace';
         ctx.letterSpacing = '1px';
         ctx.textAlign = 'center';
-        ctx.fillText('INGRESA LA CLAVE', x + w / 2, textY);
+        ctx.fillText('INGRESA TU CODIGO', x + w / 2, textY);
       } else {
-        ctx.font = 'bold 32px "Space Mono", monospace';
-        ctx.letterSpacing = '7px';
-        let display = S.currentCode;
-        while (display.length < 9) display += display.length === 4 ? '-' : '_';
-        ctx.textAlign = 'left';
-        const total = ctx.measureText(display).width;
-        const startX = x + w / 2 - total / 2 + 3.5;
-        let cx = startX;
-        for (let i = 0; i < display.length; i += 1) {
-          const ch = display[i];
-          if (ch === '_') ctx.fillStyle = 'rgba(255,255,255,0.15)';
-          else if (ch === '-') ctx.fillStyle = 'rgba(34, 211, 238, 0.6)';
-          else { ctx.shadowColor = 'rgba(34, 211, 238, 0.6)'; ctx.shadowBlur = 10; ctx.fillStyle = '#ffffff'; }
-          ctx.fillText(ch, cx, textY);
-          ctx.shadowBlur = 0;
-          cx += ctx.measureText(ch).width;
+        // Muestra el codigo tal cual (largo variable). Se auto-ajusta el tamano para que
+        // un codigo completo (PREFIJO-XXXX-XXXXX) quepa en el ticket.
+        const boxW = w - 96;
+        let fontSize = 30;
+        ctx.letterSpacing = '3px';
+        ctx.font = `bold ${fontSize}px "Space Mono", monospace`;
+        while (ctx.measureText(S.currentCode).width > boxW && fontSize > 12) {
+          fontSize -= 1;
+          ctx.font = `bold ${fontSize}px "Space Mono", monospace`;
         }
-        if (S.isFocused && S.appState === 'IDLE' && Math.floor(Date.now() / 500) % 2 === 0 && S.currentCode.length < 9) {
-          let so = ctx.measureText(S.currentCode).width;
-          if (S.currentCode.length === 4) so += ctx.measureText('-').width;
+        ctx.textAlign = 'center';
+        ctx.shadowColor = 'rgba(34, 211, 238, 0.6)';
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(S.currentCode, x + w / 2, textY);
+        ctx.shadowBlur = 0;
+        if (S.isFocused && S.appState === 'IDLE' && Math.floor(Date.now() / 500) % 2 === 0) {
+          const half = ctx.measureText(S.currentCode).width / 2;
           ctx.fillStyle = colors.ticketAccent;
-          ctx.fillRect(startX + so - 2, textY - 24, 3, 30);
+          ctx.fillRect(x + w / 2 + half + 4, textY - fontSize * 0.72, 3, fontSize * 0.9);
         }
       }
 
@@ -553,7 +553,7 @@ function AccessTicketCanvas({ onValidate, onSuccess }) {
         ref={inputRef}
         className="rx-ticket-hidden-input"
         type="text"
-        maxLength={9}
+        maxLength={24}
         autoComplete="off"
         autoCorrect="off"
         spellCheck="false"

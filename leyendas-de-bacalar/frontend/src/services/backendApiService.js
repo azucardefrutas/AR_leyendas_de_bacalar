@@ -338,6 +338,16 @@ export function proposeAiPagesFromDocument(sourceDocumentId) {
   });
 }
 
+// Canje de codigo fisico -> digital. Todo el procesamiento (normalizacion, rate-limit,
+// validacion y canje) ocurre en el backend; aqui solo enviamos el codigo tal cual.
+export function redeemCodeBackend(code) {
+  return requestBackend('/api/v1/reader/codes/redeem', {
+    method: 'POST',
+    operation: 'redeem-code',
+    body: { code },
+  });
+}
+
 export function getReaderLegendReadingContext(legendId) {
   return requestBackend(`/api/v1/reader/legends/${encodeURIComponent(legendId)}/reading-context`, {
     operation: 'reader-reading-context',

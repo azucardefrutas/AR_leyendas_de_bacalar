@@ -2,6 +2,7 @@ import { Router } from 'express';
 
 import adminRoutes from './admin.routes.js';
 import authRoutes from './auth.routes.js';
+import codesRoutes from './codes.routes.js';
 import creatorRoutes from './creator.routes.js';
 import creatorLegendsRoutes from './creatorLegends.routes.js';
 import documentsRoutes from './documents.routes.js';
@@ -21,6 +22,7 @@ router.use('/api/v1/legends', readerBundleRoutes);
 router.use('/api/v1/legends', legendHotspotsRoutes);
 router.use('/api/v1/legends', editorContentRoutes);
 router.use('/api/v1/reader/legends', readerLegendsRoutes);
+router.use('/api/v1/reader/codes', codesRoutes);
 router.use('/api/v1/admin', adminRoutes);
 router.use('/api/v1/creator', creatorRoutes);
 
