@@ -143,6 +143,34 @@ export async function requestBackend(path, options = {}) {
   return data;
 }
 
+async function requestBackendFile(path, { operation = 'backend-file' } = {}) {
+  const accessToken = await getAccessToken();
+  const url = buildBackendUrl(path);
+  let response;
+
+  try {
+    response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'text/csv',
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+  } catch (error) {
+    logBackendError(operation, { url, method: 'GET', status: 0, error: error?.message || error });
+    throw new BackendApiError('No se pudo conectar con el backend. Verifica que este activo.', { status: 0 });
+  }
+
+  if (!response.ok) {
+    const data = await parseResponse(response);
+    const message = data?.error || data?.message || STATUS_MESSAGES[response.status] || 'No pudimos descargar el archivo.';
+    logBackendError(operation, { url, method: 'GET', status: response.status, error: message });
+    throw new BackendApiError(message, { status: response.status, data });
+  }
+
+  return response.blob();
+}
+
 export function getBackendHealth() {
   return requestBackend('/health', { authenticated: false });
 }
@@ -157,6 +185,35 @@ export function getBackendRoles() {
 
 export function checkBackendAdminAccess() {
   return requestBackend('/api/v1/auth/admin-check');
+}
+
+export function getCreatorCodesOverview() {
+  return requestBackend('/api/v1/creator/codes/overview', {
+    operation: 'creator-codes-overview',
+  });
+}
+
+export function generateCreatorCodes(payload) {
+  return requestBackend('/api/v1/creator/codes', {
+    method: 'POST',
+    operation: 'generate-creator-codes',
+    body: payload,
+  });
+}
+
+export async function downloadCreatorCodeBatchCsv(batchId, filename = 'codigos.csv') {
+  const blob = await requestBackendFile(
+    `/api/v1/creator/code-batches/${encodeURIComponent(batchId)}/export.csv`,
+    { operation: 'export-creator-code-batch' },
+  );
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 export function getLegendDocumentContext(legendId) {

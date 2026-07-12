@@ -1,295 +1,313 @@
 import React, { useEffect, useMemo, useState } from 'react';
+
+import AppIcon from '../../components/ui/AppIcon.jsx';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
 import StatusBadge from '../../shared/status/StatusBadge.jsx';
 import {
-  getMyCodeRequests,
-  getMyLegends,
-  selfGenerateCodes,
-} from '../../services/creatorService.js';
+  downloadCreatorCodeBatchCsv,
+  generateCreatorCodes,
+  getCreatorCodesOverview,
+} from '../../services/backendApiService.js';
 
-function getRequestQuantity(request) {
-  return request.quantity_requested ?? request.quantity ?? 0;
-}
+const EMPTY_OVERVIEW = {
+  legends: [],
+  summary: { remainingQuota: 0, generatedThisMonth: 0, redeemed: 0 },
+  history: [],
+};
 
-function getVisibleCodes(requests = []) {
-  return requests.flatMap((request) =>
-    (request.accessCodes || [])
-      .filter((code) => code.display_code)
-      .map((code) => ({
-        ...code,
-        request,
-      }))
-  );
-}
-
-function escapeCsv(value = '') {
-  return `"${String(value ?? '').replaceAll('"', '""')}"`;
-}
-
-function downloadCsv(filename, rows = []) {
-  if (!rows.length) return;
-  const csv = rows.map((row) => row.map(escapeCsv).join(',')).join('\n');
-  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
+function formatDate(value) {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('es-MX', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(value));
 }
 
 function CodeRequestsPage() {
-  const [legends, setLegends] = useState([]);
-  const [requests, setRequests] = useState([]);
+  const [overview, setOverview] = useState(EMPTY_OVERVIEW);
   const [form, setForm] = useState({ legendId: '', quantity: 25, prefix: '', reason: '' });
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState(null);
-  const [message, setMessage] = useState(null);
+  const [exportingBatchId, setExportingBatchId] = useState('');
+  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
 
-  async function reloadRequests() {
-    const requestsResult = await getMyCodeRequests();
-    setRequests(requestsResult.data ?? []);
-    if (requestsResult.error) setError(requestsResult.error);
+  async function loadOverview({ preserveLegend = true } = {}) {
+    const result = await getCreatorCodesOverview();
+    const nextOverview = {
+      legends: result?.legends ?? [],
+      summary: result?.summary ?? EMPTY_OVERVIEW.summary,
+      history: result?.history ?? [],
+    };
+    setOverview(nextOverview);
+    setForm((current) => ({
+      ...current,
+      legendId: preserveLegend && nextOverview.legends.some((legend) => legend.id === current.legendId)
+        ? current.legendId
+        : nextOverview.legends[0]?.id || '',
+    }));
   }
 
   useEffect(() => {
-    async function loadData() {
-      const [legendsResult, requestsResult] = await Promise.all([
-        getMyLegends(),
-        getMyCodeRequests(),
-      ]);
-
-      setLegends(legendsResult.data ?? []);
-      setRequests(requestsResult.data ?? []);
-      setForm((current) => ({ ...current, legendId: legendsResult.data?.[0]?.id || '' }));
-      setError(legendsResult.error || requestsResult.error);
-      setLoading(false);
-    }
-
-    loadData();
+    let mounted = true;
+    getCreatorCodesOverview()
+      .then((result) => {
+        if (!mounted) return;
+        const nextOverview = {
+          legends: result?.legends ?? [],
+          summary: result?.summary ?? EMPTY_OVERVIEW.summary,
+          history: result?.history ?? [],
+        };
+        setOverview(nextOverview);
+        setForm((current) => ({ ...current, legendId: nextOverview.legends[0]?.id || '' }));
+      })
+      .catch((loadError) => {
+        if (mounted) setError(loadError.message || 'No pudimos cargar la gestion de codigos.');
+      })
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => { mounted = false; };
   }, []);
+
+  const selectedLegend = useMemo(
+    () => overview.legends.find((legend) => legend.id === form.legendId) || null,
+    [overview.legends, form.legendId],
+  );
+  const quantity = Number(form.quantity) || 0;
+  const canGenerateAutomatically = Boolean(
+    selectedLegend?.quota > 0 && quantity > 0 && quantity <= selectedLegend.remainingQuota,
+  );
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
   }
 
-  const visibleCodes = useMemo(() => getVisibleCodes(requests), [requests]);
-
-  function exportRequestCodes(request) {
-    const codes = getVisibleCodes([request]);
-    downloadCsv(`codigos-${request.legends?.slug || request.id}.csv`, [
-      ['codigo', 'estado', 'leyenda', 'solicitud', 'lote'],
-      ...codes.map((code) => [
-        code.display_code,
-        code.status || 'unused',
-        request.legends?.title || '',
-        request.id,
-        code.batch_id || '',
-      ]),
-    ]);
-  }
-
-  function exportAllCodes() {
-    downloadCsv('codigos-del-autor.csv', [
-      ['codigo', 'estado', 'leyenda', 'solicitud', 'lote'],
-      ...visibleCodes.map((code) => [
-        code.display_code,
-        code.status || 'unused',
-        code.request?.legends?.title || '',
-        code.request?.id || '',
-        code.batch_id || '',
-      ]),
-    ]);
-  }
-
   async function handleSubmit(event) {
     event.preventDefault();
     setSubmitting(true);
-    setError(null);
-    setMessage(null);
-
-    const { data, error: submitError } = await selfGenerateCodes(
-      form.legendId,
-      form.quantity,
-      form.prefix,
-      form.reason,
-    );
-
-    setSubmitting(false);
-
-    if (submitError) {
-      setError(submitError);
-      return;
-    }
-
-    await reloadRequests();
-    setForm((current) => ({ ...current, quantity: 25, prefix: '', reason: '' }));
-
-    if (data?.outcome === 'generated') {
-      const remaining = Number.isFinite(data.remaining_quota) ? ` Cupo restante: ${data.remaining_quota}.` : '';
-      setMessage(`${data.message || 'Codigos generados.'}${remaining} Exportalos abajo.`);
-    } else {
-      setMessage(data?.message || 'Solicitud enviada. Un administrador la revisara.');
+    setError('');
+    setMessage('');
+    try {
+      const response = await generateCreatorCodes({
+        legendId: form.legendId,
+        quantity,
+        prefix: form.prefix,
+        reason: form.reason,
+      });
+      const result = response?.result;
+      await loadOverview();
+      setForm((current) => ({ ...current, quantity: 25, prefix: '', reason: '' }));
+      setMessage(result?.message || (result?.outcome === 'generated'
+        ? 'Codigos generados. Ya puedes exportar el lote.'
+        : 'Solicitud enviada para revision.'));
+    } catch (submitError) {
+      setError(submitError.message || 'No se pudieron generar los codigos.');
+    } finally {
+      setSubmitting(false);
     }
   }
 
-  if (loading) return <LoadingState message="Cargando solicitudes..." />;
+  async function handleExport(item) {
+    const batch = item.batches?.find((candidate) => candidate.exportable);
+    if (!batch) return;
+    setExportingBatchId(batch.id);
+    setError('');
+    try {
+      await downloadCreatorCodeBatchCsv(batch.id, `codigos-${item.legendTitle || 'leyenda'}.csv`);
+    } catch (exportError) {
+      setError(exportError.message || 'No se pudo exportar el lote.');
+    } finally {
+      setExportingBatchId('');
+    }
+  }
+
+  if (loading) return <LoadingState message="Cargando gestion de codigos..." />;
 
   return (
-    <section className="page-stack creator-panel">
-      <div>
-        <p className="eyebrow">Edicion fisica</p>
-        <h1>Solicitudes de codigos</h1>
-        <p className="state-message">Genera codigos para tus ediciones fisicas. Si tienes cupo asignado, se crean al instante; si no, tu solicitud pasa a revision del administrador.</p>
-      </div>
-
-      {error && <p className="error-message">{error.message}</p>}
-      {message && <p className="success-message">{message}</p>}
-
-      <Card>
-        <form className="form-grid" onSubmit={handleSubmit}>
-          <label className="field" htmlFor="code-legend">
-            <span>Leyenda propia</span>
-            <select
-              id="code-legend"
-              className="select"
-              value={form.legendId}
-              onChange={(event) => updateField('legendId', event.target.value)}
-              required
-            >
-              {legends.length === 0 && <option value="">Sin leyendas disponibles</option>}
-              {legends.map((legend) => <option key={legend.id} value={legend.id}>{legend.title}</option>)}
-            </select>
-          </label>
-          <label className="field" htmlFor="code-quantity">
-            <span>Cantidad</span>
-            <input
-              id="code-quantity"
-              className="input standalone-input"
-              type="number"
-              min="1"
-              value={form.quantity}
-              onChange={(event) => updateField('quantity', event.target.value)}
-              required
-            />
-          </label>
-          <label className="field form-span-2" htmlFor="code-prefix">
-            <span>Prefijo (opcional)</span>
-            <input
-              id="code-prefix"
-              className="input standalone-input"
-              value={form.prefix}
-              onChange={(event) => updateField('prefix', event.target.value)}
-              placeholder="Ej. BRUJA (2-10 letras/numeros). Si lo dejas vacio se usa BAC."
-              maxLength={10}
-            />
-          </label>
-          <label className="field form-span-2" htmlFor="code-reason">
-            <span>Razon</span>
-            <textarea
-              id="code-reason"
-              className="textarea"
-              rows={4}
-              value={form.reason}
-              onChange={(event) => updateField('reason', event.target.value)}
-              placeholder="Ejemplo: primera edicion fisica para presentacion escolar."
-              required
-            />
-          </label>
-          <div className="form-actions form-span-2">
-            <Button type="submit" disabled={submitting || legends.length === 0}>
-              {submitting ? 'Procesando...' : 'Generar / solicitar codigos'}
-            </Button>
-          </div>
-        </form>
-      </Card>
-
-      <div className="page-heading-row">
+    <section className="page-stack creator-panel creator-code-console">
+      <header className="creator-code-heading">
         <div>
-          <p className="eyebrow">Historial</p>
-          <h2>Solicitudes y codigos generados</h2>
+          <p className="eyebrow">Ediciones fisicas</p>
+          <h1>Solicitar codigos</h1>
+          <p>Genera accesos unicos para incluir en tus libros impresos y desbloquear su version digital.</p>
         </div>
-        <Button type="button" variant="ghost" onClick={exportAllCodes} disabled={visibleCodes.length === 0}>
-          Exportar codigos
-        </Button>
-      </div>
+      </header>
 
-      <div className="admin-table-wrap">
-        <table className="admin-table">
-          <thead>
-            <tr>
-              <th>Leyenda</th>
-              <th>Cantidad</th>
-              <th>Estado</th>
-              <th>Codigos visibles</th>
-              <th>Motivo</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
-            {requests.length === 0 ? (
-              <tr>
-                <td colSpan={6}>Aun no has solicitado codigos para ediciones fisicas.</td>
-              </tr>
-            ) : requests.map((request) => {
-              const requestCodes = getVisibleCodes([request]);
-              return (
-                <tr key={request.id}>
-                  <td>{request.legends?.title || 'Leyenda'}</td>
-                  <td>{getRequestQuantity(request)}</td>
-                  <td>
-                    <div className="code-status-cell">
-                      <StatusBadge status={request.status || 'pending'} context="code" size="small" />
-                      {request.status === 'rejected' && request.admin_feedback && (
-                        <small className="code-status-feedback">Motivo: {request.admin_feedback}</small>
-                      )}
-                    </div>
-                  </td>
-                  <td>{requestCodes.length}</td>
-                  <td>{request.reason || '-'}</td>
-                  <td>
-                    <Button type="button" variant="ghost" onClick={() => exportRequestCodes(request)} disabled={requestCodes.length === 0}>
-                      Exportar
-                    </Button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      {error && <p className="error-message" role="alert">{error}</p>}
+      {message && <p className="success-message" role="status">{message}</p>}
 
-      {visibleCodes.length > 0 && (
-        <Card>
-          <h2>Codigos disponibles</h2>
-          <div className="admin-table-wrap">
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th>Codigo</th>
-                  <th>Leyenda</th>
-                  <th>Estado</th>
-                  <th>Lote</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visibleCodes.map((code) => (
-                  <tr key={code.id}>
-                    <td><strong>{code.display_code}</strong></td>
-                    <td>{code.request?.legends?.title || 'Leyenda'}</td>
-                    <td><StatusBadge status={code.status || 'unused'} context="code" size="small" /></td>
-                    <td>{String(code.batch_id || '').slice(0, 8)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      <div className="creator-code-main-grid">
+        <Card className="creator-code-generation-card">
+          <div className="creator-code-card-title">
+            <span className="creator-code-title-icon"><AppIcon name="key" size={20} /></span>
+            <div>
+              <h2>Nueva generacion de codigos</h2>
+              <p>Los lectores usaran cada codigo una sola vez para activar la leyenda digital.</p>
+            </div>
           </div>
-        </Card>
-      )}
 
+          <form className="creator-code-form" onSubmit={handleSubmit}>
+            <label className="field" htmlFor="code-legend">
+              <span>Obra o leyenda a vincular</span>
+              <select
+                id="code-legend"
+                className="select"
+                value={form.legendId}
+                onChange={(event) => updateField('legendId', event.target.value)}
+                required
+              >
+                {overview.legends.length === 0 && <option value="">Sin leyendas disponibles</option>}
+                {overview.legends.map((legend) => (
+                  <option key={legend.id} value={legend.id}>{legend.title}</option>
+                ))}
+              </select>
+              {selectedLegend && (
+                <small>
+                  {selectedLegend.editionName} · {selectedLegend.remainingQuota} codigos disponibles
+                </small>
+              )}
+            </label>
+
+            <div className="creator-code-quantity-row">
+              <label className="field" htmlFor="code-quantity">
+                <span>Cantidad de codigos</span>
+                <input
+                  id="code-quantity"
+                  className="input standalone-input"
+                  type="number"
+                  min="1"
+                  max="500"
+                  value={form.quantity}
+                  onChange={(event) => updateField('quantity', event.target.value)}
+                  required
+                />
+              </label>
+              <span className={`creator-code-approval ${canGenerateAutomatically ? 'is-automatic' : 'is-review'}`}>
+                <AppIcon name={canGenerateAutomatically ? 'check_circle' : 'schedule'} size={18} />
+                {canGenerateAutomatically ? 'Generacion inmediata' : 'Requiere revision'}
+              </span>
+            </div>
+
+            <details className="creator-code-advanced">
+              <summary>Opciones avanzadas</summary>
+              <div className="creator-code-advanced-fields">
+                <label className="field" htmlFor="code-prefix">
+                  <span>Prefijo personalizado</span>
+                  <input
+                    id="code-prefix"
+                    className="input standalone-input"
+                    value={form.prefix}
+                    onChange={(event) => updateField('prefix', event.target.value)}
+                    placeholder="Ej. BAC"
+                    minLength={2}
+                    maxLength={10}
+                    pattern="[A-Za-z0-9]*"
+                  />
+                  <small>Entre 2 y 10 letras o numeros. Si queda vacio se usara BAC.</small>
+                </label>
+                <label className="field" htmlFor="code-reason">
+                  <span>Motivo o edicion (opcional)</span>
+                  <textarea
+                    id="code-reason"
+                    className="textarea"
+                    rows={3}
+                    maxLength={500}
+                    value={form.reason}
+                    onChange={(event) => updateField('reason', event.target.value)}
+                    placeholder="Ej. Primera edicion para presentacion escolar."
+                  />
+                </label>
+              </div>
+            </details>
+
+            <div className="creator-code-submit-row">
+              <Button type="submit" disabled={submitting || !form.legendId || quantity < 1}>
+                {submitting ? 'Procesando...' : canGenerateAutomatically ? 'Generar codigos ahora' : 'Enviar solicitud'}
+              </Button>
+            </div>
+          </form>
+        </Card>
+
+        <Card className="creator-code-summary-card">
+          <div className="creator-code-summary-title">
+            <div>
+              <span>Cupo disponible</span>
+              <strong>{overview.summary.remainingQuota}</strong>
+              <small>codigos disponibles</small>
+            </div>
+            <AppIcon name="info" size={20} />
+          </div>
+          <dl className="creator-code-metrics">
+            <div>
+              <dt>Generados este mes</dt>
+              <dd>{overview.summary.generatedThisMonth}</dd>
+            </div>
+            <div>
+              <dt>Lectores que han canjeado</dt>
+              <dd>{overview.summary.redeemed}</dd>
+            </div>
+          </dl>
+          <p>Si una solicitud supera tu cupo disponible, se enviara al administrador sin generar codigos anticipadamente.</p>
+        </Card>
+      </div>
+
+      <Card className="creator-code-history-card">
+        <div className="creator-code-history-heading">
+          <div>
+            <p className="eyebrow">Control de lotes</p>
+            <h2>Historial reciente</h2>
+          </div>
+          <span>{overview.history.length} registros</span>
+        </div>
+        <div className="admin-table-wrap">
+          <table className="admin-table creator-code-history-table">
+            <thead>
+              <tr>
+                <th>Obra</th>
+                <th>Cantidad</th>
+                <th>Estado</th>
+                <th>Fecha</th>
+                <th>Accion</th>
+              </tr>
+            </thead>
+            <tbody>
+              {overview.history.length === 0 ? (
+                <tr><td colSpan={5}>Aun no hay solicitudes ni lotes generados.</td></tr>
+              ) : overview.history.map((item) => {
+                const batch = item.batches?.find((candidate) => candidate.exportable);
+                return (
+                  <tr key={item.id}>
+                    <td>
+                      <strong>{item.legendTitle}</strong>
+                      {item.adminFeedback && <small>{item.adminFeedback}</small>}
+                    </td>
+                    <td>{item.generatedCount || item.quantity}</td>
+                    <td><StatusBadge status={item.status || 'pending'} context="code" size="small" /></td>
+                    <td>{formatDate(item.createdAt)}</td>
+                    <td>
+                      {batch ? (
+                        <button
+                          type="button"
+                          className="creator-code-export-button"
+                          onClick={() => handleExport(item)}
+                          disabled={exportingBatchId === batch.id}
+                        >
+                          <AppIcon name="download" size={17} />
+                          {exportingBatchId === batch.id ? 'Exportando' : 'CSV'}
+                        </button>
+                      ) : <span className="creator-code-no-action">Pendiente</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </Card>
     </section>
   );
 }

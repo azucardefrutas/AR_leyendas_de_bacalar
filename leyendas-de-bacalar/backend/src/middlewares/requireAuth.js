@@ -34,6 +34,10 @@ export const requireAuth = async (req, res, next) => {
       app_metadata: user.app_metadata,
       user_metadata: user.user_metadata,
     };
+    // Kept only for the lifetime of this request. Services that must preserve
+    // auth.uid() in a database RPC can use the original user JWT without ever
+    // exposing it in responses or logs.
+    req.accessToken = token;
 
     return next();
   } catch {
