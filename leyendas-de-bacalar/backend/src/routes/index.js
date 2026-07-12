@@ -9,6 +9,7 @@ import documentsRoutes from './documents.routes.js';
 import editorContentRoutes from './editorContent.routes.js';
 import healthRoutes from './health.routes.js';
 import legendHotspotsRoutes from './legendHotspots.routes.js';
+import mobileRoutes from './mobile.routes.js';
 import readerBundleRoutes from './readerBundle.routes.js';
 import readerLegendsRoutes from './readerLegends.routes.js';
 
@@ -23,6 +24,7 @@ router.use('/api/v1/legends', legendHotspotsRoutes);
 router.use('/api/v1/legends', editorContentRoutes);
 router.use('/api/v1/reader/legends', readerLegendsRoutes);
 router.use('/api/v1/reader/codes', codesRoutes);
+router.use('/api/v1/mobile', mobileRoutes);
 router.use('/api/v1/admin', adminRoutes);
 router.use('/api/v1/creator', creatorRoutes);
 
