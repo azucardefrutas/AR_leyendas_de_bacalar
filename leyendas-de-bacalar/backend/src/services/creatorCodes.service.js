@@ -243,7 +243,11 @@ export async function generateCreatorCodes({ userId, accessToken, payload }) {
 }
 
 function escapeCsv(value = '') {
-  return `"${String(value ?? '').replaceAll('"', '""')}"`;
+  let str = String(value ?? '');
+  // Anti CSV-injection: neutraliza formulas de hoja de calculo si la celda empieza con
+  // =, +, -, @ (o tab/CR). El titulo de la leyenda lo controla el autor.
+  if (/^[=+\-@\t\r]/.test(str)) str = `'${str}`;
+  return `"${str.replaceAll('"', '""')}"`;
 }
 
 export async function exportCreatorCodeBatchCsv({ userId, batchId }) {

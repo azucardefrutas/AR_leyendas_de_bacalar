@@ -22,7 +22,10 @@ function getVisibleCode(code) {
 }
 
 function escapeCsv(value = '') {
-  return `"${String(value).replaceAll('"', '""')}"`;
+  let str = String(value ?? '');
+  // Anti CSV-injection: neutraliza formulas si la celda empieza con =, +, -, @ (o tab/CR).
+  if (/^[=+\-@\t\r]/.test(str)) str = `'${str}`;
+  return `"${str.replaceAll('"', '""')}"`;
 }
 
 function AdminCodeBatchesPage() {
