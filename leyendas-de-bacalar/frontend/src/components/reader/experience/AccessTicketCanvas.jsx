@@ -271,6 +271,42 @@ function AccessTicketCanvas({ onValidate, onSuccess }) {
       ctx.restore();
     }
 
+    // Boton reutilizable: pill con gradiente cian->teal, brillo superior, icono + texto.
+    function paintButton(active, label, iconType) {
+      const b = ui.button;
+      ctx.globalAlpha = active ? 1 : 0.4;
+
+      const bg = ctx.createLinearGradient(b.x, b.y, b.x, b.y + b.h);
+      if (S.hoverButton && active) { bg.addColorStop(0, '#fef08a'); bg.addColorStop(1, '#eab308'); }
+      else { bg.addColorStop(0, '#fde047'); bg.addColorStop(1, '#f59e0b'); }
+
+      ctx.save();
+      if (active) { ctx.shadowColor = 'rgba(250, 204, 21, 0.5)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 6; }
+      ctx.fillStyle = bg;
+      roundRect(b.x, b.y, b.w, b.h, b.radius);
+      ctx.fill();
+      ctx.restore();
+
+      // Brillo superior (glass)
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+      roundRect(b.x + 4, b.y + 4, b.w - 8, b.h * 0.42, Math.max(6, b.radius - 6));
+      ctx.fill();
+
+      const ink = '#3b2600';
+      ctx.font = 'bold 15px Inter, sans-serif';
+      const tw = ctx.measureText(label).width;
+      const gx = canvasWidth / 2 - (tw + 26) / 2;
+      if (iconType === 'retry') drawRetryIcon(gx + 9, b.y + b.h / 2, 9, ink);
+      else drawCheckIcon(gx + 8, b.y + b.h / 2, 8, ink);
+      ctx.fillStyle = ink;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, gx + 26, b.y + b.h / 2);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.globalAlpha = 1;
+    }
+
     function updatePhysics() {
       if (S.appState === 'SUCCESS') {
         if (S.stampScale > 1) S.stampScale -= (S.stampScale - 1) * 0.08;
@@ -522,20 +558,10 @@ function AccessTicketCanvas({ onValidate, onSuccess }) {
         ctx.globalAlpha = 1;
 
         // Boton Reintentar (icono de flecha circular).
-        ui.button.w = 170; ui.button.h = 48;
+        ui.button.w = 176; ui.button.h = 50;
         ui.button.x = canvasWidth / 2 - ui.button.w / 2;
-        ui.button.y = cy + 16;
-        ctx.fillStyle = S.hoverButton ? colors.btnBgHover : colors.btnBg;
-        roundRect(ui.button.x, ui.button.y, ui.button.w, ui.button.h, ui.button.radius); ctx.fill();
-        const rLabel = 'Reintentar';
-        ctx.font = 'bold 15px Inter, sans-serif';
-        const rtw = ctx.measureText(rLabel).width;
-        const rgx = canvasWidth / 2 - (rtw + 28) / 2;
-        drawRetryIcon(rgx + 9, ui.button.y + ui.button.h / 2, 9, colors.btnText);
-        ctx.fillStyle = colors.btnText;
-        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        ctx.fillText(rLabel, rgx + 28, ui.button.y + ui.button.h / 2);
-        ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+        ui.button.y = cy + 14;
+        paintButton(true, 'Reintentar', 'retry');
       } else if (S.appState === 'SUCCESS') {
         ctx.fillStyle = colors.success;
         ctx.font = 'bold 18px Inter, sans-serif';
@@ -560,20 +586,7 @@ function AccessTicketCanvas({ onValidate, onSuccess }) {
           ctx.textBaseline = 'alphabetic';
         } else {
           const active = S.currentCode.length > 0;
-          ctx.globalAlpha = active ? 1 : 0.35;
-          ctx.fillStyle = (S.hoverButton && active) ? colors.btnBgHover : colors.btnBg;
-          roundRect(ui.button.x, ui.button.y, ui.button.w, ui.button.h, ui.button.radius); ctx.fill();
-          // Icono de aceptar (check) + etiqueta.
-          const label = 'Revelar secreto';
-          ctx.font = 'bold 15px Inter, sans-serif';
-          const tw = ctx.measureText(label).width;
-          const gx = canvasWidth / 2 - (tw + 28) / 2;
-          drawCheckIcon(gx + 8, ui.button.y + ui.button.h / 2, 8, colors.btnText);
-          ctx.fillStyle = colors.btnText;
-          ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-          ctx.fillText(label, gx + 26, ui.button.y + ui.button.h / 2);
-          ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-          ctx.globalAlpha = 1;
+          paintButton(active, 'Canjear codigo', 'check');
         }
       }
     }
