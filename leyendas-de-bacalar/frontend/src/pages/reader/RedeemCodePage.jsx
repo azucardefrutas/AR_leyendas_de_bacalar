@@ -8,7 +8,7 @@ import { formatDate } from '../../utils/formatters.js';
 
 const TIPS = [
   { id: 'where', label: '¿Dónde está mi código?', text: 'Viene impreso dentro de tu edición física de Leyendas de Bacalar, normalmente en la primera o última página.' },
-  { id: 'format', label: 'Formato del código', text: 'Tiene el formato PREFIJO-XXXX-XXXXX (por ejemplo PRINCI-WCFB-5D45T). No distingue mayúsculas de minúsculas ni espacios.' },
+  { id: 'format', label: 'Formato del código', text: 'Tiene el formato PREFIJO-XXXX-XXXXX (por ejemplo PRINCI-WCFB-5D45T). No distingue mayúsculas de minúsculas, y los guiones y espacios son opcionales.' },
   { id: 'used', label: '¿Ya lo canjeé?', text: 'Cada código se activa una sola vez. Si ya lo usaste, la leyenda ya está desbloqueada en tu biblioteca.' },
 ];
 

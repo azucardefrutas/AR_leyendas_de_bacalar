@@ -89,10 +89,13 @@ function AccessTicketCanvas({ onValidate, onSuccess }) {
           S.isFocused = false;
         }
       }
-      if ((S.appState === 'IDLE' || S.appState === 'ERROR') && S.currentCode.length > 0) {
-        if (x >= ui.button.x && x <= ui.button.x + ui.button.w && y >= ui.button.y && y <= ui.button.y + ui.button.h) {
-          startValidation();
-        }
+      const inButton = ui.button.w > 0
+        && x >= ui.button.x && x <= ui.button.x + ui.button.w
+        && y >= ui.button.y && y <= ui.button.y + ui.button.h;
+      if (S.appState === 'ERROR' && inButton) {
+        resetForRetry();
+      } else if (S.appState === 'IDLE' && S.currentCode.length > 0 && inButton) {
+        startValidation();
       }
       if (S.appState === 'SUCCESS') {
         S.appState = 'RESETTING';
@@ -108,7 +111,7 @@ function AccessTicketCanvas({ onValidate, onSuccess }) {
       const y = e.clientY - rect.top;
       const overBtn = x >= ui.button.x && x <= ui.button.x + ui.button.w && y >= ui.button.y && y <= ui.button.y + ui.button.h;
       S.hoverButton = overBtn;
-      if (overBtn && S.currentCode.length > 0) canvas.style.cursor = 'pointer';
+      if (overBtn && (S.currentCode.length > 0 || S.appState === 'ERROR')) canvas.style.cursor = 'pointer';
       else if (y < ui.button.y - 20 && S.appState === 'IDLE') canvas.style.cursor = 'text';
       else canvas.style.cursor = 'default';
     }
@@ -146,7 +149,7 @@ function AccessTicketCanvas({ onValidate, onSuccess }) {
         result = { error: err };
       }
       if (result.error) {
-        S.errorMsg = result.error.message || 'Código inválido.';
+        S.errorMsg = friendlyError(result.error);
         triggerError();
       } else {
         triggerSuccess();
@@ -209,6 +212,63 @@ function AccessTicketCanvas({ onValidate, onSuccess }) {
       ctx.lineTo(x, y + r);
       ctx.quadraticCurveTo(x, y, x + r, y);
       ctx.closePath();
+    }
+
+    // Nunca mostramos detalles tecnicos (URLs de la API, "backend", red). Solo mensajes
+    // claros para el lector.
+    function friendlyError(err) {
+      const msg = err?.message || '';
+      if (!msg || /https?:|www\.|backend|\bapi\b|url|fetch|network|conect|servidor|\b40\d\b|\b50\d\b/i.test(msg)) {
+        return 'No pudimos validar el codigo. Intenta de nuevo.';
+      }
+      if (/inv[aá]lid|incorrect|no existe|no encontr/i.test(msg)) {
+        return 'Codigo incorrecto. Intenta de nuevo.';
+      }
+      return msg;
+    }
+
+    // Limpia el ticket para reintentar tras un error (boton Reintentar).
+    function resetForRetry() {
+      S.currentCode = '';
+      input.value = '';
+      S.errorMsg = '';
+      resetTicket();
+      input.focus();
+      S.isFocused = true;
+    }
+
+    function drawCheckIcon(cx, cy, size, color) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(cx - size, cy + size * 0.1);
+      ctx.lineTo(cx - size * 0.25, cy + size * 0.8);
+      ctx.lineTo(cx + size, cy - size * 0.7);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function drawRetryIcon(cx, cy, size, color) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.5;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.arc(cx, cy, size, Math.PI * 0.55, Math.PI * 2.15);
+      ctx.stroke();
+      const a = Math.PI * 0.55;
+      const sx = cx + Math.cos(a) * size;
+      const sy = cy + Math.sin(a) * size;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx + 6, sy - 1);
+      ctx.moveTo(sx, sy);
+      ctx.lineTo(sx - 1, sy - 7);
+      ctx.stroke();
+      ctx.restore();
     }
 
     function updatePhysics() {
@@ -458,12 +518,24 @@ function AccessTicketCanvas({ onValidate, onSuccess }) {
         ctx.font = 'bold 16px Inter, sans-serif';
         ctx.textAlign = 'center';
         ctx.globalAlpha = REDUCED ? 1 : 0.7 + Math.sin(S.tick * 0.1) * 0.3;
-        ctx.fillText(S.errorMsg || 'La corriente se llevó tu código.', canvasWidth / 2, cy + 16);
+        ctx.fillText(S.errorMsg || 'Codigo incorrecto. Intenta de nuevo.', canvasWidth / 2, cy - 4);
         ctx.globalAlpha = 1;
-        ctx.fillStyle = colors.textSecondary;
-        ctx.font = '14px Inter, sans-serif';
-        ctx.fillText('Corrige la clave para volver a intentar', canvasWidth / 2, cy + 42);
-        ui.button.w = 0;
+
+        // Boton Reintentar (icono de flecha circular).
+        ui.button.w = 170; ui.button.h = 48;
+        ui.button.x = canvasWidth / 2 - ui.button.w / 2;
+        ui.button.y = cy + 16;
+        ctx.fillStyle = S.hoverButton ? colors.btnBgHover : colors.btnBg;
+        roundRect(ui.button.x, ui.button.y, ui.button.w, ui.button.h, ui.button.radius); ctx.fill();
+        const rLabel = 'Reintentar';
+        ctx.font = 'bold 15px Inter, sans-serif';
+        const rtw = ctx.measureText(rLabel).width;
+        const rgx = canvasWidth / 2 - (rtw + 28) / 2;
+        drawRetryIcon(rgx + 9, ui.button.y + ui.button.h / 2, 9, colors.btnText);
+        ctx.fillStyle = colors.btnText;
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(rLabel, rgx + 28, ui.button.y + ui.button.h / 2);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
       } else if (S.appState === 'SUCCESS') {
         ctx.fillStyle = colors.success;
         ctx.font = 'bold 18px Inter, sans-serif';
@@ -488,14 +560,20 @@ function AccessTicketCanvas({ onValidate, onSuccess }) {
           ctx.textBaseline = 'alphabetic';
         } else {
           const active = S.currentCode.length > 0;
+          ctx.globalAlpha = active ? 1 : 0.35;
           ctx.fillStyle = (S.hoverButton && active) ? colors.btnBgHover : colors.btnBg;
-          if (!active) ctx.globalAlpha = 0.3;
           roundRect(ui.button.x, ui.button.y, ui.button.w, ui.button.h, ui.button.radius); ctx.fill();
+          // Icono de aceptar (check) + etiqueta.
+          const label = 'Revelar secreto';
+          ctx.font = 'bold 15px Inter, sans-serif';
+          const tw = ctx.measureText(label).width;
+          const gx = canvasWidth / 2 - (tw + 28) / 2;
+          drawCheckIcon(gx + 8, ui.button.y + ui.button.h / 2, 8, colors.btnText);
+          ctx.fillStyle = colors.btnText;
+          ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+          ctx.fillText(label, gx + 26, ui.button.y + ui.button.h / 2);
+          ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
           ctx.globalAlpha = 1;
-          ctx.fillStyle = colors.btnText; ctx.font = 'bold 16px Inter, sans-serif';
-          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.fillText('Revelar secreto', canvasWidth / 2, ui.button.y + ui.button.h / 2);
-          ctx.textBaseline = 'alphabetic';
         }
       }
     }
