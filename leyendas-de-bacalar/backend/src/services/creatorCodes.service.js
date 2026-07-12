@@ -58,7 +58,6 @@ async function getOwnedLegends(userId) {
     .from('legends')
     .select('id, title, slug, status, access_type, created_at')
     .eq('creator_id', userId)
-    .neq('status', 'archived')
     .order('title', { ascending: true });
   assertNoError(error, 'No se pudieron cargar tus leyendas.');
   return data ?? [];
