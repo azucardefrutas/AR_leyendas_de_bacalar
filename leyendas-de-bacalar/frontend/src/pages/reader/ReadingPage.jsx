@@ -1,14 +1,16 @@
 import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { motion, useReducedMotion } from 'motion/react';
 import Button from '../../components/ui/Button.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
 import AppIcon from '../../components/ui/AppIcon.jsx';
+import LockedPreview from '../../components/legend/LockedPreview.jsx';
 import PhysicalBookActivationModal from '../../components/reader/PhysicalBookActivationModal.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useRoles } from '../../hooks/useRoles.js';
 import { getLegendBySlug } from '../../services/legendService.js';
+import { getLoginPathForRedirect } from '../../utils/authRedirect.js';
 import { getReaderBundle, startDocumentRender } from '../../services/backendApiService.js';
 import { buildReaderPagesFromBundle } from '../../utils/readerPages.js';
 import { buildBookModelsFromBundle } from '../../utils/bookModels.js';
@@ -47,6 +49,7 @@ function buildScene(arScene, modelAssets = []) {
 
 function ReadingPage() {
   const { slug } = useParams();
+  const navigate = useNavigate();
   const { isAuthenticated, user } = useAuth();
   const { roles } = useRoles();
   const [legend, setLegend] = useState(null);
@@ -157,12 +160,25 @@ function ReadingPage() {
 
   function renderBody() {
     if (locked) {
+      const accessType = legend?.access_type || 'paid';
+      const handleUnlock = () => {
+        if (accessType === 'code_required' || accessType === 'mixed') {
+          setActivationOpen(true);
+        } else if (accessType === 'subscription') {
+          navigate('/reader/subscription');
+        } else {
+          navigate(`/legend/${legend?.slug ?? slug}`);
+        }
+      };
       return (
-        <div className="reader-locked-book">
-          <h2>Esta leyenda esta bloqueada</h2>
-          <p>Desbloqueala con el codigo de tu libro fisico para leer la historia completa.</p>
-          <Button className="reader-glow-button" onClick={() => setActivationOpen(true)}>Activar libro fisico</Button>
-        </div>
+        <LockedPreview
+          accessType={accessType}
+          coverUrl={legend?.coverUrl || legend?.cover_url || ''}
+          synopsis={legend?.synopsis || legend?.shortSynopsis || ''}
+          isAuthenticated={isAuthenticated}
+          loginPath={getLoginPathForRedirect(`/legend/${legend?.slug ?? slug}/read`)}
+          onUnlock={handleUnlock}
+        />
       );
     }
 
