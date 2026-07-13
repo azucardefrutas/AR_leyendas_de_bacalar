@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { motion, useReducedMotion } from 'motion/react';
 import StoryActions from '../ui/StoryActions.jsx';
 
 const premiumLabels = {
@@ -8,6 +9,15 @@ const premiumLabels = {
   code_required: 'Codigo',
   mixed: 'Premium',
 };
+
+// Solo transform/opacity (aceleradas por GPU). El grid padre controla el stagger.
+const cardVariants = {
+  hidden: { opacity: 0, y: 26 },
+  visible: { opacity: 1, y: 0, transition: { type: 'spring', stiffness: 260, damping: 26 } },
+};
+const hoverAnim = { y: -8, transition: { type: 'spring', stiffness: 300, damping: 22 } };
+const tapAnim = { scale: 0.97 };
+const cardStyle = { willChange: 'transform' };
 
 function getInitials(title = '') {
   return title.trim().slice(0, 2).toUpperCase() || 'LB';
@@ -23,8 +33,16 @@ function LegendCard({ legend }) {
   const isFree = (legend.access_type || 'free') === 'free';
   const badge = isFree ? 'Gratis' : (premiumLabels[legend.access_type] || 'Premium');
 
+  const reduce = useReducedMotion();
+
   return (
-    <div className="poster-card-wrap">
+    <motion.div
+      className="poster-card-wrap"
+      variants={reduce ? undefined : cardVariants}
+      whileHover={reduce ? undefined : hoverAnim}
+      whileTap={reduce ? undefined : tapAnim}
+      style={cardStyle}
+    >
       <Link className="poster-card" to={`/legend/${legend.slug}`} aria-label={legend.title}>
         <div className="poster-card-art">
           {coverUrl ? (
@@ -41,7 +59,7 @@ function LegendCard({ legend }) {
         </div>
       </Link>
       <StoryActions legend={legend} className="poster-card-actions" />
-    </div>
+    </motion.div>
   );
 }
 

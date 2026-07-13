@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
 import LegendCard from '../../components/catalog/LegendCard.jsx';
+import { gridStagger, pageFade } from '../../lib/motionPresets.js';
 import { getPublishedLegends } from '../../services/legendService.js';
 
 function CatalogPage() {
@@ -20,6 +22,8 @@ function CatalogPage() {
     loadLegends();
   }, []);
 
+  const reduce = useReducedMotion();
+
   if (loading) return <LoadingState message="Cargando leyendas publicadas..." />;
 
   if (error) {
@@ -31,7 +35,11 @@ function CatalogPage() {
   }
 
   return (
-    <div className="rx rx-cine">
+    <motion.div
+      className="rx rx-cine"
+      initial={reduce ? false : pageFade.initial}
+      animate={reduce ? false : pageFade.animate}
+    >
       <div className="rx-cine-section-head">
         <div>
           <p className="rx-eyebrow">Catálogo</p>
@@ -45,13 +53,18 @@ function CatalogPage() {
       {legends.length === 0 ? (
         <EmptyState title="Aún no hay historias publicadas." message="Vuelve pronto para descubrir nuevas leyendas de Bacalar." />
       ) : (
-        <div className="rx-cine-grid">
+        <motion.div
+          className="rx-cine-grid"
+          variants={reduce ? undefined : gridStagger}
+          initial={reduce ? false : 'hidden'}
+          animate={reduce ? false : 'visible'}
+        >
           {legends.map((legend) => (
             <LegendCard key={legend.id} legend={legend} />
           ))}
-        </div>
+        </motion.div>
       )}
-    </div>
+    </motion.div>
   );
 }
 
