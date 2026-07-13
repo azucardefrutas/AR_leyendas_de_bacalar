@@ -1,107 +1,119 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Button from '../ui/Button.jsx';
-import ArJsPatternViewer from './ArJsPatternViewer.jsx';
+import FloorArViewer from './FloorArViewer.jsx';
 import MindArViewer from './MindArViewer.jsx';
+import { getScanHistory, recordScan } from '../../lib/arScanHistory.js';
 
 function ArCameraExperience({ experience }) {
-  const videoRef = useRef(null);
-  const streamRef = useRef(null);
-  const [cameraState, setCameraState] = useState('idle');
-  const [cameraError, setCameraError] = useState('');
-
-  const cameraAr = experience?.cameraAr || {};
+  const scene = experience?.scene || {};
   const modelAsset = experience?.modelAsset || null;
-  const trackingKind = cameraAr.trackingKind;
+  const modelUrl = modelAsset?.url || '';
+  const markerImageUrl = experience?.markerImageUrl || experience?.markerAsset?.url || '';
+  const mindUrl = experience?.mindUrl || '';
 
-  useEffect(() => () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
-  }, []);
+  const floorReady = experience?.floorArReady ?? Boolean(modelUrl);
+  const markerReady = experience?.markerArReady ?? Boolean(markerImageUrl || mindUrl);
 
-  async function startCamera() {
-    if (cameraState === 'running') return;
-    setCameraError('');
-    setCameraState('requesting');
+  // Modo por defecto: marcador si esta disponible, si no, piso.
+  const [mode, setMode] = useState(markerReady ? 'marker' : 'floor');
+  const [history, setHistory] = useState(() => getScanHistory());
 
-    try {
-      if (!navigator.mediaDevices?.getUserMedia) {
-        throw new Error('Este navegador no permite abrir la camara desde esta pagina.');
-      }
+  const sceneName = scene?.name || 'Escena AR';
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: 'environment' } },
-        audio: false,
-      });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-      }
-      setCameraState('running');
-    } catch (error) {
-      setCameraState('idle');
-      setCameraError(error?.message || 'No se pudo abrir la camara.');
-    }
+  function handleViewed(usedMode) {
+    if (!scene?.id) return;
+    const next = recordScan({
+      id: scene.id,
+      name: sceneName,
+      modelUrl,
+      mode: usedMode,
+    });
+    setHistory(next);
   }
 
-  function stopCamera() {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
+  const modelLabel = modelAsset?.metadata?.original_name || modelAsset?.asset_type || 'Modelo 3D';
+
+  const activeViewer = useMemo(() => {
+    if (mode === 'floor') {
+      return floorReady ? (
+        <FloorArViewer modelUrl={modelUrl} name={sceneName} onView={() => handleViewed('floor')} />
+      ) : (
+        <div className="ar-engine-note">
+          <span>Piso</span>
+          <strong>Sin modelo 3D</strong>
+          <p>Esta escena todavia no tiene un modelo GLB para colocar en el piso.</p>
+        </div>
+      );
     }
-    if (videoRef.current) videoRef.current.srcObject = null;
-    setCameraState('idle');
-  }
+    return markerReady ? (
+      <MindArViewer
+        markerImageUrl={markerImageUrl}
+        mindUrl={mindUrl}
+        modelUrl={modelUrl}
+        name={sceneName}
+        onFound={() => handleViewed('marker')}
+      />
+    ) : (
+      <div className="ar-engine-note">
+        <span>Marcador</span>
+        <strong>Sin marcador de referencia</strong>
+        <p>Sube la imagen del marcador desde el editor de la leyenda para habilitar el escaneo.</p>
+      </div>
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, floorReady, markerReady, modelUrl, markerImageUrl, mindUrl, sceneName]);
 
   return (
     <section className="ar-camera-card">
-      <div className="ar-camera-stage">
-        <video ref={videoRef} className="ar-camera-video" muted playsInline />
-        {cameraState !== 'running' && (
-          <div className="ar-camera-placeholder">
-            <span>AR</span>
-            <strong>Camara lista para probar</strong>
-            <p>La deteccion real se habilitara cuando se conecte el motor correspondiente.</p>
-          </div>
-        )}
-      </div>
+      <div className="ar-camera-stage">{activeViewer}</div>
 
       <div className="ar-camera-controls">
         <div>
-          <span className="ar-status-pill">{cameraAr.ready ? 'Configuracion AR lista' : 'Configuracion AR pendiente'}</span>
-          <h2>{experience?.scene?.name || 'Escena AR'}</h2>
-          <p>
-            Modelo: {modelAsset?.metadata?.original_name || modelAsset?.asset_type || 'Modelo 3D'}
-          </p>
+          <span className="ar-status-pill">{scene?.status === 'published' ? 'Escena publicada' : 'Escena AR'}</span>
+          <h2>{sceneName}</h2>
+          <p>Modelo: {modelLabel}</p>
         </div>
 
-        <div className="ar-camera-actions">
-          <Button type="button" onClick={startCamera} disabled={!cameraAr.ready || cameraState === 'requesting'}>
-            {cameraState === 'requesting' ? 'Abriendo...' : 'Iniciar camara'}
-          </Button>
-          <Button type="button" variant="ghost" onClick={stopCamera} disabled={cameraState !== 'running'}>
-            Detener
-          </Button>
-          {modelAsset?.url && (
-            <a className="btn btn-ghost" href={modelAsset.url} target="_blank" rel="noreferrer">
-              Abrir modelo
-            </a>
-          )}
+        <div className="ar-mode-toggle" role="tablist" aria-label="Modo de realidad aumentada">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'marker'}
+            className={`ar-mode-btn ${mode === 'marker' ? 'is-active' : ''}`}
+            onClick={() => setMode('marker')}
+            disabled={!markerReady}
+          >
+            Escanear marcador
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'floor'}
+            className={`ar-mode-btn ${mode === 'floor' ? 'is-active' : ''}`}
+            onClick={() => setMode('floor')}
+            disabled={!floorReady}
+          >
+            Ver en el piso
+          </button>
         </div>
 
-        {cameraError && <p className="error-message">{cameraError}</p>}
+        {modelAsset?.url && (
+          <a className="btn btn-ghost" href={modelAsset.url} target="_blank" rel="noreferrer">
+            Abrir modelo
+          </a>
+        )}
 
-        {trackingKind === 'mindar' ? (
-          <MindArViewer trackingUrl={cameraAr.trackingUrl} />
-        ) : trackingKind === 'arjs-pattern' ? (
-          <ArJsPatternViewer trackingUrl={cameraAr.trackingUrl} />
-        ) : (
-          <div className="ar-engine-note">
-            <span>Sin motor seleccionado</span>
-            <strong>Agrega .mind o .patt desde la configuracion AR</strong>
-            <p>El lector CONALITEG digital no depende de esta configuracion.</p>
+        {history.length > 0 && (
+          <div className="ar-scanned-strip">
+            <h3>Ya escaneados ({history.length})</h3>
+            <ul>
+              {history.slice(0, 8).map((item) => (
+                <li key={item.id} className={item.id === scene?.id ? 'is-current' : ''}>
+                  <span className="ar-scanned-dot" aria-hidden="true" />
+                  {item.name}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </div>

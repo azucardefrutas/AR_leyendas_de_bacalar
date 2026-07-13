@@ -73,6 +73,11 @@ async function buildExperience(client, scene = {}) {
   const markerAsset = marker?.marker_asset_id ? await getAssetById(client, marker.marker_asset_id) : null;
   const config = getCameraArConfig(scene);
 
+  const modelUrl = modelAsset ? getAssetUrl(client, modelAsset) : '';
+  const markerImageUrl = markerAsset ? getAssetUrl(client, markerAsset) : '';
+  const trackingUrl = config?.trackingUrl || config?.tracking_url || config?.trackingAssetUrl || config?.mindUrl || config?.pattUrl || '';
+  const mindUrl = trackingUrl.toLowerCase().split('?')[0].endsWith('.mind') ? trackingUrl : '';
+
   return {
     scene: {
       id: scene.id,
@@ -81,18 +86,21 @@ async function buildExperience(client, scene = {}) {
       status: scene.status || 'draft',
       interactionConfig: scene.interaction_config || scene.interactionConfig || {},
     },
-    modelAsset: modelAsset
-      ? { ...modelAsset, url: getAssetUrl(client, modelAsset) }
-      : null,
+    modelAsset: modelAsset ? { ...modelAsset, url: modelUrl } : null,
     marker,
-    markerAsset: markerAsset
-      ? { ...markerAsset, url: getAssetUrl(client, markerAsset) }
-      : null,
+    markerAsset: markerAsset ? { ...markerAsset, url: markerImageUrl } : null,
+    // Disponibilidad real (no depende de un .mind precompilado):
+    //  - piso: basta con tener el modelo GLB.
+    //  - marcador: basta con la imagen del marcador (se compila al vuelo) o un .mind.
+    floorArReady: Boolean(modelUrl),
+    markerArReady: Boolean(markerImageUrl || mindUrl),
+    markerImageUrl,
+    mindUrl,
     cameraAr: {
       ready: isCameraArReady(config),
       config: config || null,
       trackingKind: normalizeTrackingKind(config || {}),
-      trackingUrl: config?.trackingUrl || config?.tracking_url || config?.trackingAssetUrl || config?.mindUrl || config?.pattUrl || '',
+      trackingUrl,
     },
   };
 }
@@ -119,8 +127,12 @@ export async function getArExperienceByLegendSlug(legendSlug) {
   if (error || !legend?.id) throw new Error('No pudimos cargar la leyenda.');
 
   const bundle = await getReaderBundle(legend.id);
-  const scene = (bundle?.arScenes || []).find((candidate) => isCameraArReady(getCameraArConfig(candidate)));
-  if (!scene) throw new Error('Esta leyenda todavia no tiene camara AR configurada.');
+  const scenes = bundle?.arScenes || [];
+  // Preferir una escena con camara AR ya configurada; si no, cualquiera con modelo 3D
+  // (asi el AR de piso funciona aunque no haya .mind precompilado).
+  const scene = scenes.find((candidate) => isCameraArReady(getCameraArConfig(candidate)))
+    || scenes.find((candidate) => candidate.model_asset_id || candidate.modelAssetId || candidate.assets || candidate.asset);
+  if (!scene) throw new Error('Esta leyenda todavia no tiene una escena AR con modelo 3D.');
 
   return getArExperienceBySceneId(scene.id);
 }
