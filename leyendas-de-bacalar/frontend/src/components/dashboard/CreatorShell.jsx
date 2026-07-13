@@ -34,6 +34,7 @@ function CreatorShell({ items }) {
   const location = useLocation();
   const clock = useCreatorClock();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
   const current = items.find((item) => {
     if (item.end) return location.pathname === item.to;
     return location.pathname.startsWith(item.to.split('?')[0]);
@@ -44,16 +45,42 @@ function CreatorShell({ items }) {
     navigate('/login', { replace: true });
   }
 
+  // Close the mobile drawer whenever the route changes.
+  useEffect(() => { setNavOpen(false); }, [location.pathname]);
+
+  // While the drawer is open, lock body scroll and allow Escape-to-close.
+  useEffect(() => {
+    if (!navOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event) => { if (event.key === 'Escape') setNavOpen(false); };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [navOpen]);
+
   const displayName = user?.user_metadata?.full_name || user?.email || 'Autor';
   const initial = displayName.slice(0, 1).toUpperCase();
 
   return (
-    <div className="creator-shell">
+    <div className={`creator-shell ${navOpen ? 'is-nav-open' : ''}`}>
       <header className="creator-header">
         <Link className="creator-header-logo" to="/creator">
           <Picture src="/assets/Logo de la Upb sin fondo.png" alt="Universidad Politecnica de Bacalar" decoding="async" />
         </Link>
         <div className="creator-header-body">
+          <button
+            type="button"
+            className="shell-nav-toggle"
+            onClick={() => setNavOpen((open) => !open)}
+            aria-label={navOpen ? 'Cerrar menu' : 'Abrir menu'}
+            aria-expanded={navOpen}
+            aria-controls="creator-sidebar-nav"
+          >
+            <CreatorShellIcon name={navOpen ? 'close' : 'menu'} />
+          </button>
           <div className="creator-header-context">
             <strong>{current?.label || 'Dashboard'}</strong>
             <span>Panel editorial</span>
@@ -100,7 +127,15 @@ function CreatorShell({ items }) {
         </div>
       </header>
 
-      <aside className="creator-sidebar">
+      <aside className="creator-sidebar" id="creator-sidebar-nav">
+        <button
+          type="button"
+          className="shell-nav-close"
+          onClick={() => setNavOpen(false)}
+          aria-label="Cerrar menu"
+        >
+          <CreatorShellIcon name="close" />
+        </button>
         <div className="creator-sidebar-brand">
           <span className="creator-sidebar-mark" aria-hidden="true"><AppIcon name="draw" size={22} /></span>
           <span className="creator-sidebar-brand-copy">
@@ -111,13 +146,21 @@ function CreatorShell({ items }) {
 
         <nav aria-label="Navegacion de creador">
           {items.map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.end} aria-label={item.label} title={item.label}>
+            <NavLink key={item.to} to={item.to} end={item.end} aria-label={item.label} title={item.label} onClick={() => setNavOpen(false)}>
               <span className="creator-nav-icon" aria-hidden="true"><AppIcon name={item.icon} size={22} /></span>
               <span className="creator-nav-label">{item.label}</span>
             </NavLink>
           ))}
         </nav>
       </aside>
+
+      <button
+        type="button"
+        className="shell-nav-backdrop"
+        aria-hidden="true"
+        tabIndex={-1}
+        onClick={() => setNavOpen(false)}
+      />
 
       <main className="creator-main">
         <Suspense fallback={<LoadingState />}>

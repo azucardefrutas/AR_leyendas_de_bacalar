@@ -1656,3 +1656,214 @@ button.user-bubble { border: 0; cursor: pointer; font: inherit; }
 .user-menu-pop a:hover, .user-menu-pop button:hover { background: rgba(48, 207, 242, 0.14); }
 .user-menu-danger { color: #ff9b9b !important; }
 .user-menu-danger:hover { background: rgba(255, 120, 120, 0.14) !important; color: #ffc0c0 !important; }
+
+/* =====================================================================
+   Mobile navigation for the Creator & Admin shells (off-canvas drawer)
+   ---------------------------------------------------------------------
+   Desktop (>= 1081px) is untouched: the fixed icon rail + hover-expand
+   stays exactly as before. On tablets / phones the rail turns into a
+   hamburger-triggered drawer with visible labels, a backdrop and body
+   scroll-lock. This block is appended last so it wins the cascade over
+   the older shell rules; selectors mirror the older :has() specificity
+   so the drawer state always overrides the rail/bottom-bar treatment.
+   ===================================================================== */
+.shell-nav-toggle,
+.shell-nav-close,
+.shell-nav-backdrop { display: none; }
+
+.shell-nav-toggle {
+  flex: 0 0 auto;
+  width: 46px; height: 46px;
+  place-items: center;
+  border: 0; border-radius: 14px;
+  color: #049dd9; background: #eef4fb;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
+  cursor: pointer;
+  transition: background 0.16s ease;
+}
+.shell-nav-toggle:hover { background: #e2ebf6; }
+.shell-nav-toggle:focus-visible { outline: 2px solid #30cff2; outline-offset: 2px; }
+
+.shell-nav-close {
+  position: absolute; top: 12px; right: 12px;
+  width: 40px; height: 40px;
+  place-items: center;
+  border: 0; border-radius: 12px;
+  color: #ffffff; background: rgba(255, 255, 255, 0.14);
+  cursor: pointer;
+  transition: background 0.16s ease;
+}
+.shell-nav-close:hover { background: rgba(255, 255, 255, 0.24); }
+.shell-nav-close:focus-visible { outline: 2px solid #30cff2; outline-offset: 2px; }
+
+@media (max-width: 1080px) {
+  .shell-nav-toggle,
+  .shell-nav-close { display: grid; }
+
+  /* Turn both fixed rails into a left off-canvas drawer. */
+  .creator-shell .creator-sidebar,
+  .creator-shell:has(.creator-sidebar:hover) .creator-sidebar,
+  .creator-shell:has(.creator-sidebar:focus-within) .creator-sidebar,
+  .admin-shell .admin-sidebar,
+  .admin-shell:has(.admin-sidebar:hover) .admin-sidebar,
+  .admin-shell:has(.admin-sidebar:focus-within) .admin-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 1200;
+    width: min(288px, 86vw);
+    height: 100dvh;
+    max-height: none;
+    padding: 62px 16px 22px;
+    flex-direction: column;
+    gap: 6px;
+    border-radius: 0 20px 20px 0;
+    box-shadow: 26px 0 60px rgba(4, 12, 24, 0.5);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    transform: translateX(-105%);
+    transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .creator-shell.is-nav-open .creator-sidebar,
+  .admin-shell.is-nav-open .admin-sidebar {
+    transform: translateX(0);
+  }
+
+  /* Brand + labels always visible inside the drawer. */
+  .creator-shell .creator-sidebar-brand,
+  .admin-shell .admin-sidebar-heading { display: flex; }
+  .creator-shell .creator-sidebar-brand-copy,
+  .admin-shell .admin-sidebar-heading-copy {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  /* Nav is a single vertical list. */
+  .creator-shell nav[aria-label="Navegacion de creador"],
+  .admin-shell nav[aria-label="Navegacion administrativa"] {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  /* Full-width rows: icon + label, left aligned. */
+  .creator-shell .creator-sidebar a,
+  .creator-shell:has(.creator-sidebar:hover) .creator-sidebar a,
+  .creator-shell:has(.creator-sidebar:focus-within) .creator-sidebar a,
+  .admin-shell .admin-sidebar nav a,
+  .admin-shell:has(.admin-sidebar:hover) .admin-sidebar nav a,
+  .admin-shell:has(.admin-sidebar:focus-within) .admin-sidebar nav a {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    min-height: 48px;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 11px 14px;
+    border-radius: 14px;
+    font-size: 0.95rem;
+    line-height: 1.2;
+    text-align: left;
+    white-space: nowrap;
+  }
+
+  .creator-shell .creator-nav-icon,
+  .admin-shell .admin-nav-icon { width: 26px; height: auto; }
+
+  .creator-shell .creator-nav-label,
+  .creator-shell:has(.creator-sidebar:hover) .creator-nav-label,
+  .creator-shell:has(.creator-sidebar:focus-within) .creator-nav-label,
+  .admin-shell .admin-nav-label,
+  .admin-shell:has(.admin-sidebar:hover) .admin-nav-label,
+  .admin-shell:has(.admin-sidebar:focus-within) .admin-nav-label {
+    max-width: none;
+    opacity: 1;
+    transform: none;
+    white-space: nowrap;
+  }
+
+  /* Content spans full width; no rail gutter. */
+  .creator-main,
+  .admin-main { margin-left: 0; }
+
+  /* Dimmed backdrop behind the open drawer. */
+  .shell-nav-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1150;
+    border: 0;
+    padding: 0;
+    background: rgba(4, 12, 24, 0.5);
+    opacity: 0;
+    pointer-events: none;
+    cursor: pointer;
+    transition: opacity 0.28s ease;
+  }
+  .creator-shell.is-nav-open .shell-nav-backdrop,
+  .admin-shell.is-nav-open .shell-nav-backdrop {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (max-width: 1080px) and (prefers-reduced-motion: reduce) {
+  .creator-shell .creator-sidebar,
+  .admin-shell .admin-sidebar,
+  .shell-nav-backdrop { transition: none; }
+}
+
+/* =====================================================================
+   Reader dashboard sidebar on phones/tablets
+   ---------------------------------------------------------------------
+   The older rule stacked the section links as a full-width vertical
+   list (~400px tall) above the content on every reader page. Turn it
+   into a compact, horizontally-scrollable tab strip instead. Appended
+   after the base ".rx-sidebar" rules so it wins the cascade. Uses 900px
+   to match the point where ".dashboard-shell" collapses to one column.
+   ===================================================================== */
+@media (max-width: 900px) {
+  .rx-sidebar {
+    position: static;
+    height: auto;
+    align-self: start;
+    gap: 10px;
+    padding: 10px 12px;
+    margin: 12px;
+    align-items: stretch;
+  }
+  /* The collapse control only makes sense for the desktop icon rail. */
+  .rx-sidebar-toggle { display: none; }
+  .rx-sidebar-head {
+    width: 100%;
+    padding: 2px 4px 6px;
+  }
+  .rx-sidebar-nav {
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 8px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+  }
+  .rx-sidebar-nav::-webkit-scrollbar { display: none; }
+  .rx-sidebar-link {
+    flex: 0 0 auto;
+    width: auto;
+    min-height: 44px;
+    white-space: nowrap;
+  }
+  .rx-sidebar-foot {
+    width: 100%;
+    margin: 4px 0 0;
+    padding-top: 8px;
+    border-top: 1px solid rgba(116, 221, 232, 0.12);
+  }
+  .rx-sidebar-foot .rx-sidebar-link { width: 100%; justify-content: center; }
+}

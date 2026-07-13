@@ -73,6 +73,7 @@ export function AdminLayoutShell() {
   const location = useLocation();
   const clock = useAdminClock();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [navOpen, setNavOpen] = useState(false);
   const current = adminNavItems.find((item) => {
     if (item.end) return location.pathname === item.to;
     return location.pathname.startsWith(item.to);
@@ -83,13 +84,39 @@ export function AdminLayoutShell() {
     navigate('/login', { replace: true });
   }
 
+  // Close the mobile drawer whenever the route changes.
+  useEffect(() => { setNavOpen(false); }, [location.pathname]);
+
+  // While the drawer is open, lock body scroll and allow Escape-to-close.
+  useEffect(() => {
+    if (!navOpen) return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event) => { if (event.key === 'Escape') setNavOpen(false); };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [navOpen]);
+
   return (
-    <div className="admin-shell">
+    <div className={`admin-shell ${navOpen ? 'is-nav-open' : ''}`}>
       <header className="admin-header">
         <Link className="admin-header-logo" to="/admin" aria-label="Universidad Politecnica de Bacalar">
           <Picture src="/assets/Logo de la Upb sin fondo.png" alt="Universidad Politecnica de Bacalar" decoding="async" />
         </Link>
         <div className="admin-header-body">
+          <button
+            type="button"
+            className="shell-nav-toggle"
+            onClick={() => setNavOpen((open) => !open)}
+            aria-label={navOpen ? 'Cerrar menu' : 'Abrir menu'}
+            aria-expanded={navOpen}
+            aria-controls="admin-sidebar-nav"
+          >
+            <AppIcon name={navOpen ? 'close' : 'menu'} size={24} />
+          </button>
           <div className="admin-header-context">
             <strong>{current?.label || 'Administracion'}</strong>
             <span>Panel administrativo</span>
@@ -135,7 +162,15 @@ export function AdminLayoutShell() {
         </div>
       </header>
 
-      <aside className="admin-sidebar">
+      <aside className="admin-sidebar" id="admin-sidebar-nav">
+        <button
+          type="button"
+          className="shell-nav-close"
+          onClick={() => setNavOpen(false)}
+          aria-label="Cerrar menu"
+        >
+          <AppIcon name="close" size={22} />
+        </button>
         <div className="admin-sidebar-heading">
           <span className="admin-sidebar-mark" aria-hidden="true"><AppIcon name="shield_person" size={22} /></span>
           <span className="admin-sidebar-heading-copy">
@@ -145,13 +180,21 @@ export function AdminLayoutShell() {
         </div>
         <nav aria-label="Navegacion administrativa">
           {adminNavItems.map((item) => (
-            <NavLink key={item.to} to={item.to} end={item.end} aria-label={item.label} title={item.label}>
+            <NavLink key={item.to} to={item.to} end={item.end} aria-label={item.label} title={item.label} onClick={() => setNavOpen(false)}>
               <span className="admin-nav-icon" aria-hidden="true"><AppIcon name={item.icon} size={22} /></span>
               <span className="admin-nav-label">{item.label}</span>
             </NavLink>
           ))}
         </nav>
       </aside>
+
+      <button
+        type="button"
+        className="shell-nav-backdrop"
+        aria-hidden="true"
+        tabIndex={-1}
+        onClick={() => setNavOpen(false)}
+      />
 
       <main className="admin-main">
         <Suspense fallback={<LoadingState />}>
