@@ -191,11 +191,6 @@ const FlipPage = React.forwardRef(({
   page,
   hotspots,
   onHotspotClick,
-  // Desktop mounts a live 3D canvas embedded in the page; phones/tablets do NOT
-  // (several WebGL contexts at once exhaust the mobile budget and crashed the
-  // reader). There, model hotspots fall back to a tappable marker that opens the
-  // single shared 3D modal — see `inlineModels` handling below.
-  inlineModels = true,
 }, ref) => {
   // Editorial template cover / back cover — rendered by the template engine
   // (not Editor.js). No hotspots or page number on these sheets.
@@ -212,9 +207,6 @@ const FlipPage = React.forwardRef(({
   const modelHotspots = hotspots.filter((hotspot) => hotspot?.scene?.assets?.url);
   const primaryModelHotspot = modelHotspots[0] ?? null;
   const markerHotspots = hotspots.filter((hotspot) => !hotspot?.scene?.assets?.url);
-  // Which hotspots render as tappable markers. On mobile that's ALL of them (so a
-  // model opens the shared modal on tap instead of auto-mounting a canvas).
-  const tappableHotspots = inlineModels ? markerHotspots : hotspots;
 
   return (
     <div className={`pdf-flip-page ${page.type === 'manual' ? 'pdf-flip-page-manual' : ''}`} ref={ref}>
@@ -239,10 +231,10 @@ const FlipPage = React.forwardRef(({
         <div className="pdf-flip-page-loading">Pagina {page.pageNumber}</div>
       )}
       <div className="pdf-flip-page-overlay">
-        {tappableHotspots.map((hotspot, index) => (
+        {markerHotspots.map((hotspot, index) => (
           <HotspotMarker key={hotspot.id} hotspot={hotspot} index={index} onClick={onHotspotClick} />
         ))}
-        {inlineModels && primaryModelHotspot && (
+        {primaryModelHotspot && (
           <InlineModelLayer key={`inline-model-${primaryModelHotspot.id}`} hotspot={primaryModelHotspot} />
         )}
       </div>
@@ -493,7 +485,6 @@ function ConalitegStyleReader({
                 page={page}
                 hotspots={hotspotsByPageIndex[index] ?? []}
                 onHotspotClick={openHotspotModel}
-                inlineModels={!isSinglePage}
               />
             ))}
           </HTMLFlipBook>
