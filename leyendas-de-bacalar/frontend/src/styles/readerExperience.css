@@ -1579,7 +1579,14 @@
 .story-action-fav.is-on { background: #ff5a7a; border-color: #ff7d95; color: #fff; }
 
 /* Overlay on catalog poster cards */
-.poster-card-wrap { position: relative; }
+.poster-card-wrap {
+  position: relative;
+  /* El navegador salta el render/layout de las tarjetas fuera de pantalla (scroll mas
+     fluido y menos trabajo inicial con muchas leyendas). El tamano intrinseco evita
+     saltos del scrollbar; 'auto' recuerda el tamano real tras el primer render. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 400px;
+}
 .poster-card-wrap > .poster-card { width: 100%; }
 .poster-card-actions {
   position: absolute; top: 9px; right: 9px; z-index: 3;
