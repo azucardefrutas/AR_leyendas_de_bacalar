@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { motion, useReducedMotion } from 'motion/react';
 import AppIcon from '../../components/ui/AppIcon.jsx';
 import Button from '../../components/ui/Button.jsx';
 import CreatorApplyCtaCard from '../../components/reader/creator-request/CreatorApplyCtaCard.jsx';
@@ -11,6 +12,7 @@ import LoadingState from '../../components/ui/LoadingState.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useProfile } from '../../hooks/useProfile.js';
 import { useSaved } from '../../context/SavedContext.jsx';
+import { pageFade } from '../../lib/motionPresets.js';
 import { getPublishedLegends } from '../../services/legendService.js';
 import { getContinueReading, getReaderStats } from '../../services/readerService.js';
 import { getLoginPathForRedirect } from '../../utils/authRedirect.js';
@@ -62,6 +64,8 @@ function LibraryPage() {
   const [loading, setLoading] = useState(true);
 
   const displayName = getDisplayName(profile);
+  const reduce = useReducedMotion();
+  const pageProps = reduce ? {} : { initial: pageFade.initial, animate: pageFade.animate };
 
   useEffect(() => {
     let active = true;
@@ -85,7 +89,7 @@ function LibraryPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="rx rx-page">
+      <motion.div className="rx rx-page" {...pageProps}>
         <section className="rx-libhero">
           <div className="rx-libhero-bg" style={{ backgroundImage: `url("${LIBRARY_BANNER}")` }} aria-hidden="true" />
           <div className="rx-libhero-body">
@@ -123,12 +127,12 @@ function LibraryPage() {
             <RxEmptyState icon="menu_book" title="Aun no hay leyendas publicadas" message="Vuelve pronto para descubrir nuevas historias de Bacalar." />
           )}
         </section>
-      </div>
+      </motion.div>
     );
   }
 
   return (
-    <div className="rx rx-page">
+    <motion.div className="rx rx-page" {...pageProps}>
       <section className="rx-libhero">
         <div className="rx-libhero-bg" style={{ backgroundImage: `url("${LIBRARY_BANNER}")` }} aria-hidden="true" />
         <div className="rx-libhero-body">
@@ -222,7 +226,7 @@ function LibraryPage() {
       </section>
 
       <CreatorApplyCtaCard />
-    </div>
+    </motion.div>
   );
 }
 

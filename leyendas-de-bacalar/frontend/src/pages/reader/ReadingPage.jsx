@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import { motion, useReducedMotion } from 'motion/react';
 import Button from '../../components/ui/Button.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
@@ -91,6 +92,8 @@ function ReadingPage() {
     document.body.classList.add('reading-immersive');
     return () => document.body.classList.remove('reading-immersive');
   }, []);
+
+  const reduce = useReducedMotion();
 
   if (loading) return <LoadingState message="Abriendo libro..." />;
   if (error) return <EmptyState title="No se pudo abrir la lectura" message={error.message} />;
@@ -196,7 +199,12 @@ function ReadingPage() {
   }
 
   return (
-    <section className="reader-stage">
+    <motion.section
+      className="reader-stage"
+      initial={reduce ? false : { opacity: 0, scale: 0.98 }}
+      animate={reduce ? false : { opacity: 1, scale: 1 }}
+      transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+    >
       <div className="reader-stage-top">
         <Link
           className="reader-back-button"
@@ -227,7 +235,7 @@ function ReadingPage() {
           />
         </Suspense>
       )}
-    </section>
+    </motion.section>
   );
 }
 
