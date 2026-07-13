@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" href="/favicon_bacalar.ico" />
+    <!-- Preload de la imagen LCP del home (hero a pantalla completa): empieza a bajar
+         de inmediato en vez de esperar a que el CSS la descubra. -->
+    <link rel="preload" as="image" href="/landing-intro/display-motion/collage_final.webp" type="image/webp" fetchpriority="high" />
     <!-- Fuentes: en el HTML (paralelo, no render-blocking como el @import en CSS).
          Material Symbols con display=block (sin FOIT de iconos); texto con swap. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />

@@ -762,7 +762,13 @@ pre {
   position: absolute;
   inset: 0;
   z-index: 0;
-  background: url("/landing-intro/display-motion/collage_final.png") center / cover no-repeat;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  /* WebP con fallback png (imagen LCP del home; se precarga en index.html). */
+  background-image: url("/landing-intro/display-motion/collage_final.png");
+  background-image: -webkit-image-set(url("/landing-intro/display-motion/collage_final.webp") type("image/webp"), url("/landing-intro/display-motion/collage_final.png") type("image/png"));
+  background-image: image-set(url("/landing-intro/display-motion/collage_final.webp") type("image/webp"), url("/landing-intro/display-motion/collage_final.png") type("image/png"));
   transform: scale(1.06);
 }
 
