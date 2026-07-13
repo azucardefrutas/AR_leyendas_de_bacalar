@@ -64,7 +64,7 @@ export default function LegendHero({
         <div className="legend-hero__layout">
           <motion.div className="legend-hero__cover" style={coverStyle} {...coverProps}>
             {coverImage ? (
-              <img src={coverImage} alt={`Portada de ${title}`} loading="lazy" />
+              <img src={coverImage} alt={`Portada de ${title}`} loading="lazy" decoding="async" />
             ) : (
               <div className="legend-hero__cover-fallback">
                 <span>{title?.slice(0, 2).toUpperCase()}</span>

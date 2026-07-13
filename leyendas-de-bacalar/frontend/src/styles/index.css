@@ -1,8 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400..700,0..1,0');
-@import url('https://fonts.googleapis.com/css2?family=Anton&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap');
-@import './editor-fonts.css';
+/* Todas las fuentes de Google se cargan via <link> en index.html (paralelo, no
+   render-blocking). Los .woff2 de cada familia solo se descargan donde se usan. */
 
 :root {
   color-scheme: dark;
