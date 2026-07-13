@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth.js';
 import StatusBadge from '../../shared/status/StatusBadge.jsx';
 import AppIcon from './AppIcon.jsx';
 import Button from './Button.jsx';
+import Picture from './Picture.jsx';
 import LoadingState from './LoadingState.jsx';
 
 // Sidebar icons use Material Symbols names (rendered via AppIcon).
@@ -86,7 +87,7 @@ export function AdminLayoutShell() {
     <div className="admin-shell">
       <header className="admin-header">
         <Link className="admin-header-logo" to="/admin" aria-label="Universidad Politecnica de Bacalar">
-          <img src="/assets/Logo de la Upb sin fondo.png" alt="Universidad Politecnica de Bacalar" />
+          <Picture src="/assets/Logo de la Upb sin fondo.png" alt="Universidad Politecnica de Bacalar" decoding="async" />
         </Link>
         <div className="admin-header-body">
           <div className="admin-header-context">

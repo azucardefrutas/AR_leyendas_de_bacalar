@@ -233,6 +233,10 @@
   inset: 0;
   background-size: cover;
   background-position: center;
+  /* WebP con fallback: navegadores sin image-set/webp usan el png. */
+  background-image: url("/assets/backgraoud collage.png");
+  background-image: -webkit-image-set(url("/assets/backgraoud collage.webp") type("image/webp"), url("/assets/backgraoud collage.png") type("image/png"));
+  background-image: image-set(url("/assets/backgraoud collage.webp") type("image/webp"), url("/assets/backgraoud collage.png") type("image/png"));
 }
 /* Light, targeted darkening only where the greeting sits (bottom-left), so the
    photo reads "complete" like the reference — no heavy full-frame overlay. */

@@ -17,9 +17,7 @@ import { getPublishedLegends } from '../../services/legendService.js';
 import { getContinueReading, getReaderStats } from '../../services/readerService.js';
 import { getLoginPathForRedirect } from '../../utils/authRedirect.js';
 
-// Placeholder banner artwork for the library hero (eLibro-style). Swap this
-// file (or path) for custom artwork later — it's the single source to change.
-const LIBRARY_BANNER = '/assets/backgraoud collage.png';
+// El banner de la estanteria se define en CSS (.rx-libhero-bg) con webp + fallback png.
 
 const quickAccess = [
   { title: 'Canjear codigo', text: 'Activa una leyenda con el codigo de tu libro fisico.', to: '/reader/redeem', icon: 'confirmation_number' },
@@ -91,7 +89,7 @@ function LibraryPage() {
     return (
       <motion.div className="rx rx-page" {...pageProps}>
         <section className="rx-libhero">
-          <div className="rx-libhero-bg" style={{ backgroundImage: `url("${LIBRARY_BANNER}")` }} aria-hidden="true" />
+          <div className="rx-libhero-bg" aria-hidden="true" />
           <div className="rx-libhero-body">
             <h1>Explora Bacalar</h1>
             <span className="rx-libhero-name">Leyendas, relatos y experiencias culturales</span>
@@ -134,7 +132,7 @@ function LibraryPage() {
   return (
     <motion.div className="rx rx-page" {...pageProps}>
       <section className="rx-libhero">
-        <div className="rx-libhero-bg" style={{ backgroundImage: `url("${LIBRARY_BANNER}")` }} aria-hidden="true" />
+        <div className="rx-libhero-bg" aria-hidden="true" />
         <div className="rx-libhero-body">
           <h1>Hola</h1>
           <span className="rx-libhero-name">{greetingName(displayName)}</span>

@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { useAuth } from '../../hooks/useAuth.js';
 import { UserIcon } from '../ui/CreatorIcons.jsx';
 import AppIcon from '../ui/AppIcon.jsx';
+import Picture from '../ui/Picture.jsx';
 import LoadingState from '../ui/LoadingState.jsx';
 
 function useCreatorClock() {
@@ -50,7 +51,7 @@ function CreatorShell({ items }) {
     <div className="creator-shell">
       <header className="creator-header">
         <Link className="creator-header-logo" to="/creator">
-          <img src="/assets/Logo de la Upb sin fondo.png" alt="Universidad Politecnica de Bacalar" />
+          <Picture src="/assets/Logo de la Upb sin fondo.png" alt="Universidad Politecnica de Bacalar" decoding="async" />
         </Link>
         <div className="creator-header-body">
           <div className="creator-header-context">
