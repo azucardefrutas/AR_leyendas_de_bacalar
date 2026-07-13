@@ -15206,3 +15206,203 @@ table {
     animation: none;
   }
 }
+
+/* ===== Botón de cámara + selector de modelos del libro (Ver en AR) ===== */
+.ar-models-trigger.is-floating {
+  position: fixed;
+  top: clamp(8px, 1.6vh, 18px);
+  left: clamp(10px, 1.8vw, 24px);
+  z-index: 90;
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--reader-control-border, rgba(146, 217, 226, 0.4));
+  border-radius: 999px;
+  color: var(--reader-text, #0b1f26);
+  background: var(--reader-control-bg, rgba(255, 255, 255, 0.85));
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(12px);
+  cursor: pointer;
+  transition: transform 160ms ease;
+}
+
+.ar-models-trigger.is-floating:hover {
+  transform: scale(1.06);
+}
+
+.ar-models-trigger.is-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.ar-models-trigger.is-inline:hover {
+  background: rgba(255, 255, 255, 0.24);
+  transform: translateY(-1px);
+}
+
+.ar-models-sheet-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(2, 11, 15, 0.62);
+  backdrop-filter: blur(6px);
+}
+
+.ar-models-sheet {
+  width: min(440px, 100%);
+  max-height: 80vh;
+  overflow: auto;
+  border-radius: 20px;
+  border: 1px solid rgba(146, 217, 226, 0.26);
+  background: #071c23;
+  color: #e8f7f8;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+  padding: 20px;
+}
+
+.ar-models-sheet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.ar-models-sheet-head h3 {
+  margin: 0 0 4px;
+  font-size: 1.15rem;
+}
+
+.ar-models-sheet-head p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: rgba(232, 247, 248, 0.7);
+}
+
+.ar-models-close {
+  border: 0;
+  background: transparent;
+  color: #cdeef1;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+}
+
+.ar-models-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.ar-models-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+
+.ar-models-list > li > button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  cursor: pointer;
+  border: 1px solid rgba(146, 217, 226, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  color: #e8f7f8;
+  text-align: left;
+  transition: background 160ms ease, border-color 160ms ease, transform 120ms ease;
+}
+
+.ar-models-list > li > button:hover {
+  background: rgba(127, 227, 234, 0.14);
+  border-color: rgba(127, 227, 234, 0.5);
+  transform: translateY(-1px);
+}
+
+.ar-models-index {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  font-weight: 700;
+  color: #04222b;
+  background: #7fe3ea;
+}
+
+.ar-models-label {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.ar-models-label strong {
+  font-size: 0.98rem;
+}
+
+.ar-models-label em {
+  font-style: normal;
+  font-size: 0.8rem;
+  color: rgba(232, 247, 248, 0.62);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ar-models-viewer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 320;
+  display: flex;
+  flex-direction: column;
+  background: #020b0f;
+}
+
+.ar-models-viewer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(3, 18, 24, 0.92);
+  border-bottom: 1px solid rgba(146, 217, 226, 0.18);
+  color: #e8f7f8;
+}
+
+.ar-models-viewer-head strong {
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ar-models-viewer-body {
+  flex: 1;
+  min-height: 0;
+}
+
+.ar-models-viewer-body .ar-floor-viewer,
+.ar-models-viewer-body .ar-floor-stage {
+  height: 100%;
+}

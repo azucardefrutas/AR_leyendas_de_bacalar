@@ -9,6 +9,9 @@ import EmptyState from '../../components/ui/EmptyState.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
 import { getLegendPages, getPublishedLegendBySlug, getUserLegendAccess } from '../../services/legendService.js';
+import { getReaderBundle } from '../../services/backendApiService.js';
+import { buildBookModelsFromBundle } from '../../utils/bookModels.js';
+import ArModelsLauncher from '../../components/ar/ArModelsLauncher.jsx';
 import { getLoginPathForRedirect } from '../../utils/authRedirect.js';
 
 const fallbackCovers = [
@@ -51,6 +54,7 @@ function LegendDetailPage() {
   const [error, setError] = useState(null);
   const [activationOpen, setActivationOpen] = useState(false);
   const [actionMessage, setActionMessage] = useState(null);
+  const [bookModels, setBookModels] = useState([]);
 
   useEffect(() => {
     async function loadLegend() {
@@ -76,6 +80,25 @@ function LegendDetailPage() {
 
     loadLegend();
   }, [isAuthenticated, slug]);
+
+  // Modelos 3D del libro para el botón "Ver en AR". Se pide aparte (no bloquea el
+  // render del detalle). Para libros bloqueados el bundle da 403 -> sin modelos.
+  useEffect(() => {
+    if (!legend?.id) {
+      setBookModels([]);
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const bundle = await getReaderBundle(legend.id);
+        if (!cancelled) setBookModels(buildBookModelsFromBundle(bundle));
+      } catch {
+        if (!cancelled) setBookModels([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [legend?.id]);
 
   if (loading) return <LoadingState message="Cargando detalle..." />;
   if (error) return <EmptyState title="Leyenda no disponible" message={error.message} />;
@@ -137,6 +160,7 @@ function LegendDetailPage() {
           {actionLabel}
         </GlassButton>
       )}
+      <ArModelsLauncher models={bookModels} variant="inline" />
       <GlassButton to="/catalog" variant="glass" icon="keyboard_return">
         Regresar
       </GlassButton>

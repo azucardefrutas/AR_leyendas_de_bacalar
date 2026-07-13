@@ -5,6 +5,7 @@ import { getHotspotsForReaderPage } from '../../utils/readerPages.js';
 import AppIcon from '../ui/AppIcon.jsx';
 import ReaderSettingsPanel from './ReaderSettingsPanel.jsx';
 import ReaderBottomControls from './ReaderBottomControls.jsx';
+import ArModelsLauncher from '../ar/ArModelsLauncher.jsx';
 import { READER_THEMES, READER_THEME_IDS, getContrastText, buildReaderThemeVars } from './readerTheme.js';
 import TemplateSurface from '../../features/templates/components/TemplateSurface.jsx';
 import { getTemplateById } from '../../features/templates/templateRegistry.js';
@@ -252,6 +253,7 @@ FlipPage.displayName = 'FlipPage';
 function ConalitegStyleReader({
   pages = [],
   hotspots = [],
+  models = [],
   onHotspotClick,
   // Physics of the page turn (react-pageflip). Defaults keep the public reader
   // exactly as-is; "Ver como lector" passes weightier, richer values.
@@ -510,6 +512,8 @@ function ConalitegStyleReader({
       >
         <AppIcon name="tune" size={22} />
       </button>
+
+      <ArModelsLauncher models={models} variant="floating" />
 
       {settingsOpen && (
         <ReaderSettingsPanel

@@ -11,6 +11,7 @@ import { useRoles } from '../../hooks/useRoles.js';
 import { getLegendBySlug } from '../../services/legendService.js';
 import { getReaderBundle, startDocumentRender } from '../../services/backendApiService.js';
 import { buildReaderPagesFromBundle } from '../../utils/readerPages.js';
+import { buildBookModelsFromBundle } from '../../utils/bookModels.js';
 
 // Lazy: the book viewer (react-pageflip) only loads when a legend actually opens.
 const ConalitegStyleReader = lazy(() => import('../../components/reader/ConalitegStyleReader.jsx'));
@@ -116,6 +117,7 @@ function ReadingPage() {
       : null,
   }));
   const readerPages = buildReaderPagesFromBundle(bundle);
+  const bookModels = buildBookModelsFromBundle(bundle);
 
   const isCreatorOrAdmin =
     roles.includes('admin')
@@ -148,7 +150,7 @@ function ReadingPage() {
   function renderReader() {
     return (
       <Suspense fallback={<LoadingState message="Preparando libro..." />}>
-        <ConalitegStyleReader pages={readerPages} hotspots={hotspots} onHotspotClick={handleHotspotClick} />
+        <ConalitegStyleReader pages={readerPages} hotspots={hotspots} models={bookModels} onHotspotClick={handleHotspotClick} />
       </Suspense>
     );
   }
