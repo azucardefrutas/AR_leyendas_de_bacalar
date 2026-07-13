@@ -186,6 +186,20 @@ export function AdminLayoutShell() {
             </NavLink>
           ))}
         </nav>
+
+        <div className="shell-nav-footer">
+          <div className="shell-nav-user">
+            <span className="shell-nav-user__avatar" aria-hidden="true">{(user?.email || 'A').slice(0, 1).toUpperCase()}</span>
+            <span className="shell-nav-user__meta">
+              <strong>{user?.email || 'Administrador'}</strong>
+              <span>Administrador</span>
+            </span>
+          </div>
+          <button type="button" className="shell-nav-signout" onClick={handleSignOut}>
+            <AppIcon name="logout" size={20} />
+            <span>Cerrar sesion</span>
+          </button>
+        </div>
       </aside>
 
       <button

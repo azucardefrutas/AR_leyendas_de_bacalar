@@ -152,6 +152,20 @@ function CreatorShell({ items }) {
             </NavLink>
           ))}
         </nav>
+
+        <div className="shell-nav-footer">
+          <div className="shell-nav-user">
+            <span className="shell-nav-user__avatar" aria-hidden="true">{initial}</span>
+            <span className="shell-nav-user__meta">
+              <strong>{displayName}</strong>
+              <span>Creador</span>
+            </span>
+          </div>
+          <button type="button" className="shell-nav-signout" onClick={handleSignOut}>
+            <CreatorShellIcon name="logout" />
+            <span>Cerrar sesion</span>
+          </button>
+        </div>
       </aside>
 
       <button
