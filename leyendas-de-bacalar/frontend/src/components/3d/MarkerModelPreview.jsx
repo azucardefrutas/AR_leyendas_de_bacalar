@@ -1,6 +1,8 @@
 import React, { Suspense, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Bounds, Center, Html, OrbitControls, useGLTF } from '@react-three/drei';
+import WebGLErrorBoundary from './WebGLErrorBoundary.jsx';
+import { isWebGLAvailable } from '../../utils/webglSupport.js';
 
 // Catches GLTF load failures (404, CORS, invalid file) thrown during render/suspense
 // so the marker shows a clear error state instead of crashing the whole canvas tree.
@@ -64,6 +66,14 @@ function MarkerModelPreview({ modelUrl, selected = false, autoRotate = true, cla
     );
   }
 
+  if (!isWebGLAvailable()) {
+    return (
+      <div className={`marker-model-preview is-empty ${className}`}>
+        <span className="marker-model-message">Vista 3D no disponible en este dispositivo</span>
+      </div>
+    );
+  }
+
   return (
     <div className={`marker-model-preview ${selected ? 'is-selected' : ''} ${className}`}>
       {failed ? (
@@ -74,6 +84,7 @@ function MarkerModelPreview({ modelUrl, selected = false, autoRotate = true, cla
           </button>
         </div>
       ) : (
+        <WebGLErrorBoundary onError={() => setFailed(true)}>
         <Canvas
           key={reloadKey}
           gl={{ alpha: true, antialias: true }}
@@ -102,6 +113,7 @@ function MarkerModelPreview({ modelUrl, selected = false, autoRotate = true, cla
             autoRotateSpeed={0.8}
           />
         </Canvas>
+        </WebGLErrorBoundary>
       )}
     </div>
   );

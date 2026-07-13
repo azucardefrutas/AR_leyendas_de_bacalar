@@ -1982,3 +1982,60 @@ button.user-bubble { border: 0; cursor: pointer; font: inherit; }
   .pdf-flipbook-nav-button-prev { left: 2px; }
   .pdf-flipbook-nav-button-next { right: 2px; }
 }
+
+/* =====================================================================
+   Reader floating controls on phones / tablets — cleaner distribution
+   ---------------------------------------------------------------------
+   Before: the camera (AR launcher) sat top-LEFT and the page controls
+   wrapped into a tall chunky card (prev on one row, indicator on the
+   next, a stray page-number input on a third). Fixes:
+     • Camera moves to the top-RIGHT (opposite the centred title).
+     • The control card becomes a slim, single-row pill that hugs its
+       content; the page-number input (which forced the wrap and read as
+       a disconnected box) is dropped on touch — prev / indicator / next
+       is the expected mobile reader pattern, and page-jump stays on
+       desktop. Appended last so it wins over the base flipbook rules.
+   ===================================================================== */
+@media (max-width: 899px) {
+  /* Camera trigger to the right; the settings gear stays bottom-right. */
+  .ar-models-trigger.is-floating {
+    left: auto;
+    right: clamp(10px, 3vw, 16px);
+    top: clamp(8px, 1.6vh, 16px);
+  }
+
+  /* Slim single-row pill instead of a wrapped, fat card. */
+  .pdf-flipbook-controls {
+    flex-wrap: nowrap;
+    width: auto;
+    max-width: calc(100vw - 20px);
+    min-height: 0;
+    gap: 6px;
+    padding: 5px 8px;
+  }
+
+  /* The go-to-page input was the widest, wrap-forcing element and looked
+     like a stray box — hide it on touch; prev/next + indicator remain. */
+  .pdf-flipbook-goto { display: none; }
+
+  .pdf-flipbook-page-indicator {
+    white-space: nowrap;
+    min-width: 0;
+    padding: 0 2px;
+    font-size: 0.82rem;
+  }
+
+  /* Comfortable, evenly-sized round taps in the slim pill. */
+  .pdf-flipbook-control-button {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* Centre the static hero card shown when WebGL is unavailable (the live
+   .floating-book-shell relies on the canvas filling it, so the DOM fallback
+   needs its own centring). */
+.floating-book-shell--fallback {
+  display: grid;
+  place-items: center;
+}

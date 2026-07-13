@@ -1,6 +1,8 @@
 import React, { Component, Suspense, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Center, Float, Html, OrbitControls, useGLTF } from '@react-three/drei';
+import WebGLErrorBoundary from './WebGLErrorBoundary.jsx';
+import { isWebGLAvailable } from '../../utils/webglSupport.js';
 
 const BOOK_MODEL_PATH = '/assets/models/Libro_bacalar.glb';
 
@@ -58,35 +60,59 @@ function BookFallback3D() {
   );
 }
 
+// Static, WebGL-free version of the hero used when the device can't create a
+// WebGL context (unsupported/disabled, or the renderer fails at runtime). Keeps
+// the landing page intact instead of crashing it.
+function FloatingBookFallback() {
+  return (
+    <div className="floating-book-shell floating-book-shell--fallback" aria-label="Leyendas de Bacalar">
+      <div className="book-fallback-card">
+        <span>LIBRO</span>
+        <strong>Leyendas de Bacalar</strong>
+      </div>
+      <div className="floating-book-glow" />
+    </div>
+  );
+}
+
 function FloatingBook() {
   const [isInteracting, setIsInteracting] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  // Don't even mount the canvas where WebGL is unavailable — three.js would throw
+  // "Error creating WebGL context." and take the whole page down with it.
+  if (failed || !isWebGLAvailable()) {
+    return <FloatingBookFallback />;
+  }
 
   return (
     <div className="floating-book-shell" aria-label="Libro 3D de Leyendas de Bacalar">
-      <Canvas camera={{ position: [0, 0.55, 5.1], fov: 34 }} dpr={[1, 1.65]}>
-        <ambientLight intensity={0.75} />
-        <directionalLight position={[3, 4, 4]} intensity={1.55} color="#30CFF2" />
-        <pointLight position={[-2, 1.4, 3]} intensity={1.25} color="#049DD9" />
-        <BookErrorBoundary fallback={<BookFallback3D />}>
-          <Suspense fallback={<BookFallback3D />}>
-            <BookModel isInteracting={isInteracting} />
-          </Suspense>
-        </BookErrorBoundary>
-        <OrbitControls
-          enableDamping
-          dampingFactor={0.08}
-          enablePan={false}
-          enableZoom
-          minDistance={3}
-          maxDistance={6}
-          minPolarAngle={Math.PI / 3.6}
-          maxPolarAngle={Math.PI / 1.65}
-          rotateSpeed={0.75}
-          zoomSpeed={0.65}
-          onStart={() => setIsInteracting(true)}
-          onEnd={() => setIsInteracting(false)}
-        />
-      </Canvas>
+      <WebGLErrorBoundary fallback={null} onError={() => setFailed(true)}>
+        <Canvas camera={{ position: [0, 0.55, 5.1], fov: 34 }} dpr={[1, 1.65]}>
+          <ambientLight intensity={0.75} />
+          <directionalLight position={[3, 4, 4]} intensity={1.55} color="#30CFF2" />
+          <pointLight position={[-2, 1.4, 3]} intensity={1.25} color="#049DD9" />
+          <BookErrorBoundary fallback={<BookFallback3D />}>
+            <Suspense fallback={<BookFallback3D />}>
+              <BookModel isInteracting={isInteracting} />
+            </Suspense>
+          </BookErrorBoundary>
+          <OrbitControls
+            enableDamping
+            dampingFactor={0.08}
+            enablePan={false}
+            enableZoom
+            minDistance={3}
+            maxDistance={6}
+            minPolarAngle={Math.PI / 3.6}
+            maxPolarAngle={Math.PI / 1.65}
+            rotateSpeed={0.75}
+            zoomSpeed={0.65}
+            onStart={() => setIsInteracting(true)}
+            onEnd={() => setIsInteracting(false)}
+          />
+        </Canvas>
+      </WebGLErrorBoundary>
       <div className="floating-book-glow" />
       <div className="book-interaction-hint">Arrastra para explorar el libro</div>
     </div>

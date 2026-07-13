@@ -2,7 +2,12 @@ import React, { Suspense, useEffect, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Bounds, Center, Html, OrbitControls, useGLTF } from '@react-three/drei';
 import Button from '../ui/Button.jsx';
+import WebGLErrorBoundary from './WebGLErrorBoundary.jsx';
+import { isWebGLAvailable } from '../../utils/webglSupport.js';
 import { getOrbitControlOptions } from './model3dViewerOptions.js';
+
+const WEBGL_UNAVAILABLE_MESSAGE =
+  'No se pudo mostrar el modelo 3D. Tu dispositivo o navegador podria no soportar 3D (WebGL), o el archivo (GLB/GLTF) fallo.';
 
 function getModelAsset(scene = {}) {
   return scene?.assets || scene?.asset || scene?.model_asset || null;
@@ -91,6 +96,9 @@ function Model3DViewer({
   const [failed, setFailed] = useState(false);
   const url = modelUrl || getModelUrl(scene);
   const name = title || scene?.name || 'Modelo 3D';
+  // Gate on real WebGL support so we never mount a canvas that would throw and
+  // crash the page; the boundary below is the runtime safety net.
+  const canRender3D = Boolean(url) && !failed && isWebGLAvailable();
 
   // Hide the fixed navbar (and any fixed chrome) while the viewer is open so it
   // never collides with the modal. The CSS targets `body.model3d-open`.
@@ -110,18 +118,18 @@ function Model3DViewer({
         <div className="model3d-inline-stage">
           {!url ? (
             <div className="model3d-message">Esta escena todavia no tiene un modelo 3D asociado.</div>
-          ) : failed ? (
-            <div className="model3d-message error">
-              No se pudo cargar el modelo 3D. Verifica el archivo (GLB/GLTF) o la URL.
-            </div>
+          ) : !canRender3D ? (
+            <div className="model3d-message error">{WEBGL_UNAVAILABLE_MESSAGE}</div>
           ) : (
-            <ModelCanvas
-              url={url}
-              onError={() => setFailed(true)}
-              embedded
-              compactControls={compactControls}
-              interactionEnabled={interactionEnabled}
-            />
+            <WebGLErrorBoundary onError={() => setFailed(true)}>
+              <ModelCanvas
+                url={url}
+                onError={() => setFailed(true)}
+                embedded
+                compactControls={compactControls}
+                interactionEnabled={interactionEnabled}
+              />
+            </WebGLErrorBoundary>
           )}
         </div>
       </div>
@@ -154,16 +162,16 @@ function Model3DViewer({
         <div className="model3d-stage">
           {!url ? (
             <div className="model3d-message">Esta escena todavia no tiene un modelo 3D asociado.</div>
-          ) : failed ? (
-            <div className="model3d-message error">
-              No se pudo cargar el modelo 3D. Verifica el archivo (GLB/GLTF) o la URL.
-            </div>
+          ) : !canRender3D ? (
+            <div className="model3d-message error">{WEBGL_UNAVAILABLE_MESSAGE}</div>
           ) : (
-            <ModelCanvas url={url} onError={() => setFailed(true)} />
+            <WebGLErrorBoundary onError={() => setFailed(true)}>
+              <ModelCanvas url={url} onError={() => setFailed(true)} />
+            </WebGLErrorBoundary>
           )}
         </div>
 
-        {url && !failed && (
+        {canRender3D && (
           <p className="model3d-hint">Arrastra para rotar &middot; rueda o pellizco para zoom &middot; clic derecho para desplazar</p>
         )}
       </div>
