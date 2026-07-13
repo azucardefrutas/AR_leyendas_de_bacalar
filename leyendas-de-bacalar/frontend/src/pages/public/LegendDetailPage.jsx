@@ -1,14 +1,15 @@
 import React from 'react';
 import { useEffect, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import LegendHero from '../../components/legend/LegendHero.jsx';
+import LockedPreview from '../../components/legend/LockedPreview.jsx';
 import GlassButton from '../../components/ui/GlassButton.jsx';
 import StoryActions from '../../components/ui/StoryActions.jsx';
 import PhysicalBookActivationModal from '../../components/reader/PhysicalBookActivationModal.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
-import { getLegendPages, getPublishedLegendBySlug, getUserLegendAccess } from '../../services/legendService.js';
+import { getPublishedLegendBySlug, getUserLegendAccess } from '../../services/legendService.js';
 import { getReaderBundle } from '../../services/backendApiService.js';
 import { buildBookModelsFromBundle } from '../../utils/bookModels.js';
 import ArModelsLauncher from '../../components/ar/ArModelsLauncher.jsx';
@@ -48,7 +49,6 @@ function LegendDetailPage() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
   const [legend, setLegend] = useState(null);
-  const [pages, setPages] = useState([]);
   const [access, setAccess] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -67,13 +67,14 @@ function LegendDetailPage() {
         return;
       }
 
-      const { data: pageData } = await getLegendPages(data.id);
+      // NOTE: intentionally we do NOT fetch the full pages here. For locked legends
+      // that would pull the whole story into the client. The reader (backend) is the
+      // single gate that serves content only to entitled users.
       const { data: accessData } = isAuthenticated
         ? await getUserLegendAccess(data.id)
         : { data: null };
 
       setLegend(data);
-      setPages(pageData ?? []);
       setAccess(accessData);
       setLoading(false);
     }
@@ -108,7 +109,6 @@ function LegendDetailPage() {
   const canRead = Boolean(access) || isFree;
   const currentPath = `/legend/${slug}`;
   const loginForLegend = getLoginPathForRedirect(currentPath);
-  const previewText = pages.find((page) => page.text_content)?.text_content;
   const coverUrl = legend.coverUrl || legend.cover_url || legend.poster_url || getFallbackCover(slug);
   const bannerUrl = legend.bannerUrl || legend.banner_url || legend.backdropUrl || coverUrl;
   const authorName = legend.authorName || legend.author_name || legend.creator_name || legend.pen_name || 'Autor no disponible';
@@ -188,23 +188,16 @@ function LegendDetailPage() {
         actions={heroActions}
       >
         {!canRead && (
-          <p className="legend-locked-note">
-            Esta leyenda esta bloqueada. Desbloqueala para leer la historia completa.
-          </p>
+          <LockedPreview
+            accessType={accessType}
+            coverUrl={coverUrl}
+            synopsis={synopsis}
+            isAuthenticated={isAuthenticated}
+            loginPath={loginForLegend}
+            onUnlock={handleProtectedAction}
+          />
         )}
         {actionMessage && <p className="legend-locked-note">{actionMessage}</p>}
-        {!canRead && !isAuthenticated && (
-          <Link className="reader-soft-link legend-hero__soft" to={loginForLegend}>
-            Para desbloquear esta leyenda necesitas iniciar sesion.
-          </Link>
-        )}
-
-        {previewText && !canRead && (
-          <div className="detail-preview-strip">
-            <strong>Vista previa</strong>
-            <p>{previewText.slice(0, 220)}{previewText.length > 220 ? '...' : ''}</p>
-          </div>
-        )}
       </LegendHero>
 
       {activationOpen && (
