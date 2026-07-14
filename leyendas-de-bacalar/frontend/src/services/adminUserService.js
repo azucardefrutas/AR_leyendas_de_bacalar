@@ -1,5 +1,6 @@
 import { friendlyAdminError, getAdminClient } from './adminService.js';
 import { normalizeRoleNames } from './roleService.js';
+import { setUserStatusBackend } from './backendApiService.js';
 
 const USER_PROFILE_COLUMNS = 'id, full_name, username, avatar_url, bio, status, active_role, created_at, updated_at';
 
@@ -84,20 +85,24 @@ export async function getUsers() {
   return { data: attachRolesToProfiles(profileRows, roleRows ?? []), error: null };
 }
 
-export async function suspendUser(userId) {
+// Suspender/activar usuario ahora pasa por el backend (requireRole admin), no por
+// una escritura directa a users_profile desde el navegador.
+async function changeUserStatus(userId, status) {
   if (!userId) return { data: null, error: new Error('No pudimos completar la accion.') };
-  const { data: client, error: clientError } = getAdminClient();
-  if (clientError) return { data: null, error: clientError };
-  const { data, error } = await client.from('users_profile').update({ status: 'suspended' }).eq('id', userId).select().single();
-  return { data, error: error ? friendlyAdminError(error, { operation: 'suspendUser', table: 'users_profile' }) : null };
+  try {
+    const result = await setUserStatusBackend(userId, status);
+    return { data: result?.user ?? null, error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
+}
+
+export async function suspendUser(userId) {
+  return changeUserStatus(userId, 'suspended');
 }
 
 export async function activateUser(userId) {
-  if (!userId) return { data: null, error: new Error('No pudimos completar la accion.') };
-  const { data: client, error: clientError } = getAdminClient();
-  if (clientError) return { data: null, error: clientError };
-  const { data, error } = await client.from('users_profile').update({ status: 'active' }).eq('id', userId).select().single();
-  return { data, error: error ? friendlyAdminError(error, { operation: 'activateUser', table: 'users_profile' }) : null };
+  return changeUserStatus(userId, 'active');
 }
 
 export async function getUserRoles(userId) {

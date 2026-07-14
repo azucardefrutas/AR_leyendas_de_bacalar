@@ -143,6 +143,16 @@ export async function requestBackend(path, options = {}) {
   return data;
 }
 
+// Admin: change a user's status (suspend/activate). Sensitive action gated by the
+// backend's requireRole(['admin']) — no longer a direct table write from the browser.
+export async function setUserStatusBackend(userId, status) {
+  return requestBackend(`/api/v1/admin/users/${userId}/status`, {
+    method: 'POST',
+    body: { status },
+    operation: 'admin-set-user-status',
+  });
+}
+
 async function requestBackendFile(path, { operation = 'backend-file' } = {}) {
   const accessToken = await getAccessToken();
   const url = buildBackendUrl(path);

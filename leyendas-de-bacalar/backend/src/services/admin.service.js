@@ -9,6 +9,24 @@ function resolveAssetUrl(asset) {
     || (asset.storage_path ? getPublicUrlForAsset({ bucket: 'legend-assets', path: asset.storage_path }) : null);
 }
 
+// Sensitive admin write moved off the browser: suspending/activating a user used to
+// be a direct users_profile update from the client that relied only on RLS. It now
+// runs server-side behind requireRole(['admin']) with the service-role client.
+const USER_STATUSES = new Set(['active', 'suspended']);
+
+export async function setUserStatus(userId, status) {
+  if (!userId) { const error = new Error('userId requerido.'); error.status = 400; throw error; }
+  if (!USER_STATUSES.has(status)) { const error = new Error('Estado de usuario invalido.'); error.status = 400; throw error; }
+  const { data, error } = await supabaseAdmin
+    .from('users_profile')
+    .update({ status })
+    .eq('id', userId)
+    .select('id, status')
+    .single();
+  if (error) { const err = new Error('No se pudo actualizar el estado del usuario.'); err.status = 500; throw err; }
+  return data;
+}
+
 // Admin aggregations moved server-side: the browser makes ONE call instead of
 // ~10 count round-trips. Ownership is enforced by requireRole(['admin']) on the route.
 

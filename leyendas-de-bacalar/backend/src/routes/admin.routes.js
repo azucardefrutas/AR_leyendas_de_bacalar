@@ -2,7 +2,7 @@ import { Router } from 'express';
 
 import { requireAuth } from '../middlewares/requireAuth.js';
 import { requireRole } from '../middlewares/requireRole.js';
-import { getAdminDashboardStats, listAdminLegends, listContentReviews } from '../services/admin.service.js';
+import { getAdminDashboardStats, listAdminLegends, listContentReviews, setUserStatus } from '../services/admin.service.js';
 
 const router = Router();
 const requireAdmin = [requireAuth, requireRole(['admin'])];
@@ -32,6 +32,17 @@ router.get('/reviews', requireAdmin, async (req, res, next) => {
   try {
     const reviews = await listContentReviews();
     res.json({ ok: true, reviews });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Suspend / activate a user — admin-only, enforced server-side. Replaces a direct
+// users_profile write from the browser that relied solely on RLS.
+router.post('/users/:userId/status', requireAdmin, async (req, res, next) => {
+  try {
+    const user = await setUserStatus(req.params.userId, req.body?.status);
+    res.json({ ok: true, user });
   } catch (error) {
     next(error);
   }
