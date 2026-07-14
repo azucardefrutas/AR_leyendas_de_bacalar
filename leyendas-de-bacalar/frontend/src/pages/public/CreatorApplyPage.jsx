@@ -11,6 +11,7 @@ import {
   submitCreatorApplication,
 } from '../../services/creatorApplicationService.js';
 import { getLoginPathForRedirect } from '../../utils/authRedirect.js';
+import { getPublicSystemSettings } from '../../services/backendApiService.js';
 
 const initialForm = {
   legalFirstName: '',
@@ -134,6 +135,7 @@ function CreatorApplyPage() {
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
   const [touched, setTouched] = useState({});
+  const [registrationOpen, setRegistrationOpen] = useState(true);
   const acceptedLegalTerms =
     form.acceptedCreatorTerms &&
     form.acceptedCreatorPrivacy &&
@@ -163,6 +165,14 @@ function CreatorApplyPage() {
       active = false;
     };
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    let active = true;
+    getPublicSystemSettings()
+      .then((res) => { if (active) setRegistrationOpen(res?.settings?.creator_registration?.open !== false); })
+      .catch(() => { /* fail-open: keep registration available if settings cannot load */ });
+    return () => { active = false; };
+  }, []);
 
   function updateField(field, value) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -420,6 +430,20 @@ function CreatorApplyPage() {
       >
         <p>Tu formulario editorial quedó registrado. Reenviaremos el correo de confirmación sin volver a enviar el formulario.</p>
         {error && <div className="rx-alert rx-alert-error">{error}</div>}
+      </StateCard>
+    );
+  }
+
+  if (!registrationOpen) {
+    return (
+      <StateCard
+        variant="capp-state-warn"
+        icon="⏳"
+        eyebrow="Registro cerrado"
+        title="El registro de creadores está cerrado temporalmente"
+        actions={<Link to="/"><Button>Volver al inicio</Button></Link>}
+      >
+        <p>Por ahora no estamos aceptando nuevas solicitudes de creador. Vuelve a intentarlo más adelante.</p>
       </StateCard>
     );
   }

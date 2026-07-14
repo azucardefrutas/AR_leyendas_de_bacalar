@@ -12,6 +12,7 @@ import legendHotspotsRoutes from './legendHotspots.routes.js';
 import mobileRoutes from './mobile.routes.js';
 import readerBundleRoutes from './readerBundle.routes.js';
 import readerLegendsRoutes from './readerLegends.routes.js';
+import settingsRoutes from './settings.routes.js';
 
 const router = Router();
 
@@ -25,6 +26,7 @@ router.use('/api/v1/legends', editorContentRoutes);
 router.use('/api/v1/reader/legends', readerLegendsRoutes);
 router.use('/api/v1/reader/codes', codesRoutes);
 router.use('/api/v1/mobile', mobileRoutes);
+router.use('/api/v1/settings', settingsRoutes);
 router.use('/api/v1/admin', adminRoutes);
 router.use('/api/v1/creator', creatorRoutes);
 

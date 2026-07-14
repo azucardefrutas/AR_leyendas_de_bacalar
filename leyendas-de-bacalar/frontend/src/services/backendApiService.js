@@ -287,6 +287,28 @@ export function getAdminStatsBackend() {
   return requestBackend('/api/v1/admin/stats', { operation: 'admin-stats' });
 }
 
+// System settings. Admin reads/writes every key; the public endpoint (no auth) returns
+// only the public-safe subset (announcement/maintenance/creator_registration) used by the
+// global banner and the creator sign-up gate.
+export function getAdminSettings() {
+  return requestBackend('/api/v1/admin/settings', { operation: 'admin-settings-get' });
+}
+
+export function updateAdminSettings(settings) {
+  return requestBackend('/api/v1/admin/settings', {
+    method: 'PUT',
+    operation: 'admin-settings-update',
+    body: { settings },
+  });
+}
+
+export function getPublicSystemSettings() {
+  return requestBackend('/api/v1/settings/public', {
+    authenticated: false,
+    operation: 'public-settings',
+  });
+}
+
 // Full editor payload (legend + version + pages + genres + resources) in one call.
 export function getEditorDataBackend(legendId) {
   return requestBackend(`/api/v1/legends/${encodeURIComponent(legendId)}/editor`, { operation: 'editor-load' });

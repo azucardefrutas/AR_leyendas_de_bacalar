@@ -15,6 +15,7 @@ import {
 } from '../services/documentRender.service.js';
 import { validateFileMetadata } from '../services/fileValidation.service.js';
 import { getLegendAccessContext } from '../services/legendAccess.service.js';
+import { getUploadLimitBytes } from '../services/systemSettings.service.js';
 import { generatePagesFromExtraction } from '../services/legendPagesFromExtraction.service.js';
 import {
   assertStoragePathMatchesUpload,
@@ -133,6 +134,17 @@ router.post('/prepare-upload', requireCreatorOrAdmin, async (req, res, next) => 
       sizeBytes,
       purpose,
     });
+
+    // Enforce the admin-configured source-document upload limit (can only lower the
+    // hard 50MB ceiling). Rejecting here means the signed URL is never issued.
+    if (normalized.purpose === 'source_document') {
+      const limitBytes = await getUploadLimitBytes(50 * 1024 * 1024);
+      if (normalized.sizeBytes > limitBytes) {
+        const error = new Error(`El documento supera el limite de subida configurado (${Math.round(limitBytes / (1024 * 1024))} MB).`);
+        error.statusCode = 400;
+        throw error;
+      }
+    }
 
     const bucket = getBucketForPurpose(normalized.purpose);
     const path = buildStoragePath({
