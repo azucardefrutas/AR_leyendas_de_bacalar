@@ -5,6 +5,7 @@ import LoadingState from '../../components/ui/LoadingState.jsx';
 import StatusBadge from '../../shared/status/StatusBadge.jsx';
 import { getStatusCounterTone } from '../../shared/status/statusMeta.js';
 import { useProfile } from '../../hooks/useProfile.js';
+import ChangePasswordForm from '../../components/auth/ChangePasswordForm.jsx';
 import {
   countCreatorLegendsByStatus,
   getCreatorLegends,
@@ -51,6 +52,7 @@ const ABOUT_SECTIONS = [
   { key: 'presentacion', label: 'Presentación' },
   { key: 'personales', label: 'Datos personales' },
   { key: 'enlaces', label: 'Enlaces' },
+  { key: 'seguridad', label: 'Seguridad' },
 ];
 
 function CreatorProfilePage() {
@@ -615,6 +617,14 @@ function CreatorProfilePage() {
                     />
                   ),
                 })}
+              </div>
+            )}
+
+            {aboutSection === 'seguridad' && (
+              <div className="fbinfo-block">
+                <h4>Seguridad</h4>
+                <p className="creator-muted" style={{ margin: '0 0 4px' }}>Cambia la contraseña de tu cuenta.</p>
+                <ChangePasswordForm />
               </div>
             )}
           </div>

@@ -9606,6 +9606,41 @@ body.model3d-open .site-header {
 .locked-preview__cta:hover { transform: translateY(-2px); box-shadow: 0 16px 30px -12px rgba(4, 157, 217, 0.85); }
 .locked-preview__cta .material-symbols-rounded { font-size: 1.2rem; }
 
+/* ===== Change password form (reader + creator settings, theme-agnostic) ===== */
+.change-password { display: grid; gap: 14px; max-width: 480px; margin-top: 14px; }
+.change-password__row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.change-password__field { display: grid; gap: 6px; min-width: 0; }
+.change-password__field > span { font-weight: 700; font-size: 0.82rem; opacity: 0.85; }
+.change-password__field input {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(128, 140, 160, 0.45);
+  background: rgba(128, 140, 160, 0.08);
+  color: inherit;
+  font: inherit;
+  width: 100%;
+  box-sizing: border-box;
+}
+.change-password__field input:focus { outline: 2px solid #049dd9; outline-offset: 1px; border-color: transparent; }
+.change-password__show { display: inline-flex; align-items: center; gap: 8px; font-size: 0.85rem; opacity: 0.85; cursor: pointer; }
+.change-password__msg { margin: 0; font-weight: 700; font-size: 0.85rem; }
+.change-password__msg--err { color: #f87171; }
+.change-password__msg--ok { color: #34d399; }
+.change-password__submit {
+  justify-self: start;
+  margin-top: 2px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font-weight: 800;
+  color: #04202b;
+  background: linear-gradient(120deg, #30cff2, #049dd9);
+  box-shadow: 0 10px 22px -12px rgba(4, 157, 217, 0.7);
+}
+.change-password__submit:disabled { opacity: 0.6; cursor: wait; }
+@media (max-width: 520px) { .change-password__row { grid-template-columns: 1fr; } }
+
 @media (max-width: 720px) {
   .detail-grid {
     grid-template-columns: 1fr;

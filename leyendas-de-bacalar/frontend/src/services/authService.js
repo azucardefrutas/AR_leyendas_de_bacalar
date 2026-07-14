@@ -58,6 +58,26 @@ export async function getCurrentUser() {
   return client.auth.getUser();
 }
 
+// Change the signed-in user's password. Supabase's updateUser() only needs the
+// active session, so we re-verify the CURRENT password first (via a sign-in) to
+// stop someone from changing it on an unattended/hijacked session.
+export async function changePassword({ currentPassword, newPassword }) {
+  const { data: client, error } = getClient();
+  if (error) return { error };
+
+  const { data: userData } = await client.auth.getUser();
+  const email = userData?.user?.email;
+  if (!email) return { error: new Error('No hay una sesion activa. Inicia sesion de nuevo.') };
+
+  const { error: verifyError } = await client.auth.signInWithPassword({ email, password: currentPassword });
+  if (verifyError) return { error: new Error('La contrasena actual no es correcta.') };
+
+  const { error: updateError } = await client.auth.updateUser({ password: newPassword });
+  if (updateError) return { error: updateError };
+
+  return { error: null };
+}
+
 export function onAuthStateChange(callback) {
   if (!supabase) {
     return { data: { subscription: { unsubscribe: () => {} } }, error: getSupabaseConfigError() };

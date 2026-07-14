@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import AppIcon from '../../components/ui/AppIcon.jsx';
 import Button from '../../components/ui/Button.jsx';
 import ReaderSectionHeader from '../../components/reader/experience/ReaderSectionHeader.jsx';
+import ChangePasswordForm from '../../components/auth/ChangePasswordForm.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
 import { useRoles } from '../../hooks/useRoles.js';
 import { cancelSubscription, getMySubscriptions } from '../../services/subscriptionService.js';
@@ -100,24 +101,10 @@ function SettingsPage() {
         <div className="rx-panel-head">
           <div>
             <h2>Seguridad</h2>
-            <p>Protege el acceso a tu cuenta.</p>
+            <p>Cambia la contraseña de tu cuenta.</p>
           </div>
         </div>
-        <div className="rx-ledger">
-          <div className="rx-ledger-row">
-            <div className="rx-ledger-icon" aria-hidden="true"><AppIcon name="lock" size={20} /></div>
-            <div className="rx-ledger-main">
-              <strong>Cambiar contraseña</strong>
-              <span>Actualiza la contraseña de tu cuenta.</span>
-            </div>
-            <div className="rx-ledger-side">
-              <span className="rx-badge rx-badge-wait">Proximamente</span>
-            </div>
-          </div>
-        </div>
-        <p className="rx-note" style={{ marginTop: 14 }}>
-          El cambio de contraseña se habilitara pronto desde esta seccion.
-        </p>
+        <ChangePasswordForm />
       </section>
 
       <section className="rx-panel">
