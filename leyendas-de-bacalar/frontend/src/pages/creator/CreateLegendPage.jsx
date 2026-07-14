@@ -6,7 +6,7 @@ import BookSpreadPreview from '../../components/editor/BookSpreadPreview.jsx';
 import EditorialRichEditor from '../../components/creator/EditorialRichEditor.jsx';
 import {
   createArMarker,
-  getLegendSourceDocuments,
+  getLegendSourceDocumentsLight,
   saveLegendResource,
   uploadSourceDocument,
 } from '../../services/assetService.js';
@@ -348,7 +348,7 @@ function SourceDocumentPanel({ value, canSave, saving, onChange, onSave }) {
           </div>
         </div>
         <p className="creator-checklist-note">
-          El archivo se guardara como fuente editorial de la obra. La extraccion automatica aun no esta disponible.
+          El archivo se guardará como fuente editorial de la obra y quedará vinculado a la leyenda para su revisión.
         </p>
         <label className="creator-source-dropzone" htmlFor="wizard-source-document">
           <input
@@ -421,7 +421,7 @@ function DocumentPreviewPanel({ sourceDocument }) {
           <h3>{sourceDocument.fileName || getAssetDisplayName(asset) || 'Documento fuente'}</h3>
           <p>
             {sourceDocument.saved
-              ? 'Documento guardado como fuente. La extraccion automatica aun no esta disponible.'
+              ? 'Documento guardado como fuente y listo para su revisión.'
               : 'Guarda el documento para verlo aqui antes de enviar a revision.'}
           </p>
         </Card>
@@ -867,14 +867,26 @@ function CreateLegendPage() {
       file: value.file,
     });
 
-    // The register step can report a misleading error (for example a non-fatal
-    // page_count side-effect) even when the document was actually registered.
-    // Verify against the real source documents before deciding success/failure,
-    // so we never show a load error when the document already exists.
-    const verify = await getLegendSourceDocuments(draftOverride.legend.id);
-    const registeredDoc = !verify.error
-      ? (verify.data || []).find((document) => document.is_primary_source) || (verify.data || [])[0]
-      : null;
+    // Happy path: register-upload already returns the source-document relation and its
+    // asset, so we build the saved state directly and skip the expensive full-resource
+    // read (media + AR scenes + markers + hydration) that caused a visible tiron after
+    // saving. Only when the register step reports an error do we fall back to a
+    // lightweight source-document lookup as a safety net against a misleading error
+    // (the register step can report a non-fatal side-effect while the row was created).
+    let registeredDoc = null;
+    if (!result.error && result.data?.relation?.id) {
+      registeredDoc = {
+        id: result.data.relation.id,
+        is_primary_source: true,
+        page_count: result.data.relation.pageCount ?? null,
+        assets: result.data.asset || null,
+      };
+    } else {
+      const verify = await getLegendSourceDocumentsLight(draftOverride.legend.id);
+      registeredDoc = !verify.error
+        ? (verify.data || []).find((document) => document.is_primary_source) || (verify.data || [])[0]
+        : null;
+    }
 
     setSavingResourceKey(null);
 
@@ -882,6 +894,10 @@ function CreateLegendPage() {
       const hydratedAsset = registeredDoc?.assets || registeredDoc?.asset || null;
       const fallbackAsset = result.data?.asset || result.data || null;
       const asset = hydratedAsset || fallbackAsset;
+      // Only keep a usable URL; a bare storage_path is not a preview URL. The document
+      // preview step refreshes a real signed URL from the backend (getSourceDocumentViewUrl).
+      const rawPreviewUrl = getAssetUrl(asset);
+      const previewUrl = /^(https?:|blob:|data:)/i.test(rawPreviewUrl) ? rawPreviewUrl : '';
       updateResource(sourceDocumentDefinition.key, {
         ...value,
         url: '',
@@ -895,7 +911,7 @@ function CreateLegendPage() {
         fileSize: value.file?.size || asset?.file_size || asset?.size_bytes || value.fileSize,
         fileType: value.file?.type || asset?.mime_type || value.fileType || documentType,
         documentType,
-        previewUrl: getAssetUrl(asset),
+        previewUrl,
       });
       setMessage(result.error
         ? 'Documento cargado correctamente. La extraccion de texto queda como paso posterior.'
@@ -1293,7 +1309,7 @@ function CreateLegendPage() {
         {currentStepKey === 'editorial' && (
           <div className="creator-wizard-step">
             <div className="creator-editor-card-title">
-              <span>{sourceMode === 'upload' ? '1' : '1'}</span>
+              <span>{currentStep + 1}</span>
               <div>
                 <h2>Datos editoriales basicos</h2>
                 <p>Esta informacion crea el borrador real en Supabase.</p>
@@ -1385,7 +1401,7 @@ function CreateLegendPage() {
         {currentStepKey === 'resources' && (
           <div className="creator-wizard-step">
             <div className="creator-editor-card-title">
-              <span>2</span>
+              <span>{currentStep + 1}</span>
               <div>
                 <h2>Portada y banner</h2>
                 <p>Los recursos visuales son recomendados, no obligatorios para guardar el borrador.</p>
@@ -1410,7 +1426,7 @@ function CreateLegendPage() {
         {currentStepKey === 'content' && (
           <div className="creator-wizard-step">
             <div className="creator-editor-card-title">
-              <span>3</span>
+              <span>{currentStep + 1}</span>
               <div>
                 <h2>Contenido de la leyenda</h2>
                 <p>Escribe la historia por páginas con el editor editorial. Cada página guarda su propio contenido.</p>
@@ -1436,7 +1452,7 @@ function CreateLegendPage() {
         {currentStepKey === 'documentPreview' && (
           <div className="creator-wizard-step">
             <div className="creator-editor-card-title">
-              <span>3</span>
+              <span>{currentStep + 1}</span>
               <div>
                 <h2>Vista previa del documento</h2>
                 <p>Revisa el archivo fuente guardado antes de preparar portada, modelo, marcador y asociacion por pagina.</p>
@@ -1449,7 +1465,7 @@ function CreateLegendPage() {
         {currentStepKey === 'ar' && (
           <div className="creator-wizard-step">
             <div className="creator-editor-card-title">
-              <span>{sourceMode === 'upload' ? '4' : '4'}</span>
+              <span>{currentStep + 1}</span>
               <div>
                 <h2>Recursos 3D / AR</h2>
                 <p>Puedes enriquecer la obra ahora o dejarlo para despues. La revision puede continuar sin esto.</p>
@@ -1491,10 +1507,10 @@ function CreateLegendPage() {
         {currentStepKey === 'declarations' && (
           <div className="creator-wizard-step">
             <div className="creator-editor-card-title">
-              <span>5</span>
+              <span>{currentStep + 1}</span>
               <div>
                 <h2>Declaraciones editoriales</h2>
-                <p>Estas declaraciones se validan en frontend mientras no existan columnas dedicadas.</p>
+                <p>Estas confirmaciones son obligatorias para enviar tu leyenda a revisión.</p>
               </div>
             </div>
             <div className="creator-declaration-list">
@@ -1521,7 +1537,7 @@ function CreateLegendPage() {
         {currentStepKey === 'review' && (
           <div className="creator-wizard-step">
             <div className="creator-editor-card-title">
-              <span>6</span>
+              <span>{currentStep + 1}</span>
               <div>
                 <h2>Revision y envio</h2>
                 <p>Confirma el resumen antes de enviar la version a revision.</p>

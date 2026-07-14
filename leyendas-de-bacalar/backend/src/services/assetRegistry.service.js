@@ -47,6 +47,12 @@ const getDocumentType = ({ filename, mimeType }) => {
 
 const getMediaUsageContext = (purpose) => (purpose === 'cover' ? 'catalog' : 'detail');
 
+// Counting PDF pages requires downloading + parsing the whole file inside register-upload.
+// For large scanned books that adds seconds of latency and memory pressure to the request,
+// so above this threshold we skip the inline count and leave page_count null (it is nullable
+// by design and best-effort). The render step can backfill it later without blocking upload.
+const MAX_INLINE_PAGE_COUNT_BYTES = 20 * 1024 * 1024;
+
 const buildLegendMediaPayload = ({ legendId, assetId, purpose }) => ({
   legend_id: legendId,
   asset_id: assetId,
@@ -206,8 +212,13 @@ const linkLegendMedia = async ({ legendId, assetId, purpose }) => {
   return insertLegendMedia(payload);
 };
 
-const detectPdfPageCount = async ({ bucket, path, filename, mimeType }) => {
+const detectPdfPageCount = async ({ bucket, path, filename, mimeType, sizeBytes }) => {
   if (getDocumentType({ filename, mimeType }) !== 'pdf') {
+    return null;
+  }
+
+  if (Number.isFinite(Number(sizeBytes)) && Number(sizeBytes) > MAX_INLINE_PAGE_COUNT_BYTES) {
+    logAssetRegistryDebug('skipping inline page_count for large PDF', { bucket, path, sizeBytes });
     return null;
   }
 
@@ -238,6 +249,29 @@ const detectPdfPageCount = async ({ bucket, path, filename, mimeType }) => {
 };
 
 const linkSourceDocument = async ({ legendId, assetId, userId, filename, mimeType, pageCount }) => {
+  // Keep a single primary source per legend: demote any previous primary before inserting
+  // the new one. This makes re-uploads safe and lets the partial unique index
+  // (unique(legend_id) where is_primary_source) hold without breaking register-upload.
+  const { error: demoteError } = await supabaseAdmin
+    .from('legend_source_documents')
+    .update({ is_primary_source: false })
+    .eq('legend_id', legendId)
+    .eq('is_primary_source', true);
+
+  if (demoteError) {
+    logAssetRegistryError('failed to demote previous primary source document', {
+      legend_id: legendId,
+      code: demoteError.code,
+      reason: demoteError.message,
+    });
+    throw new AssetRegistryError('Could not update previous source document.', 500, {
+      table: 'legend_source_documents',
+      code: demoteError.code,
+      reason: demoteError.message,
+      hint: demoteError.hint,
+    });
+  }
+
   const payload = {
     legend_id: legendId,
     asset_id: assetId,
@@ -344,6 +378,7 @@ export const registerUploadedAsset = async ({
         path,
         filename,
         mimeType,
+        sizeBytes,
       });
       const relation = await linkSourceDocument({
         legendId,

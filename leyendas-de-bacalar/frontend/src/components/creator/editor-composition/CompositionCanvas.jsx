@@ -16,7 +16,7 @@ import {
   sendLayerBackward,
   setLayerLocked,
   setLayerOpacity,
-  useLayerAsBackground,
+  applyLayerAsBackground,
 } from './compositionState.js';
 
 const TYPE_LABELS = { image: 'Imagen', model3d: 'Modelo 3D', marker: 'Marcador' };
@@ -218,7 +218,7 @@ export default function CompositionCanvas({
               />
             </label>
             {selected.type === 'image' && (
-              <IconAction label="Usar imagen como fondo" text="Usar como fondo" onClick={() => commit((current) => useLayerAsBackground(current, selected.id))} />
+              <IconAction label="Usar imagen como fondo" text="Usar como fondo" onClick={() => commit((current) => applyLayerAsBackground(current, selected.id))} />
             )}
             <IconAction
               label="Eliminar capa"

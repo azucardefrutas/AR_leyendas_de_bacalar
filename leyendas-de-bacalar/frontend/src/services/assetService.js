@@ -856,7 +856,11 @@ export async function saveLegendResource({ legendId, pageId, resource }) {
   if (!hasFile && !hasUrl) return { data: null, error: null };
 
   const assetResult = hasFile
-    ? await uploadLegendAsset({ file: resource.file, legendId, assetType: resource.assetType })
+    // Route every resource file upload (cover, banner, source document, 3D model, AR
+    // marker) through the backend service-role path, so the browser never writes to
+    // `assets` directly (CLAUDE.md §14). cover/banner/source_document already force the
+    // backend; this extends it to model_3d/marker_image without touching RLS.
+    ? await uploadLegendAsset({ file: resource.file, legendId, assetType: resource.assetType, forceBackend: true })
     : await createExternalAsset({ url: resource.url, legendId, assetType: resource.assetType });
 
   const uploadedAsset = assetResult.data?.asset || assetResult.data;
@@ -892,18 +896,18 @@ export async function saveLegendResource({ legendId, pageId, resource }) {
     const sceneResult = await createArScene({
       legendId,
       pageId,
-      modelAssetId: assetResult.data.id,
+      modelAssetId: uploadedAsset.id,
       title: uploadedAsset.metadata?.original_name || resource.file?.name || 'Modelo 3D',
     });
     if (sceneResult.error) return sceneResult;
-    return { data: { asset: assetResult.data, scene: sceneResult.data }, error: null };
+    return { data: { asset: uploadedAsset, scene: sceneResult.data }, error: null };
   }
 
   if (resource.kind === 'ar_marker') {
-    return { data: { asset: assetResult.data }, error: null };
+    return { data: { asset: uploadedAsset }, error: null };
   }
 
-  return { data: { asset: assetResult.data }, error: null };
+  return { data: { asset: uploadedAsset }, error: null };
 }
 
 export async function uploadSourceDocument({ legendId, file, url = '' }) {
@@ -937,4 +941,50 @@ export async function getLegendAssets(legendId) {
 export async function getLegendSourceDocuments(legendId) {
   const { data, error } = await getLegendResources(legendId);
   return { data: data.documents ?? [], error };
+}
+
+// Lightweight source-document read: a single query on legend_source_documents plus one
+// batched assets lookup, instead of the full legend resource graph (media + model/marker
+// assets + AR scenes + markers). Used to verify/hydrate a freshly uploaded source
+// document without the latency spike (tiron) of getLegendResources.
+export async function getLegendSourceDocumentsLight(legendId) {
+  if (isInvalidId(legendId)) return { data: [], error: null };
+  const { data: client, error: clientError } = getClient();
+  if (clientError) return { data: [], error: clientError };
+
+  try {
+    const { data: rows, error } = await client
+      .from('legend_source_documents')
+      .select('*')
+      .eq('legend_id', legendId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      logStorageError('select source documents (light)', { table: 'legend_source_documents', error });
+      return { data: [], error };
+    }
+
+    const documents = rows ?? [];
+    const assetIds = [...new Set(documents.map((row) => row.asset_id).filter(Boolean))];
+    let assetsById = new Map();
+
+    if (assetIds.length) {
+      const { data: assets, error: assetsError } = await client.from('assets').select('*').in('id', assetIds);
+      if (assetsError) {
+        logStorageError('select source document assets (light)', { table: 'assets', error: assetsError });
+      } else {
+        assetsById = new Map((assets ?? []).map((asset) => [String(asset.id), asset]));
+      }
+    }
+
+    const hydrated = await Promise.all(documents.map(async (row) => ({
+      ...row,
+      assets: row.asset_id ? await resolveAssetForClient(client, assetsById.get(String(row.asset_id)) || null) : null,
+    })));
+
+    return { data: hydrated, error: null };
+  } catch (error) {
+    logStorageError('get source documents light error', { error });
+    return { data: [], error: null };
+  }
 }

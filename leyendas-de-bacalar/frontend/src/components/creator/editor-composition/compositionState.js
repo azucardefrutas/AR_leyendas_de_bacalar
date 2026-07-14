@@ -190,7 +190,7 @@ export function addLayer(data, payload = {}, createId = makeLayerId) {
   return normalizeCompositionData({ ...normalized, layers: [...normalized.layers, layer] });
 }
 
-export function useLayerAsBackground(data, id) {
+export function applyLayerAsBackground(data, id) {
   const normalized = normalizeCompositionData(data);
   const source = normalized.layers.find((layer) => String(layer.id) === String(id));
   if (!source || source.type !== 'image') return normalized;
