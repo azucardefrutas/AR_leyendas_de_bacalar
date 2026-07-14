@@ -101,7 +101,9 @@ export function buildPreviewPages(localPages = [], meta = {}) {
       backCoverData: meta.backCoverData || {},
     },
     legendPages,
-    renderedPages: [],
+    // Uploaded legends preview their real rendered PDF pages (images) instead of the
+    // extracted text; buildContentPages prefers renderedPages when present.
+    renderedPages: meta.renderedPages ?? [],
   });
 }
 

@@ -7,13 +7,13 @@ import { buildPreviewPages } from '../../utils/readerPages.js';
 // page-flip physics (react-pageflip), built from the editor's LIVE local state so
 // the author sees it instantly: portada → páginas (con modelos 3D) → contraportada.
 export default function BookPreviewOverlay({
-  pages = [], title = '', author = '', onClose,
+  pages = [], renderedPages = [], title = '', author = '', onClose,
   templateId = '', coverData = null, backCoverData = null,
 }) {
   const rootRef = useRef(null);
   const readerPages = useMemo(
-    () => buildPreviewPages(pages, { templateId, coverData, backCoverData }),
-    [pages, templateId, coverData, backCoverData],
+    () => buildPreviewPages(pages, { templateId, coverData, backCoverData, renderedPages }),
+    [pages, renderedPages, templateId, coverData, backCoverData],
   );
 
   useEffect(() => {

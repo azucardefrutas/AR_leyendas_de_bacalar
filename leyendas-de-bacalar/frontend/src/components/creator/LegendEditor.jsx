@@ -260,6 +260,22 @@ function getCreatorReviewError({
   return null;
 }
 
+// Normalize the in-editor render summary (document_render_pages) into the reader's
+// image-page shape so "Ver como lector" shows the real rendered PDF for uploaded
+// legends, instead of the extracted text.
+function buildRenderedReaderPages(renderSummary) {
+  const pages = renderSummary?.pages ?? [];
+  return pages
+    .map((page) => ({
+      pageNumber: Number(page.pageNumber ?? page.page_number),
+      imageUrl: page.imageUrl || page.image_url || page.signedUrl || page.url || '',
+      width: page.width ?? null,
+      height: page.height ?? null,
+    }))
+    .filter((page) => page.imageUrl && Number.isInteger(page.pageNumber) && page.pageNumber > 0)
+    .sort((a, b) => a.pageNumber - b.pageNumber);
+}
+
 function ResourceCard({ definition, value, existing, disabled, saving, onChange, onSave }) {
   const fileName = value.file?.name;
   const icon = definition.kind === 'document' ? 'picture_as_pdf' : definition.kind.startsWith('ar') ? 'view_in_ar' : 'image';
@@ -801,7 +817,10 @@ function LegendEditor({ legendId }) {
     <section className="page-stack creator-panel creator-editor-page">
       {showReader && (
         <BookPreviewOverlay
-          pages={pages}
+          // Uploaded legends read as the rendered PDF (images); never fall back to the
+          // extracted text. Manual ("crear desde cero") legends keep their text pages.
+          pages={primarySourceDocument ? [] : pages}
+          renderedPages={primarySourceDocument ? buildRenderedReaderPages(documentRenderSummary) : []}
           title={legend.title || ''}
           author={legend.author_name || ''}
           templateId={legend.cover_template_id || ''}
@@ -1009,7 +1028,7 @@ function LegendEditor({ legendId }) {
               <Button type="button" onClick={addPage} disabled={isReviewLocked}>Anadir pagina</Button>
               </div>
             )
-          ) : (
+          ) : primarySourceDocument ? null : (
             <section className="creator-section-block creator-editorial-support">
               <button
                 type="button"

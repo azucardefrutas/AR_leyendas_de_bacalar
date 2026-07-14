@@ -988,65 +988,48 @@ function SourceDocumentPreview({
           </p>
         )}
 
-        {hasInteractivePages && (
-          <p className="creator-muted">Texto extraido disponible abajo como apoyo editorial.</p>
-        )}
-
         <p className="creator-muted source-document-current-note">
           Selecciona una pagina renderizada del libro y coloca el marcador donde aparecera el modelo.
         </p>
 
-        <details className="source-document-advanced">
-          <summary>Texto extraido / apoyo editorial</summary>
-          <div className="source-document-advanced-body">
-            {canConvert && (
-              <Button type="button" variant="ghost" onClick={onConvertToInteractive} disabled={disabled || processing}>
-                {processing ? (processingMessage || 'Procesando documento...') : 'Generar paginas editoriales desde texto'}
-              </Button>
+        <details className="source-document-technical">
+          <summary>Detalles tecnicos</summary>
+          <dl>
+            <div>
+              <dt>Estado</dt>
+              <dd>{statusLabel}</dd>
+            </div>
+            <div>
+              <dt>Tipo</dt>
+              <dd>{documentType}</dd>
+            </div>
+            <div>
+              <dt>Tamano</dt>
+              <dd>{formattedFileSize}</dd>
+            </div>
+            <div>
+              <dt>Paginas detectadas</dt>
+              <dd>{pageCountLabel || 'No disponible'}</dd>
+            </div>
+            <div>
+              <dt>MIME</dt>
+              <dd>{mimeType}</dd>
+            </div>
+            <div>
+              <dt>Source document ID</dt>
+              <dd>{sourceDocument.id || 'No disponible'}</dd>
+            </div>
+            <div>
+              <dt>Asset ID</dt>
+              <dd>{asset.id || sourceDocument.asset_id || 'No disponible'}</dd>
+            </div>
+            {storagePath && (
+              <div>
+                <dt>Ruta Storage</dt>
+                <dd>{storagePath}</dd>
+              </div>
             )}
-            <Button type="button" variant="ghost" onClick={onAddManualPage} disabled={disabled || processing}>
-              Anadir pagina manualmente
-            </Button>
-            <details className="source-document-technical">
-              <summary>Detalles tecnicos</summary>
-              <dl>
-                <div>
-                  <dt>Estado</dt>
-                  <dd>{statusLabel}</dd>
-                </div>
-                <div>
-                  <dt>Tipo</dt>
-                  <dd>{documentType}</dd>
-                </div>
-                <div>
-                  <dt>Tamano</dt>
-                  <dd>{formattedFileSize}</dd>
-                </div>
-                <div>
-                  <dt>Paginas detectadas</dt>
-                  <dd>{pageCountLabel || 'No disponible'}</dd>
-                </div>
-                <div>
-                  <dt>MIME</dt>
-                  <dd>{mimeType}</dd>
-                </div>
-                <div>
-                  <dt>Source document ID</dt>
-                  <dd>{sourceDocument.id || 'No disponible'}</dd>
-                </div>
-                <div>
-                  <dt>Asset ID</dt>
-                  <dd>{asset.id || sourceDocument.asset_id || 'No disponible'}</dd>
-                </div>
-                {storagePath && (
-                  <div>
-                    <dt>Ruta Storage</dt>
-                    <dd>{storagePath}</dd>
-                  </div>
-                )}
-              </dl>
-            </details>
-          </div>
+          </dl>
         </details>
       </div>
 
