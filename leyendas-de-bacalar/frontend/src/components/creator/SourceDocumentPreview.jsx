@@ -188,13 +188,11 @@ function getSceneLabel(scene = {}) {
 function SourceDocumentPreview({
   sourceDocument,
   viewUrl,
-  viewLoading,
   viewError,
   disabled,
   hasInteractivePages,
   processing,
   processingMessage,
-  onViewDocument,
   onConvertToInteractive,
   onAddManualPage,
   onRenderStateChange,
@@ -649,15 +647,12 @@ function SourceDocumentPreview({
         {processingMessage && <p className="creator-muted">{processingMessage}</p>}
 
         <div className="source-document-primary-actions">
-          <Button type="button" onClick={onViewDocument} disabled={disabled || viewLoading}>
-            {viewLoading ? 'Preparando preview...' : 'Ver preview'}
-          </Button>
           {signedUrl ? (
-            <a className="btn btn-ghost" href={signedUrl} target="_blank" rel="noreferrer">
+            <a className="btn btn-primary" href={signedUrl} target="_blank" rel="noreferrer">
               Abrir completo
             </a>
           ) : (
-            <Button type="button" variant="ghost" disabled>
+            <Button type="button" disabled>
               Abrir completo
             </Button>
           )}

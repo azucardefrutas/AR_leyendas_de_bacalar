@@ -821,6 +821,7 @@ function LegendEditor({ legendId }) {
           // extracted text. Manual ("crear desde cero") legends keep their text pages.
           pages={primarySourceDocument ? [] : pages}
           renderedPages={primarySourceDocument ? buildRenderedReaderPages(documentRenderSummary) : []}
+          legendId={legendId}
           title={legend.title || ''}
           author={legend.author_name || ''}
           templateId={legend.cover_template_id || ''}
