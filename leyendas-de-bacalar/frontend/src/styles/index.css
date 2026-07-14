@@ -7144,6 +7144,32 @@ pre {
 
 .admin-setting-card .field { margin-top: 12px; }
 
+/* The generic .field/.textarea/.standalone-input/.select are dark-themed (white label
+   text, translucent bg) and become invisible on the light admin cards. Re-theme them for
+   the light admin surface, mirroring the .admin-modal overrides. */
+.admin-setting-card h3 { color: #0f172a; margin: 0 0 4px; }
+.admin-setting-card > p { color: #475569; margin: 0; font-size: 0.9rem; }
+
+.admin-setting-card .field > span:first-child {
+  color: #334155;
+  font-weight: 700;
+}
+
+.admin-setting-card .field small { color: #64748b; }
+
+.admin-setting-card .textarea,
+.admin-setting-card .standalone-input,
+.admin-setting-card .select {
+  border-color: #cbd5e1;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.admin-setting-card .textarea::placeholder,
+.admin-setting-card .standalone-input::placeholder {
+  color: #64748b;
+}
+
 .admin-setting-toggle {
   display: inline-flex;
   align-items: center;
