@@ -302,6 +302,50 @@ export const createScene = async ({ legendId, userId, roles, payload = {} }) => 
   return data;
 };
 
+const MARKER_COLUMNS = 'id, marker_code, marker_asset_id, ar_scene_id, marker_type, status, created_by, created_at, updated_at';
+
+// Register an AR marker (image → scene link) with the service role. ar_markers has no
+// legend_id, so ownership is enforced via the legend access context plus asserting that
+// both the marker asset and the AR scene belong to this legend. Idempotent per
+// (marker_asset_id, ar_scene_id) so the browser can no longer write ar_markers directly.
+export const createMarker = async ({ legendId, userId, roles, payload = {} }) => {
+  await getLegendAccessContext({ legendId, userId, roles });
+
+  const markerAssetId = payload.marker_asset_id;
+  const sceneId = payload.ar_scene_id ?? null;
+  if (!markerAssetId) throw new HotspotError('marker_asset_id is required.', 400);
+  await assertAssetInLegend(legendId, markerAssetId);
+  if (sceneId) await assertSceneInLegend(legendId, sceneId);
+
+  // Idempotent: reuse an existing marker for the same asset (+ scene) instead of duplicating.
+  let existingQuery = supabaseAdmin
+    .from('ar_markers')
+    .select(MARKER_COLUMNS)
+    .eq('marker_asset_id', markerAssetId)
+    .limit(1);
+  if (sceneId) existingQuery = existingQuery.eq('ar_scene_id', sceneId);
+  const { data: existingRows, error: existingError } = await existingQuery;
+  if (existingError) throw new HotspotError('Could not load AR marker.', 500, { reason: existingError.message });
+  if (existingRows && existingRows.length > 0) return existingRows[0];
+
+  const record = {
+    marker_code: payload.marker_code || `marker-${legendId}-${Date.now()}`,
+    marker_asset_id: markerAssetId,
+    ar_scene_id: sceneId,
+    marker_type: payload.marker_type || 'image_marker',
+    status: 'draft',
+    created_by: userId,
+  };
+
+  const { data, error } = await supabaseAdmin
+    .from('ar_markers')
+    .insert(record)
+    .select(MARKER_COLUMNS)
+    .single();
+  if (error || !data) throw new HotspotError('Could not create AR marker.', 500, { reason: error?.message });
+  return data;
+};
+
 // List the legend's 3D scenes for the creator selector. Runs with the service role so
 // it can read scenes with a null page_id (rendered-PDF models), which the ar_scenes
 // RLS SELECT policy (keyed on is_page_creator(page_id)) would hide from the frontend.

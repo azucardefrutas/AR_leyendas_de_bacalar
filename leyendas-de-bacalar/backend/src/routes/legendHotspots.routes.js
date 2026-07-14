@@ -4,6 +4,7 @@ import { requireAuth } from '../middlewares/requireAuth.js';
 import { requireRole } from '../middlewares/requireRole.js';
 import {
   createHotspot,
+  createMarker,
   createScene,
   deleteHotspot,
   listHotspots,
@@ -74,6 +75,21 @@ router.post('/:legendId/scenes', requireCreatorOrAdmin, async (req, res, next) =
     });
 
     res.status(201).json({ ok: true, scene });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/:legendId/markers', requireCreatorOrAdmin, async (req, res, next) => {
+  try {
+    const marker = await createMarker({
+      legendId: req.params.legendId,
+      userId: req.user.id,
+      roles: req.user.roles,
+      payload: req.body ?? {},
+    });
+
+    res.status(201).json({ ok: true, marker });
   } catch (error) {
     next(error);
   }

@@ -1,6 +1,7 @@
 import { getCurrentUser } from './authService.js';
 import { getSupabaseConfigError, supabase } from '../lib/supabaseClient.js';
 import {
+  createLegendMarker,
   createLegendScene,
   prepareLegendUpload,
   registerLegendUpload,
@@ -726,32 +727,28 @@ export async function createArScene({ legendId, pageId = null, modelAssetId, tit
   }
 }
 
+// Registers the AR marker through the backend (service role) instead of writing to
+// ar_markers directly from the browser (CLAUDE.md §14). The backend validates that the
+// marker asset and the AR scene belong to the legend, and is idempotent per asset+scene.
 export async function createArMarker({ legendId, sceneId, markerAssetId }) {
   if (isInvalidId(sceneId) || isInvalidId(markerAssetId)) {
     return { data: null, error: friendlyAssetError('No pudimos registrar el marcador AR.') };
   }
-  const { data: client, error: clientError } = getClient();
-  if (clientError) return { data: null, error: clientError };
 
-  const { data: userId } = await getCurrentUserId();
-  const payload = {
-    marker_code: `marker-${legendId || 'legend'}-${Date.now()}`,
-    marker_asset_id: markerAssetId,
-    ar_scene_id: sceneId,
-    marker_type: 'image_marker',
-    status: 'draft',
-    created_by: userId || null,
-  };
-  const { data, error } = await client.from('ar_markers').insert(payload).select().single();
-  if (error) {
-    logStorageError('insert ar marker relation', {
-      table: 'ar_markers',
-      payload,
-      error,
+  try {
+    const response = await createLegendMarker(legendId, {
+      marker_asset_id: markerAssetId,
+      ar_scene_id: sceneId,
     });
-    return { data: null, error: friendlyAssetError('No pudimos registrar el marcador AR.', { supabaseError: error, table: 'ar_markers' }) };
+    return { data: response?.marker ?? null, error: null };
+  } catch (error) {
+    return {
+      data: null,
+      // Surface the backend's real message so failures are clear, falling back to the
+      // friendly default only when there is no message.
+      error: friendlyAssetError(error?.message || 'No pudimos registrar el marcador AR.', { backendError: error }),
+    };
   }
-  return { data, error: null };
 }
 
 export async function getLegendResources(legendId) {

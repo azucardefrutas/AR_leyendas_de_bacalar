@@ -479,6 +479,17 @@ export function createLegendScene(legendId, payload) {
   });
 }
 
+// Registers an AR marker (marker image → scene) via the backend (service role). ar_markers
+// has no legend_id, so the backend validates ownership through the legend + scene + asset.
+// This replaces the previous direct anon insert from the browser. Returns { ok, marker }.
+export function createLegendMarker(legendId, payload) {
+  return requestBackend(`/api/v1/legends/${encodeURIComponent(legendId)}/markers`, {
+    method: 'POST',
+    operation: 'create-marker',
+    body: payload,
+  });
+}
+
 // Lists the legend's 3D scenes (service-role on the backend) so the creator selector
 // can see scenes whose page_id is null, which the ar_scenes RLS SELECT policy hides
 // from the anon client. Returns { ok, scenes }.

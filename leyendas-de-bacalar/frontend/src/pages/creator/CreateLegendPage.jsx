@@ -277,6 +277,9 @@ function ResourceCard({ definition, value, disabled, saving, onChange, onSave })
   const asset = getSavedAsset(value);
   const previewUrl = value.previewUrl || getAssetUrl(asset);
   const canPreviewImage = previewUrl && ['cover', 'banner', 'marker_image'].includes(definition.assetType);
+  // External URLs only make sense for editorial media (cover/banner). A 3D model or an AR
+  // marker must be a real uploaded file, and that upload now goes through the backend.
+  const allowExternalUrl = definition.kind === 'media';
 
   return (
     <Card className="creator-resource-card creator-wizard-resource-card">
@@ -298,17 +301,19 @@ function ResourceCard({ definition, value, disabled, saving, onChange, onSave })
         </div>
       )}
 
-      <label className="field" htmlFor={`wizard-resource-url-${definition.key}`}>
-        <span>URL externa</span>
-        <input
-          id={`wizard-resource-url-${definition.key}`}
-          className="standalone-input"
-          value={value.url}
-          onChange={(event) => onChange({ ...value, url: event.target.value, saved: false, message: '', error: '' })}
-          disabled={disabled || saving}
-          placeholder="https://..."
-        />
-      </label>
+      {allowExternalUrl && (
+        <label className="field" htmlFor={`wizard-resource-url-${definition.key}`}>
+          <span>URL externa</span>
+          <input
+            id={`wizard-resource-url-${definition.key}`}
+            className="standalone-input"
+            value={value.url}
+            onChange={(event) => onChange({ ...value, url: event.target.value, saved: false, message: '', error: '' })}
+            disabled={disabled || saving}
+            placeholder="https://..."
+          />
+        </label>
+      )}
 
       <label className="creator-file-input" htmlFor={`wizard-resource-file-${definition.key}`}>
         <input
