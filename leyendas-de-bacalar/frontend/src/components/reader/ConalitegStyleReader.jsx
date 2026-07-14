@@ -143,9 +143,26 @@ function HotspotMarker({ hotspot, index, onClick }) {
   );
 }
 
+// The inline 3D model shown on a page. The reader can:
+//  - Hide the white backdrop (eye toggle) so the model floats over the page, right
+//    where its marker sits — printed on the PDF beneath.
+//  - Grab the top handle to move (and lift/enlarge) the model anywhere on the page;
+//    on release it eases back home with a soft transition.
+//  - Rotate / zoom the model itself via OrbitControls (inside the canvas).
+// The flip-book library attaches NATIVE listeners on an ancestor, and React's
+// synthetic events can't stop them reliably, so every interaction here is wired as a
+// native listener (same pattern as HotspotMarker).
 function InlineModelLayer({ hotspot }) {
   const panelRef = useRef(null);
+  const handleRef = useRef(null);
+  const eyeRef = useRef(null);
+  const dragRef = useRef({ active: false, startX: 0, startY: 0, pointerId: null });
+  const [bare, setBare] = useState(false);
+  const [lifted, setLifted] = useState(false);
 
+  // Swallow the flip-start events over the model so the page never turns while the
+  // reader interacts with it. OrbitControls (native, on the canvas) still runs since
+  // its listeners fire before this ancestor stop.
   useEffect(() => {
     const el = panelRef.current;
     if (!el) return undefined;
@@ -154,35 +171,97 @@ function InlineModelLayer({ hotspot }) {
       if (event.type === 'wheel' && event.cancelable) event.preventDefault();
     };
     const wheelOptions = { passive: false };
-    el.addEventListener('pointerdown', stop);
-    el.addEventListener('mousedown', stop);
-    el.addEventListener('touchstart', stop);
-    el.addEventListener('mouseup', stop);
-    el.addEventListener('touchend', stop);
-    el.addEventListener('click', stop);
-    el.addEventListener('dblclick', stop);
+    const events = ['pointerdown', 'mousedown', 'touchstart', 'mouseup', 'touchend', 'click', 'dblclick'];
+    events.forEach((type) => el.addEventListener(type, stop));
     el.addEventListener('wheel', stop, wheelOptions);
     return () => {
-      el.removeEventListener('pointerdown', stop);
-      el.removeEventListener('mousedown', stop);
-      el.removeEventListener('touchstart', stop);
-      el.removeEventListener('mouseup', stop);
-      el.removeEventListener('touchend', stop);
-      el.removeEventListener('click', stop);
-      el.removeEventListener('dblclick', stop);
+      events.forEach((type) => el.removeEventListener(type, stop));
       el.removeEventListener('wheel', stop, wheelOptions);
     };
   }, []);
 
+  // Drag the whole model around the page from the handle; release eases it home.
+  // CSS variables move it at 60fps without re-rendering; the class toggle drives the
+  // lift (scale) and the snap-back transition.
+  useEffect(() => {
+    const handle = handleRef.current;
+    const panel = panelRef.current;
+    if (!handle || !panel) return undefined;
+    const setOffset = (x, y) => {
+      panel.style.setProperty('--drag-x', `${x}px`);
+      panel.style.setProperty('--drag-y', `${y}px`);
+    };
+    const onDown = (event) => {
+      // A tap on the eye button toggles the backdrop; it must not start a drag.
+      if (eyeRef.current && eyeRef.current.contains(event.target)) return;
+      event.stopPropagation();
+      event.preventDefault();
+      dragRef.current = { active: true, startX: event.clientX, startY: event.clientY, pointerId: event.pointerId };
+      try { handle.setPointerCapture(event.pointerId); } catch { /* older browsers */ }
+      setLifted(true);
+    };
+    const onMove = (event) => {
+      if (!dragRef.current.active) return;
+      setOffset(event.clientX - dragRef.current.startX, event.clientY - dragRef.current.startY);
+    };
+    const onUp = (event) => {
+      if (!dragRef.current.active) return;
+      dragRef.current.active = false;
+      try { handle.releasePointerCapture(event.pointerId); } catch { /* ignore */ }
+      setOffset(0, 0); // the transition eases the model back to its home spot
+      setLifted(false);
+    };
+    handle.addEventListener('pointerdown', onDown);
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('pointerup', onUp);
+    handle.addEventListener('pointercancel', onUp);
+    return () => {
+      handle.removeEventListener('pointerdown', onDown);
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('pointerup', onUp);
+      handle.removeEventListener('pointercancel', onUp);
+    };
+  }, []);
+
+  // Eye toggle — native click, since the ancestor stop above swallows React clicks.
+  useEffect(() => {
+    const btn = eyeRef.current;
+    if (!btn) return undefined;
+    const toggle = (event) => {
+      event.stopPropagation();
+      event.preventDefault();
+      setBare((value) => !value);
+    };
+    btn.addEventListener('click', toggle);
+    return () => btn.removeEventListener('click', toggle);
+  }, []);
+
+  const title = hotspot.scene?.name || hotspot.label || 'Modelo 3D';
+
   return (
     <section
       ref={panelRef}
-      className="reader-inline-model"
+      className={`reader-inline-model${bare ? ' is-bare' : ''}${lifted ? ' is-lifted' : ''}`}
       aria-label={`Modelo 3D ${hotspot.label || ''}`.trim()}
     >
-      <Suspense fallback={<div className="reader-inline-model-loading">Cargando modelo...</div>}>
-        <InlineModel3DViewer scene={hotspot.scene} title={hotspot.scene?.name || hotspot.label} embedded />
-      </Suspense>
+      <div className="reader-inline-model-bar" ref={handleRef}>
+        <span>{title}</span>
+        <button
+          type="button"
+          className="reader-inline-model-eye"
+          ref={eyeRef}
+          title={bare ? 'Mostrar fondo' : 'Ocultar fondo'}
+          aria-label={bare ? 'Mostrar fondo' : 'Ocultar fondo'}
+          aria-pressed={bare}
+        >
+          <AppIcon name={bare ? 'visibility_off' : 'visibility'} size={18} />
+        </button>
+      </div>
+      <div className="reader-inline-model-stage">
+        <Suspense fallback={<div className="reader-inline-model-loading">Cargando modelo...</div>}>
+          <InlineModel3DViewer scene={hotspot.scene} title={title} embedded />
+        </Suspense>
+      </div>
     </section>
   );
 }

@@ -515,6 +515,12 @@ function LegendEditor({ legendId }) {
     });
     setHotspotSummary({ total: 0, associated: 0, items: [] });
     setIsInteractiveReadingOpen(!primarySourceDocument);
+    // Auto-load the original document's signed URL so "Abrir completo" works on its
+    // own (there is no longer a "Ver preview" button to trigger it).
+    if (primarySourceDocument?.id) {
+      handleViewSourceDocument(primarySourceDocument);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [primarySourceDocument?.id]);
 
   function updateField(field, value) {

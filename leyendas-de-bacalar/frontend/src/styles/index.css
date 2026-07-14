@@ -13418,7 +13418,9 @@ body.reading-immersive .reader-stage { padding-top: clamp(4px, 1vh, 10px); }
   top: 57%;
   width: clamp(260px, 76%, 500px);
   height: clamp(300px, 61%, 560px);
-  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  transform: translate(-50%, -50%) translate(var(--drag-x, 0px), var(--drag-y, 0px)) scale(var(--lift-scale, 1));
   pointer-events: auto;
   overflow: hidden;
   border: 0;
@@ -13429,6 +13431,44 @@ body.reading-immersive .reader-stage { padding-top: clamp(4px, 1vh, 10px); }
   box-shadow: none;
   filter: none;
   touch-action: none;
+  transition:
+    transform 460ms cubic-bezier(0.22, 1, 0.36, 1),
+    background 260ms ease, box-shadow 260ms ease, border-radius 260ms ease;
+}
+
+/* While the reader holds the handle: follow the pointer live (no transform easing so
+   it tracks the finger), lift and enlarge a touch, and float above the page. On
+   release the class drops and the transform transition eases it home. */
+.reader-inline-model.is-lifted {
+  --lift-scale: 1.14;
+  z-index: 24;
+  overflow: visible;
+  transition: background 260ms ease, box-shadow 260ms ease, border-radius 260ms ease;
+  box-shadow: 0 34px 80px rgba(15, 23, 42, 0.42);
+}
+
+/* Eye toggle: drop the white "canvas" so the model floats over the page and the
+   marker (printed on the PDF beneath) shows through. */
+.reader-inline-model.is-bare {
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.reader-inline-model.is-bare .reader-inline-model-bar {
+  background: rgba(15, 118, 110, 0.14);
+  border-bottom-color: transparent;
+  backdrop-filter: blur(5px);
+}
+
+.reader-inline-model-stage {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reader-inline-model { transition: none; }
 }
 
 .reader-inline-model-bar {
