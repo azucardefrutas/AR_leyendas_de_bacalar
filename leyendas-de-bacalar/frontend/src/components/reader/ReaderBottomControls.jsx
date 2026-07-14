@@ -16,6 +16,9 @@ export default function ReaderBottomControls({
   onNext,
   isFullscreen,
   onToggleFullscreen,
+  hasModel = false,
+  modelBackdropHidden = true,
+  onToggleModelBackdrop,
 }) {
   return (
     <div className="pdf-flipbook-controls" aria-label="Controles del libro">
@@ -52,6 +55,18 @@ export default function ReaderBottomControls({
       >
         <AppIcon name="chevron_right" size={24} />
       </button>
+      {hasModel && (
+        <button
+          type="button"
+          className="pdf-flipbook-control-button"
+          onClick={onToggleModelBackdrop}
+          aria-pressed={!modelBackdropHidden}
+          aria-label={modelBackdropHidden ? 'Mostrar fondo del modelo 3D' : 'Ocultar fondo del modelo 3D'}
+          title={modelBackdropHidden ? 'Mostrar fondo del modelo 3D' : 'Ocultar fondo del modelo 3D'}
+        >
+          <AppIcon name={modelBackdropHidden ? 'visibility_off' : 'visibility'} size={24} />
+        </button>
+      )}
       <button
         type="button"
         className="pdf-flipbook-control-button"

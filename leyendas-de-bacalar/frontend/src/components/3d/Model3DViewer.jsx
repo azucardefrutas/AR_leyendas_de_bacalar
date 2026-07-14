@@ -50,8 +50,9 @@ function ModelCanvas({
   embedded = false,
   compactControls = false,
   interactionEnabled = true,
+  fullControls = false,
 }) {
-  const orbitOptions = getOrbitControlOptions({ embedded, compactControls, interactionEnabled });
+  const orbitOptions = getOrbitControlOptions({ embedded, compactControls, interactionEnabled, fullControls });
   return (
     <Canvas gl={{ alpha: true }} camera={{ position: [0, 0, embedded ? 4.2 : 4], fov: embedded ? 35 : 45 }} dpr={[1, 2]}>
       <ambientLight intensity={embedded ? 1.1 : 0.7} />
@@ -91,6 +92,7 @@ function Model3DViewer({
   embedded = false,
   compactControls = false,
   interactionEnabled = true,
+  fullControls = false,
 }) {
   const [expanded, setExpanded] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -128,6 +130,7 @@ function Model3DViewer({
                 embedded
                 compactControls={compactControls}
                 interactionEnabled={interactionEnabled}
+                fullControls={fullControls}
               />
             </WebGLErrorBoundary>
           )}
