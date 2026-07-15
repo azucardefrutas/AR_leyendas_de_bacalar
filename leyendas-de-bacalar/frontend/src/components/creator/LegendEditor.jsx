@@ -1060,22 +1060,25 @@ function LegendEditor({ legendId }) {
               )}
 
               {visiblePages.length > 0 && (
-                <div className="creator-section-block manual-marker-block">
-                  <div className="creator-editor-card-title">
-                    <span><MaterialIcon name="view_in_ar" /></span>
-                    <div>
-                      <h3>Marcadores y modelos 3D por pagina</h3>
-                      <p>Coloca el marcador sobre la pagina seleccionada y arrastra un modelo encima, igual que en el PDF. Asi la app movil sabe que modelo activar al escanear el marcador.</p>
-                    </div>
+                <details className="creator-section-block manual-marker-disclosure">
+                  <summary className="manual-marker-summary">
+                    <span className="manual-marker-summary-icon"><MaterialIcon name="view_in_ar" /></span>
+                    <span className="manual-marker-summary-text">
+                      <strong>Marcadores y modelos 3D por pagina</strong>
+                      <small>Opcional. Coloca el marcador sobre la pagina y arrastra un modelo encima, como en el PDF.</small>
+                    </span>
+                    <span className="manual-marker-summary-chevron material-symbols-rounded" aria-hidden="true">expand_more</span>
+                  </summary>
+                  <div className="manual-marker-disclosure-body">
+                    <ManualMarkerCanvas
+                      legendId={legendId}
+                      page={selectedPage}
+                      disabled={isReviewLocked}
+                      onGoToResources={() => setActiveTab('ar')}
+                      onHotspotSummaryChange={setHotspotSummary}
+                    />
                   </div>
-                  <ManualMarkerCanvas
-                    legendId={legendId}
-                    page={selectedPage}
-                    disabled={isReviewLocked}
-                    onGoToResources={() => setActiveTab('ar')}
-                    onHotspotSummaryChange={setHotspotSummary}
-                  />
-                </div>
+                </details>
               )}
             </>
           ) : (

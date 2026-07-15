@@ -5391,8 +5391,76 @@ pre {
 
 /* Manual (crear desde cero) marker placement: a neutral book-aspect page stands in for
    the rendered PDF image, so markers/models are placed with the same drag-drop flow. */
-.manual-marker-block {
+/* Seccion desplegable de "Marcadores y modelos 3D por pagina": cerrada por defecto para
+   no estorbar al editor. */
+.manual-marker-disclosure {
   margin-top: 22px;
+  border: 1px solid #e5edf4;
+  border-radius: 16px;
+  background: #fbfdff;
+  overflow: hidden;
+}
+
+.manual-marker-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.manual-marker-summary::-webkit-details-marker {
+  display: none;
+}
+
+.manual-marker-summary:hover {
+  background: #f2f8fd;
+}
+
+.manual-marker-summary-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #049dd9, #2dd4bf);
+  color: #fff;
+}
+
+.manual-marker-summary-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.manual-marker-summary-text strong {
+  color: #0e1830;
+  font-size: 0.98rem;
+}
+
+.manual-marker-summary-text small {
+  color: #64748b;
+  font-size: 0.82rem;
+}
+
+.manual-marker-summary-chevron {
+  margin-left: auto;
+  color: #94a3b8;
+  transition: transform 200ms ease;
+}
+
+.manual-marker-disclosure[open] .manual-marker-summary-chevron {
+  transform: rotate(180deg);
+}
+
+.manual-marker-disclosure-body {
+  padding: 4px 12px 14px;
+  border-top: 1px solid #eef3f8;
 }
 
 .document-book-stage .manual-marker-sheet,
