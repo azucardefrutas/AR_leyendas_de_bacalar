@@ -4,6 +4,7 @@ import Button from '../ui/Button.jsx';
 import Card from '../ui/Card.jsx';
 import LoadingState from '../ui/LoadingState.jsx';
 import SourceDocumentPreview from './SourceDocumentPreview.jsx';
+import ManualMarkerCanvas from './ManualMarkerCanvas.jsx';
 import EditorialRichEditor from './EditorialRichEditor.jsx';
 import { plainTextToEditorData } from '../../utils/editorJsToHtml.js';
 import {
@@ -1056,6 +1057,25 @@ function LegendEditor({ legendId }) {
                   availableModels={[...(existingResources.modelAssets ?? []), ...(existingResources.arScenes ?? [])]}
                   availableMarkers={existingResources.arMarkers ?? []}
                 />
+              )}
+
+              {visiblePages.length > 0 && (
+                <div className="creator-section-block manual-marker-block">
+                  <div className="creator-editor-card-title">
+                    <span><MaterialIcon name="view_in_ar" /></span>
+                    <div>
+                      <h3>Marcadores y modelos 3D por pagina</h3>
+                      <p>Coloca el marcador sobre la pagina seleccionada y arrastra un modelo encima, igual que en el PDF. Asi la app movil sabe que modelo activar al escanear el marcador.</p>
+                    </div>
+                  </div>
+                  <ManualMarkerCanvas
+                    legendId={legendId}
+                    page={selectedPage}
+                    disabled={isReviewLocked}
+                    onGoToResources={() => setActiveTab('ar')}
+                    onHotspotSummaryChange={setHotspotSummary}
+                  />
+                </div>
               )}
             </>
           ) : (

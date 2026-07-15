@@ -532,6 +532,17 @@ export function listLegendScenes(legendId) {
   });
 }
 
+// Registers the physical-edition <-> marker link so a printed edition and the digital
+// legend share the same marker->model mapping (used by the mobile scan feed). Ensures the
+// ar_marker + physical edition exist on the backend. Returns { ok, link }.
+export function linkPhysicalEditionMarker(legendId, payload) {
+  return requestBackend(`/api/v1/legends/${encodeURIComponent(legendId)}/physical-edition-markers`, {
+    method: 'POST',
+    operation: 'link-physical-edition-marker',
+    body: payload,
+  });
+}
+
 export function updateLegendHotspot(legendId, hotspotId, payload) {
   return requestBackend(
     `/api/v1/legends/${encodeURIComponent(legendId)}/hotspots/${encodeURIComponent(hotspotId)}`,

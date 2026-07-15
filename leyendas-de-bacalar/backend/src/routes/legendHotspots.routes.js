@@ -7,6 +7,7 @@ import {
   createMarker,
   createScene,
   deleteHotspot,
+  linkPhysicalEditionMarker,
   listHotspots,
   listScenes,
   updateHotspot,
@@ -90,6 +91,24 @@ router.post('/:legendId/markers', requireCreatorOrAdmin, async (req, res, next) 
     });
 
     res.status(201).json({ ok: true, marker });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Records the physical-edition <-> marker link (so a printed edition and the digital
+// legend share the same marker->model mapping). Called when a model is associated to a
+// marker on a manual page.
+router.post('/:legendId/physical-edition-markers', requireCreatorOrAdmin, async (req, res, next) => {
+  try {
+    const link = await linkPhysicalEditionMarker({
+      legendId: req.params.legendId,
+      userId: req.user.id,
+      roles: req.user.roles,
+      payload: req.body ?? {},
+    });
+
+    res.status(201).json({ ok: true, link });
   } catch (error) {
     next(error);
   }

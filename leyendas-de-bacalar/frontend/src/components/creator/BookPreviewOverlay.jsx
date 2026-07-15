@@ -51,10 +51,13 @@ export default function BookPreviewOverlay({
   const [bundleLoading, setBundleLoading] = useState(false);
   const [sceneModal, setSceneModal] = useState(null);
 
-  // For PDF books, load the reader bundle (rendered pages + saved hotspots enriched
-  // with marker image + 3D model). Best-effort: if it fails we still show the pages.
+  // Load the reader bundle for BOTH PDF and manual legends: it carries the SAVED
+  // marker/model hotspots (enriched with marker image + 3D model) plus, for PDF, the
+  // rendered pages. This makes placed models appear in "Ver como lector" exactly like the
+  // public reader — for manual (crear desde cero) legends too. Best-effort: on failure we
+  // still show the pages. Manual pages keep rendering from the editor's LIVE state below.
   useEffect(() => {
-    if (!legendId || !isPdf) return undefined;
+    if (!legendId) return undefined;
     let active = true;
     setBundleLoading(true);
     getReaderBundle(legendId)
@@ -62,17 +65,22 @@ export default function BookPreviewOverlay({
       .catch(() => { if (active) setBundle(null); })
       .finally(() => { if (active) setBundleLoading(false); });
     return () => { active = false; };
-  }, [legendId, isPdf]);
+  }, [legendId]);
 
-  const useBundle = isPdf && bundle && (bundle.renderedPages?.length ?? 0) > 0;
+  // PDF pages come from the bundle (rendered images); manual pages stay on the editor's
+  // LIVE Editor.js state so unsaved edits still preview.
+  const useBundlePages = isPdf && bundle && (bundle.renderedPages?.length ?? 0) > 0;
 
   const readerPages = useMemo(() => {
-    if (useBundle) return buildReaderPagesFromBundle(bundle);
+    if (useBundlePages) return buildReaderPagesFromBundle(bundle);
     return buildPreviewPages(pages, { templateId, coverData, backCoverData, renderedPages });
-  }, [useBundle, bundle, pages, renderedPages, templateId, coverData, backCoverData]);
+  }, [useBundlePages, bundle, pages, renderedPages, templateId, coverData, backCoverData]);
 
+  // Saved hotspots (marker image + 3D model), keyed per page by the reader. Available for
+  // BOTH PDF (source_document hotspots over rendered pages) and manual (legend_page
+  // hotspots over the Editor.js page) — the reader filters the right ones per page.
   const hotspots = useMemo(() => {
-    if (!useBundle) return [];
+    if (!bundle) return [];
     const markerAssets = bundle.markerAssets ?? [];
     const arScenes = bundle.arScenes ?? [];
     const modelAssets = bundle.modelAssets ?? [];
@@ -85,9 +93,9 @@ export default function BookPreviewOverlay({
         ? buildScene(arScenes.find((scene) => String(scene.id) === String(hotspot.arSceneId)), modelAssets)
         : null,
     }));
-  }, [useBundle, bundle]);
+  }, [bundle]);
 
-  const bookModels = useMemo(() => (useBundle ? buildBookModelsFromBundle(bundle) : []), [useBundle, bundle]);
+  const bookModels = useMemo(() => (bundle ? buildBookModelsFromBundle(bundle) : []), [bundle]);
 
   function handleHotspotClick(hotspot) {
     const scene = hotspot?.scene;

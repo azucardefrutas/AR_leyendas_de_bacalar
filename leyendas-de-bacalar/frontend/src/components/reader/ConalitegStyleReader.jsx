@@ -279,7 +279,7 @@ const FlipPage = React.forwardRef(({
             // models and marker images appear, auto-fitted by the reader CSS below.
             <div className="reader-paper-text reader-paper-html editorial-content">
               <Suspense fallback={<div className="reader-paper-loading">Cargando contenido…</div>}>
-                <EditorJsPreview data={page.editorData} />
+                <EditorJsPreview data={page.editorData} variant="reader" />
               </Suspense>
             </div>
           ) : page.renderedHtml

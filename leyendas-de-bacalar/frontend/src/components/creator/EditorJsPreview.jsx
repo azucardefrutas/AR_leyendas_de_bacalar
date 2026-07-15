@@ -84,9 +84,12 @@ function ListItems({ items = [], ordered = false }) {
   );
 }
 
-function InlineModelPreview({ data, onOpenModel }) {
+function InlineModelPreview({ data, onOpenModel, eager = false }) {
   const holderRef = useRef(null);
-  const [visible, setVisible] = useState(false);
+  // In the reader, load eagerly: the book renders inside a CSS 3D flip-book whose page
+  // transforms keep the IntersectionObserver from ever reporting "intersecting", which
+  // left the 3D model permanently unloaded (blank). Eager = render the viewer directly.
+  const [visible, setVisible] = useState(eager);
   const normalizedLayout = normalizeMediaLayout(data.layout, { defaultWidth: 520, defaultHeight: 360 });
   const style = {
     ...getLayoutStyle(normalizedLayout, { defaultWidth: 520, defaultHeight: 360 }),
@@ -94,6 +97,10 @@ function InlineModelPreview({ data, onOpenModel }) {
   };
 
   useEffect(() => {
+    if (eager) {
+      setVisible(true);
+      return undefined;
+    }
     const node = holderRef.current;
     if (!node || typeof IntersectionObserver === 'undefined') {
       setVisible(true);
@@ -107,7 +114,7 @@ function InlineModelPreview({ data, onOpenModel }) {
     }, { rootMargin: '180px' });
     observer.observe(node);
     return () => observer.disconnect();
-  }, []);
+  }, [eager]);
 
   if (!canRenderInlineModel(data)) {
     return (
@@ -139,7 +146,7 @@ function InlineModelPreview({ data, onOpenModel }) {
   );
 }
 
-function Block({ block, onOpenModel }) {
+function Block({ block, onOpenModel, eagerModels = false }) {
   const data = block?.data ?? {};
   switch (block?.type) {
     case 'header': {
@@ -194,7 +201,7 @@ function Block({ block, onOpenModel }) {
       );
     }
     case 'model3d':
-      return <InlineModelPreview data={data} onOpenModel={onOpenModel} />;
+      return <InlineModelPreview data={data} onOpenModel={onOpenModel} eager={eagerModels} />;
     case 'marker':
     case 'leyendaMarker':
       return (
@@ -217,15 +224,20 @@ function Block({ block, onOpenModel }) {
  * Safe, block-by-block renderer for Editor.js data. Never shows raw HTML; inline
  * formatting is sanitized with a strict allowlist (DOMPurify).
  */
-export default function EditorJsPreview({ data, className = '', onOpenModel }) {
+export default function EditorJsPreview({ data, className = '', onOpenModel, variant }) {
   const migrated = migrateEditorDataMedia(data || {});
   const blocks = Array.isArray(migrated?.blocks) ? migrated.blocks : [];
+  // The reader renders inside a CSS 3D flip-book where lazy (IntersectionObserver-gated)
+  // model loading never fires; render models eagerly there so they actually appear.
+  const eagerModels = variant === 'reader';
   if (!blocks.length) {
     return <p className="editorial-editor__preview-empty">Esta página todavía no tiene contenido.</p>;
   }
   return (
     <div className={`editorial-content editorial-content--hybrid ${className}`.trim()}>
-      {blocks.map((block, index) => <Block key={block.id || index} block={block} onOpenModel={onOpenModel} />)}
+      {blocks.map((block, index) => (
+        <Block key={block.id || index} block={block} onOpenModel={onOpenModel} eagerModels={eagerModels} />
+      ))}
     </div>
   );
 }

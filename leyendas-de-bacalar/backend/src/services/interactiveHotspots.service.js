@@ -346,6 +346,90 @@ export const createMarker = async ({ legendId, userId, roles, payload = {} }) =>
   return data;
 };
 
+// Ensure the legend has a physical edition (reuse the first one, or create a draft).
+// Mirrors the frontend ensurePhysicalEditionForLegend so the physical<->marker registry
+// can be populated from the AR placement flow without the browser writing editions.
+const ensurePhysicalEdition = async ({ legendId, userId }) => {
+  const { data: existing, error: selectError } = await supabaseAdmin
+    .from('physical_editions')
+    .select('id')
+    .eq('legend_id', legendId)
+    .order('created_at', { ascending: true })
+    .limit(1);
+  if (selectError) throw new HotspotError('Could not load physical edition.', 500, { reason: selectError.message });
+  if (existing && existing.length > 0) return existing[0];
+
+  const { data, error } = await supabaseAdmin
+    .from('physical_editions')
+    .insert({ legend_id: legendId, edition_name: 'Edicion fisica', status: 'draft', created_by: userId })
+    .select('id')
+    .single();
+  if (error || !data) throw new HotspotError('Could not create physical edition.', 500, { reason: error?.message });
+  return data;
+};
+
+// Records the formal "this printed edition carries marker X (on page Y)" link so the
+// physical book and the digital legend share the same marker -> model mapping. Ensures
+// the ar_marker exists (idempotent), ensures a physical edition, then upserts the
+// physical_edition_markers row (idempotent per edition+marker). Ownership is enforced by
+// the legend access context plus asserting the marker asset / scene belong to the legend.
+export const linkPhysicalEditionMarker = async ({ legendId, userId, roles, payload = {} }) => {
+  await getLegendAccessContext({ legendId, userId, roles });
+
+  const markerAssetId = payload.marker_asset_id;
+  const sceneId = payload.ar_scene_id ?? null;
+  const pageReference = payload.page_reference ? String(payload.page_reference).slice(0, 100) : null;
+  if (!markerAssetId) throw new HotspotError('marker_asset_id is required.', 400);
+  await assertAssetInLegend(legendId, markerAssetId);
+  if (sceneId) await assertSceneInLegend(legendId, sceneId);
+
+  // 1) The ar_marker row gives us a stable marker_id (+ marker_code) to reference.
+  const marker = await createMarker({
+    legendId,
+    userId,
+    roles,
+    payload: { marker_asset_id: markerAssetId, ar_scene_id: sceneId },
+  });
+
+  // 2) The legend's physical edition.
+  const edition = await ensurePhysicalEdition({ legendId, userId });
+
+  // 3) The edition<->marker registry row (idempotent per edition+marker).
+  const { data: existingLink, error: linkSelectError } = await supabaseAdmin
+    .from('physical_edition_markers')
+    .select('edition_id, marker_id')
+    .eq('edition_id', edition.id)
+    .eq('marker_id', marker.id)
+    .maybeSingle();
+  if (linkSelectError) {
+    throw new HotspotError('Could not load physical edition marker.', 500, { reason: linkSelectError.message });
+  }
+
+  if (existingLink) {
+    if (pageReference) {
+      await supabaseAdmin
+        .from('physical_edition_markers')
+        .update({ page_reference: pageReference })
+        .eq('edition_id', edition.id)
+        .eq('marker_id', marker.id);
+    }
+  } else {
+    const { error: insertError } = await supabaseAdmin
+      .from('physical_edition_markers')
+      .insert({ edition_id: edition.id, marker_id: marker.id, page_reference: pageReference });
+    if (insertError) {
+      throw new HotspotError('Could not link physical edition marker.', 500, { reason: insertError.message });
+    }
+  }
+
+  return {
+    editionId: edition.id,
+    markerId: marker.id,
+    markerCode: marker.marker_code,
+    pageReference,
+  };
+};
+
 // List the legend's 3D scenes for the creator selector. Runs with the service role so
 // it can read scenes with a null page_id (rendered-PDF models), which the ar_scenes
 // RLS SELECT policy (keyed on is_page_creator(page_id)) would hide from the frontend.
