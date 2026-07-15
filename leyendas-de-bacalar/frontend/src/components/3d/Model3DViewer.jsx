@@ -64,6 +64,7 @@ function ModelCanvas({
   interactionEnabled = true,
   fullControls = false,
   onHoverModel,
+  onResetReady,
 }) {
   const orbitOptions = getOrbitControlOptions({ embedded, compactControls, interactionEnabled, fullControls });
   const controlsRef = useRef(null);
@@ -78,8 +79,15 @@ function ModelCanvas({
     }
     onHoverModel?.(over);
   };
+  // Hand the parent a "recenter" function (reset rotation/zoom/pan to the initial view).
+  // The reader wires it to a double-click so a mis-rotated model is one gesture from home.
+  useEffect(() => {
+    if (!onResetReady) return undefined;
+    onResetReady(() => controlsRef.current?.reset());
+    return () => onResetReady(null);
+  }, [onResetReady]);
   return (
-    <Canvas gl={{ alpha: true }} camera={{ position: [0, 0, embedded ? 4.2 : 4], fov: embedded ? 35 : 45 }} dpr={[1, 2]}>
+    <Canvas gl={{ alpha: true }} camera={{ position: [0, 0, embedded ? 4.2 : 4], fov: embedded ? 35 : 45 }} dpr={[1, 1.75]}>
       <ambientLight intensity={embedded ? 1.1 : 0.7} />
       <directionalLight position={[5, 5, 5]} intensity={embedded ? 1.45 : 1} />
       <directionalLight position={[-5, -3, -5]} intensity={embedded ? 0.55 : 0.4} />
@@ -127,6 +135,7 @@ function Model3DViewer({
   interactionEnabled = true,
   fullControls = false,
   onHoverModel,
+  onResetReady,
 }) {
   const [expanded, setExpanded] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -166,6 +175,7 @@ function Model3DViewer({
                 interactionEnabled={interactionEnabled}
                 fullControls={fullControls}
                 onHoverModel={onHoverModel}
+                onResetReady={onResetReady}
               />
             </WebGLErrorBoundary>
           )}

@@ -23,10 +23,14 @@ export function getOrbitControlOptions({
       enableZoom: true,
       autoRotate: false,
       enableDamping: true,
-      dampingFactor: 0.09,
+      // Softer glide + slightly calmer speeds = more controlled, less "jumpy" feel.
+      dampingFactor: 0.075,
+      rotateSpeed: 0.85,
       screenSpacePanning: true,
-      zoomSpeed: 0.9,
-      panSpeed: 0.85,
+      zoomSpeed: 0.8,
+      panSpeed: 0.8,
+      // Zoom toward the cursor (like Blender) instead of the center — feels precise.
+      zoomToCursor: true,
       minDistance: 1.4,
       maxDistance: 14,
     };

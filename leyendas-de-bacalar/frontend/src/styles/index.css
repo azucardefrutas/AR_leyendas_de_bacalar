@@ -13655,6 +13655,18 @@ body.reading-immersive .reader-stage { padding-top: clamp(4px, 1vh, 10px); }
 .reader-inline-model.is-moving,
 .reader-inline-model.is-moving canvas { cursor: grabbing; }
 
+/* Doble clic = recentrar: el marco vuelve a su sitio con una transicion suave. */
+.reader-inline-model.is-resetting {
+  transition:
+    transform 320ms cubic-bezier(0.2, 0.7, 0.2, 1),
+    background 260ms ease,
+    box-shadow 260ms ease,
+    border-radius 260ms ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .reader-inline-model.is-resetting { transition: none; }
+}
+
 .reader-inline-model-stage {
   flex: 1;
   min-height: 0;

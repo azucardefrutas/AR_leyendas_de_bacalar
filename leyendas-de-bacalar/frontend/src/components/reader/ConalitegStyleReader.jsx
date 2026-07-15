@@ -183,6 +183,7 @@ function InlineModelLayer({ hotspot, hideBackdrop = false }) {
   const panelRef = useRef(null);
   const overModelRef = useRef(false);
   const dragRef = useRef({ active: false, startX: 0, startY: 0, x: 0, y: 0, pointerId: null });
+  const resetViewRef = useRef(null);
   const [overModel, setOverModel] = useState(false);
   const [dragging, setDragging] = useState(false);
 
@@ -233,10 +234,33 @@ function InlineModelLayer({ hotspot, hideBackdrop = false }) {
     };
     const onMove = (event) => {
       if (!dragRef.current.active) return;
-      dragRef.current.x = event.clientX - dragRef.current.startX;
-      dragRef.current.y = event.clientY - dragRef.current.startY;
+      let nextX = event.clientX - dragRef.current.startX;
+      let nextY = event.clientY - dragRef.current.startY;
+      // Keep the model on its page — never let it be dragged fully off and lost.
+      const page = el.closest('.pdf-flip-page');
+      if (page) {
+        const maxX = page.clientWidth * 0.5;
+        const maxY = page.clientHeight * 0.5;
+        nextX = Math.max(-maxX, Math.min(maxX, nextX));
+        nextY = Math.max(-maxY, Math.min(maxY, nextY));
+      }
+      dragRef.current.x = nextX;
+      dragRef.current.y = nextY;
       apply();
     };
+    // Double-click / double-tap anywhere on the panel = recenter: undo the frame drag AND
+    // reset the model's rotation/zoom to the initial view. One gesture back to home.
+    const onDoubleClick = (event) => {
+      event.stopPropagation();
+      event.preventDefault();
+      dragRef.current.x = 0;
+      dragRef.current.y = 0;
+      el.classList.add('is-resetting');
+      apply();
+      resetViewRef.current?.();
+      window.setTimeout(() => el.classList.remove('is-resetting'), 340);
+    };
+    el.addEventListener('dblclick', onDoubleClick);
     const onUp = (event) => {
       if (!dragRef.current.active) return;
       dragRef.current.active = false;
@@ -252,6 +276,7 @@ function InlineModelLayer({ hotspot, hideBackdrop = false }) {
       el.removeEventListener('pointermove', onMove);
       el.removeEventListener('pointerup', onUp);
       el.removeEventListener('pointercancel', onUp);
+      el.removeEventListener('dblclick', onDoubleClick);
     };
   }, []);
 
@@ -265,7 +290,14 @@ function InlineModelLayer({ hotspot, hideBackdrop = false }) {
     >
       <div className="reader-inline-model-stage">
         <Suspense fallback={<div className="reader-inline-model-loading">Cargando modelo...</div>}>
-          <InlineModel3DViewer scene={hotspot.scene} title={title} embedded fullControls onHoverModel={handleHoverModel} />
+          <InlineModel3DViewer
+            scene={hotspot.scene}
+            title={title}
+            embedded
+            fullControls
+            onHoverModel={handleHoverModel}
+            onResetReady={(fn) => { resetViewRef.current = fn; }}
+          />
         </Suspense>
       </div>
     </section>
