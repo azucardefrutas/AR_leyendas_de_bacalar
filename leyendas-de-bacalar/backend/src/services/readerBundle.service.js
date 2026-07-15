@@ -303,7 +303,7 @@ const loadLegendPages = async ({ legendId, includeUnpublished }) => {
 
   const { data, error } = await supabaseAdmin
     .from('legend_pages')
-    .select('id, version_id, page_number, title, text_content, rendered_html, background_asset_id, created_at, updated_at')
+    .select('id, version_id, page_number, title, text_content, rendered_html, editor_data, background_asset_id, created_at, updated_at')
     .eq('version_id', version.id)
     .order('page_number', { ascending: true });
 
@@ -456,6 +456,11 @@ export const getReaderBundle = async ({ legendId, userId = null, roles = [] }) =
       title: page.title,
       textContent: page.text_content,
       renderedHtml: page.rendered_html ?? null,
+      // Ship the live Editor.js blocks so the public reader renders real inline 3D
+      // models/markers (via EditorJsPreview), exactly like the author's "Ver como
+      // lector" preview. Only pages that actually carry blocks switch to this path;
+      // block-less pages keep renderedHtml (editorData stays null).
+      editorData: page.editor_data?.blocks?.length ? page.editor_data : null,
       backgroundAssetId: page.background_asset_id,
     })),
     legendVersion: manualPagesResult.version

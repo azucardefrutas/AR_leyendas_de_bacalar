@@ -242,6 +242,71 @@ export async function generateCreatorCodes({ userId, accessToken, payload }) {
   return Array.isArray(data) ? data[0] : data;
 }
 
+// Deletes every physical edition tied to a legend the creator owns, so a draft that
+// was blocked from deletion by an (often empty/test) physical edition can be removed.
+// RLS has no creator DELETE policy on physical_editions (only admins), so this runs on
+// the service-role client after validating ownership. It REFUSES to delete editions that
+// carry real distribution data (issued codes, batches, requests, products) — those must
+// not be destroyed silently. physical_edition_markers are just associations and are
+// removed first so the edition delete does not fail on the FK.
+export async function deleteLegendPhysicalEditions({ userId, legendId }) {
+  if (!UUID_PATTERN.test(String(legendId || ''))) throw new CreatorCodesError('Selecciona una leyenda valida.');
+
+  const { data: legend, error: legendError } = await supabaseAdmin
+    .from('legends')
+    .select('id, creator_id')
+    .eq('id', legendId)
+    .maybeSingle();
+  assertNoError(legendError, 'No se pudo validar la leyenda.');
+  if (!legend) throw new CreatorCodesError('La leyenda no existe.', 404);
+  if (String(legend.creator_id) !== String(userId)) {
+    throw new CreatorCodesError('No tienes acceso a esta leyenda.', 403);
+  }
+
+  const { data: editions, error: editionsError } = await supabaseAdmin
+    .from('physical_editions')
+    .select('id')
+    .eq('legend_id', legendId);
+  assertNoError(editionsError, 'No se pudieron cargar las ediciones fisicas.');
+
+  const editionIds = (editions ?? []).map((edition) => edition.id);
+  if (!editionIds.length) return { deleted: 0 };
+
+  const guards = [
+    ['access_codes', 'codigos generados'],
+    ['code_batches', 'lotes de codigos'],
+    ['code_requests', 'solicitudes de codigos'],
+    ['products', 'productos'],
+  ];
+  for (const [table, label] of guards) {
+    const { count, error } = await supabaseAdmin
+      .from(table)
+      .select('id', { count: 'exact', head: true })
+      .in('edition_id', editionIds);
+    assertNoError(error, `No se pudieron revisar ${label}.`);
+    if ((count ?? 0) > 0) {
+      throw new CreatorCodesError(
+        `No se puede eliminar la edicion fisica porque tiene ${label} asociados.`,
+        409,
+      );
+    }
+  }
+
+  const { error: markersError } = await supabaseAdmin
+    .from('physical_edition_markers')
+    .delete()
+    .in('edition_id', editionIds);
+  assertNoError(markersError, 'No se pudieron quitar los marcadores de la edicion fisica.');
+
+  const { error: deleteError } = await supabaseAdmin
+    .from('physical_editions')
+    .delete()
+    .in('id', editionIds);
+  assertNoError(deleteError, 'No se pudo eliminar la edicion fisica.');
+
+  return { deleted: editionIds.length };
+}
+
 function escapeCsv(value = '') {
   let str = String(value ?? '');
   // Anti CSV-injection: neutraliza formulas de hoja de calculo si la celda empieza con

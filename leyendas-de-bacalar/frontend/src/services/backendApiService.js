@@ -399,6 +399,16 @@ export function registerLegendUpload({ legendId, bucket, path, filename, mimeTyp
   });
 }
 
+// Deletes the physical edition(s) attached to a creator's legend (service-role on the
+// backend, ownership-validated). Used to unblock deleting a story whose only blocker is
+// an empty/test physical edition. Returns { ok, deleted }.
+export function deleteLegendPhysicalEditions(legendId) {
+  return requestBackend(`/api/v1/creator/legends/${encodeURIComponent(legendId)}/physical-editions`, {
+    method: 'DELETE',
+    operation: 'delete-legend-physical-editions',
+  });
+}
+
 export function startDocumentExtraction(sourceDocumentId) {
   return requestBackend(`/api/v1/documents/${encodeURIComponent(sourceDocumentId)}/extraction/start`, {
     method: 'POST',

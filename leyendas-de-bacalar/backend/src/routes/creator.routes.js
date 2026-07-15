@@ -4,6 +4,7 @@ import { requireAuth } from '../middlewares/requireAuth.js';
 import { requireRole } from '../middlewares/requireRole.js';
 import {
   CreatorCodesError,
+  deleteLegendPhysicalEditions,
   exportCreatorCodeBatchCsv,
   generateCreatorCodes,
   getCreatorCodesOverview,
@@ -48,6 +49,24 @@ router.post('/codes', requireCreatorOrAdmin, async (req, res, next) => {
       payload: req.body,
     });
     res.status(result?.outcome === 'generated' ? 201 : 202).json({ ok: true, result });
+  } catch (error) {
+    if (error instanceof CreatorCodesError) {
+      return res.status(error.statusCode).json({ ok: false, error: error.message });
+    }
+    return next(error);
+  }
+});
+
+// Removes the physical edition(s) tied to one of the creator's legends. Used by the
+// "Mis leyendas" delete flow to unblock deleting a story that has an (empty/test)
+// physical edition attached. Refuses when the edition carries real codes/products.
+router.delete('/legends/:legendId/physical-editions', requireCreatorOrAdmin, async (req, res, next) => {
+  try {
+    const result = await deleteLegendPhysicalEditions({
+      userId: req.user.id,
+      legendId: req.params.legendId,
+    });
+    res.json({ ok: true, ...result });
   } catch (error) {
     if (error instanceof CreatorCodesError) {
       return res.status(error.statusCode).json({ ok: false, error: error.message });

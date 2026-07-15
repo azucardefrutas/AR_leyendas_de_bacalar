@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import CreatorLegendCard from '../../components/creator/CreatorLegendCard.jsx';
 import CreatorLegendCardSkeleton from '../../components/creator/CreatorLegendCardSkeleton.jsx';
 import Card from '../../components/ui/Card.jsx';
+import Button from '../../components/ui/Button.jsx';
+import Modal from '../../components/ui/Modal.jsx';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import {
   canDeleteCreatorLegend,
@@ -13,6 +15,13 @@ import {
   getCreatorLegends,
   getLegendDeleteConfirmation,
 } from '../../services/creatorService.js';
+import { deleteLegendPhysicalEditions } from '../../services/backendApiService.js';
+
+// The RPC blocks deleting a legend that still has a physical edition attached, with this
+// exact wording. We detect it to offer an in-place "remove the physical edition" flow.
+function isPhysicalEditionBlock(error) {
+  return /ediciones\s+f[ií]sicas/i.test(error?.message || '');
+}
 
 function CreatorLegendsPage() {
   const location = useLocation();
@@ -23,6 +32,8 @@ function CreatorLegendsPage() {
   const [deletingId, setDeletingId] = useState(null);
   const [duplicatingId, setDuplicatingId] = useState(null);
   const [deleteErrors, setDeleteErrors] = useState({});
+  const [physicalBlock, setPhysicalBlock] = useState(null); // { legend, statusKey }
+  const [resolvingPhysical, setResolvingPhysical] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
 
@@ -87,6 +98,36 @@ function CreatorLegendsPage() {
     setMessage(data?.legend?.title ? `Copia creada: "${data.legend.title}".` : 'Copia creada como borrador.');
   }
 
+  // Runs the actual RPC delete and updates the list on success. Returns the error (if
+  // any) so callers can decide whether to surface it or handle it (e.g. physical block).
+  async function runLegendDelete(legend, statusKey) {
+    const { error: deleteError } = await deleteCreatorLegend(legend.id, { status: statusKey });
+
+    if (deleteError) {
+      if (import.meta.env.DEV) {
+        console.error('[CreatorLegends] Error real:', {
+          operation: 'deleteCreatorLegend',
+          table: 'rpc/delete_creator_legend',
+          legendId: legend.id,
+          status: statusKey,
+          error: deleteError.supabaseError || deleteError,
+        });
+      }
+      return deleteError;
+    }
+
+    setLegends((current) => current.filter((item) => item.id !== legend.id));
+    setDeleteErrors((current) => {
+      const nextErrors = { ...current };
+      delete nextErrors[legend.id];
+      return nextErrors;
+    });
+    setMessage(statusKey === 'draft' || statusKey === 'borrador'
+      ? 'Borrador eliminado correctamente.'
+      : 'Historia eliminada correctamente.');
+    return null;
+  }
+
   async function handleDeleteLegend(legend) {
     const statusKey = getCreatorLegendStatusKey(legend);
     if (!canDeleteCreatorLegend(statusKey)) {
@@ -104,46 +145,73 @@ function CreatorLegendsPage() {
     setDeleteErrors((current) => ({ ...current, [legend.id]: '' }));
     setMessage(null);
 
-    const { error: deleteError } = await deleteCreatorLegend(legend.id, { status: statusKey });
+    const deleteError = await runLegendDelete(legend, statusKey);
 
     setDeletingId(null);
 
-    if (deleteError) {
-      if (import.meta.env.DEV) {
-        console.error('[CreatorLegends] Error real:', {
-          operation: 'deleteCreatorLegend',
-          table: 'rpc/delete_creator_legend',
-          legendId: legend.id,
-          status: statusKey,
-          error: deleteError.supabaseError || deleteError,
-        });
-      }
+    if (!deleteError) return;
+
+    // Blocked by an attached physical edition -> offer to remove it and retry, instead
+    // of leaving the author with a dead-end error.
+    if (isPhysicalEditionBlock(deleteError)) {
+      setPhysicalBlock({ legend, statusKey });
+      return;
+    }
+
+    setDeleteErrors((current) => ({ ...current, [legend.id]: deleteError.message }));
+  }
+
+  // Confirmed from the modal: delete the legend's physical edition(s) through the backend
+  // (service role), then retry deleting the legend itself.
+  async function handleConfirmDeletePhysical() {
+    if (!physicalBlock || resolvingPhysical) return;
+    const { legend, statusKey } = physicalBlock;
+
+    setResolvingPhysical(true);
+    setMessage(null);
+    setDeleteErrors((current) => ({ ...current, [legend.id]: '' }));
+
+    try {
+      await deleteLegendPhysicalEditions(legend.id);
+    } catch (physicalError) {
+      setResolvingPhysical(false);
+      setPhysicalBlock(null);
       setDeleteErrors((current) => ({
         ...current,
-        [legend.id]: deleteError.message,
+        [legend.id]: physicalError?.message || 'No se pudo eliminar la edicion fisica.',
       }));
       return;
     }
 
-    setLegends((current) => current.filter((item) => item.id !== legend.id));
-    setDeleteErrors((current) => {
-      const nextErrors = { ...current };
-      delete nextErrors[legend.id];
-      return nextErrors;
-    });
-    setMessage(statusKey === 'draft' || statusKey === 'borrador'
-      ? 'Borrador eliminado correctamente.'
-      : 'Historia eliminada correctamente.');
+    setDeletingId(legend.id);
+    const deleteError = await runLegendDelete(legend, statusKey);
+    setDeletingId(null);
+    setResolvingPhysical(false);
+    setPhysicalBlock(null);
+
+    if (deleteError) {
+      setDeleteErrors((current) => ({ ...current, [legend.id]: deleteError.message }));
+    }
   }
 
   return (
-    <section className="page-stack creator-panel">
-      <div className="page-heading-row">
+    <section className="page-stack creator-panel creator-legends-page">
+      <div className="page-heading-row creator-legends-header">
         <div>
           <p className="creator-kicker">Obras</p>
           <h1>{isDraftsView ? 'Borradores' : 'Mis leyendas'}</h1>
+          {!loading && (
+            <p className="creator-legends-count">
+              {visibleLegends.length === 0
+                ? (isDraftsView ? 'Sin borradores' : 'Sin leyendas todavia')
+                : `${visibleLegends.length} ${visibleLegends.length === 1 ? 'historia' : 'historias'}`}
+            </p>
+          )}
         </div>
-        <Link to="/creator/legends/new" className="btn btn-primary">Nueva leyenda</Link>
+        <Link to="/creator/legends/new" className="btn btn-primary creator-legends-new">
+          <span className="material-symbols-rounded" aria-hidden="true">add</span>
+          <span>Nueva leyenda</span>
+        </Link>
       </div>
 
       {error && <p className="error-message">{error.message}</p>}
@@ -175,6 +243,37 @@ function CreatorLegendsPage() {
             />
           ))}
         </div>
+      )}
+
+      {physicalBlock && (
+        <Modal
+          title="Eliminar edicion fisica"
+          onClose={() => (resolvingPhysical ? null : setPhysicalBlock(null))}
+        >
+          <div className="creator-delete-physical">
+            <p>
+              <strong>“{physicalBlock.legend.title || 'Esta historia'}”</strong> tiene una edicion
+              fisica asociada, por eso no se puede eliminar directamente.
+            </p>
+            <p>
+              Para borrar la historia primero hay que eliminar su relacion con la edicion fisica.
+              ¿Seguro que quieres eliminar la relacion fisica y la historia? Esta accion no se puede
+              deshacer.
+            </p>
+            <p className="creator-muted">
+              Si la edicion tuviera codigos generados, lotes o productos vendidos, no se eliminara y
+              te avisaremos.
+            </p>
+            <div className="creator-delete-physical-actions">
+              <Button variant="ghost" onClick={() => setPhysicalBlock(null)} disabled={resolvingPhysical}>
+                Cancelar
+              </Button>
+              <Button variant="danger" onClick={handleConfirmDeletePhysical} disabled={resolvingPhysical}>
+                {resolvingPhysical ? 'Eliminando...' : 'Si, eliminar edicion fisica y la historia'}
+              </Button>
+            </div>
+          </div>
+        </Modal>
       )}
     </section>
   );

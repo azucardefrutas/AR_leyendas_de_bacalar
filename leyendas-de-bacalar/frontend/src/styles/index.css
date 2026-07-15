@@ -2715,6 +2715,71 @@ pre {
   line-height: 1.35;
 }
 
+/* --- Mis leyendas: page header count + new-legend button --- */
+.creator-legends-count {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.creator-legends-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.creator-legends-new .material-symbols-rounded {
+  font-size: 1.2rem;
+}
+
+/* Card delete error -> contained inline alert so it no longer jars the card layout. */
+.creator-legend-card .creator-card-error {
+  margin-top: 2px;
+  padding: 9px 11px;
+  border-radius: 12px;
+  background: #fff1f2;
+  border: 1px solid #fbcfe0;
+  color: #9f1239;
+  font-weight: 600;
+}
+
+/* Action row: a hairline separates the primary action from the icon actions. */
+.creator-legend-card .creator-card-actions {
+  padding-top: 10px;
+  border-top: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+/* Delete-physical-edition confirmation modal. */
+.creator-delete-physical {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.creator-delete-physical p {
+  margin: 0;
+  line-height: 1.5;
+  color: #334155;
+}
+
+.creator-delete-physical strong {
+  color: #0e1830;
+}
+
+.creator-delete-physical .creator-muted {
+  font-size: 0.86rem;
+  color: #64748b;
+}
+
+.creator-delete-physical-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
 .status-badge,
 .creator-status-pill {
   width: fit-content;
