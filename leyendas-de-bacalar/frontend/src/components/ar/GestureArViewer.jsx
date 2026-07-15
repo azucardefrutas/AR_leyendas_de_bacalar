@@ -10,27 +10,47 @@ import AppIcon from '../ui/AppIcon.jsx';
 // downscaled 480p input, GPU delegate, throttled to ~24fps, paused when the tab is
 // hidden, and everything torn down when the viewer closes.
 // The WASM runtime and the hand model are SELF-HOSTED from our own origin
-// (frontend/public/mediapipe/…), not a third-party CDN. BASE_URL keeps it correct
-// under any deploy base.
+// (frontend/public/mediapipe/…). BASE_URL keeps it correct under any deploy base.
 const BASE_URL = import.meta.env.BASE_URL || '/';
 const WASM_PATH = `${BASE_URL}mediapipe/wasm`;
 const MODEL_PATH = `${BASE_URL}mediapipe/hand_landmarker.task`;
 
 const TARGET_FPS = 24;
 const FRAME_INTERVAL = 1000 / TARGET_FPS;
-const PINCH_THRESHOLD = 0.07; // normalized thumb-tip ↔ index-tip distance
 const EXTEND_RATIO = 1.55; // fingertip-to-wrist / hand-size above this ⇒ finger extended
-const ROT_GAIN = Math.PI * 2.4; // hand sweep → rotation
-const MOVE_GAIN = 3.2; // hand sweep → world translation (≈ full screen)
+const ROT_GAIN = Math.PI * 2.4; // base: hand sweep → rotation (scaled by calibration)
+const MOVE_GAIN = 3.2; // base: hand sweep → world translation (scaled by calibration)
 const MIN_SCALE = 0.35;
 const MAX_SCALE = 3.4;
 const POS_LIMIT = 3; // keep the model reachable on screen
 
+const CALIB_KEY = 'leyendas.gestureAr.calibration';
+const ONBOARD_KEY = 'leyendas.gestureAr.onboarded';
+const DEFAULT_CALIB = { rot: 1, move: 1, zoom: 1, pinch: 0.07, smooth: 0.22 };
+// Sliders the reader can tune; the values persist in localStorage. Ranges are chosen so
+// even the extremes stay usable.
+const CALIB_FIELDS = [
+  { key: 'rot', label: 'Giro', hint: 'lento → rápido', min: 0.4, max: 2, step: 0.05 },
+  { key: 'move', label: 'Desplazamiento', hint: 'lento → rápido', min: 0.4, max: 2, step: 0.05 },
+  { key: 'zoom', label: 'Zoom', hint: 'suave → marcado', min: 0.4, max: 2, step: 0.05 },
+  { key: 'pinch', label: 'Pellizco', hint: 'preciso → fácil', min: 0.04, max: 0.12, step: 0.005 },
+  { key: 'smooth', label: 'Respuesta', hint: 'suave → inmediata', min: 0.1, max: 0.4, step: 0.02 },
+];
+const GESTURE_GUIDE = [
+  { key: 'rotate', emoji: '🤏', title: 'Girar', desc: 'Pellizca (pulgar + índice) y mueve la mano.' },
+  { key: 'move', emoji: '✊', title: 'Mover', desc: 'Cierra el puño y arrástralo por la pantalla.' },
+  { key: 'scale', emoji: '🙌', title: 'Acercar / alejar', desc: 'Con dos manos, júntalas o sepáralas.' },
+  { key: 'idle', emoji: '✋', title: 'Soltar', desc: 'Abre la mano para dejarlo donde está.' },
+];
+
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+const clampNum = (value, min, max, fallback) => {
+  const n = Number(value);
+  return Number.isFinite(n) ? clamp(n, min, max) : fallback;
+};
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 // Palm center ≈ middle-finger MCP (landmark 9). x is mirrored to match the selfie view.
 const palmMirrored = (hand) => ({ x: 1 - hand[9].x, y: hand[9].y });
-const isPinching = (hand) => distance(hand[4], hand[8]) < PINCH_THRESHOLD;
 // How many of the four fingers (index/middle/ring/pinky) point away from the palm.
 function fingersExtended(hand) {
   const wrist = hand[0];
@@ -40,6 +60,22 @@ function fingersExtended(hand) {
     if (distance(hand[tip], wrist) / size > EXTEND_RATIO) count += 1;
   }
   return count;
+}
+
+function loadCalibration() {
+  if (typeof window === 'undefined') return { ...DEFAULT_CALIB };
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(CALIB_KEY) || '{}');
+    return {
+      rot: clampNum(parsed.rot, 0.4, 2, DEFAULT_CALIB.rot),
+      move: clampNum(parsed.move, 0.4, 2, DEFAULT_CALIB.move),
+      zoom: clampNum(parsed.zoom, 0.4, 2, DEFAULT_CALIB.zoom),
+      pinch: clampNum(parsed.pinch, 0.04, 0.12, DEFAULT_CALIB.pinch),
+      smooth: clampNum(parsed.smooth, 0.1, 0.4, DEFAULT_CALIB.smooth),
+    };
+  } catch {
+    return { ...DEFAULT_CALIB };
+  }
 }
 
 function GltfModel({ url }) {
@@ -56,7 +92,7 @@ function GestureModel({ url, gestureRef }) {
     const group = groupRef.current;
     if (!group) return;
     const t = gestureRef.current;
-    const k = 0.22;
+    const k = t.smooth || 0.22;
     group.position.x += (t.posX - group.position.x) * k;
     group.position.y += (t.posY - group.position.y) * k;
     group.rotation.y += (t.rotY - group.rotation.y) * k;
@@ -94,22 +130,46 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
   const rafRef = useRef(0);
   const lastFrameRef = useRef(0);
   const hudRef = useRef({ hands: 0, gesture: 'idle' });
+  const calibRef = useRef(loadCalibration());
   const gestureRef = useRef({
-    rotX: 0, rotY: 0, scale: 1, posX: 0, posY: 0,
+    rotX: 0, rotY: 0, scale: 1, posX: 0, posY: 0, smooth: calibRef.current.smooth,
     active: null,
     startCx: 0, startCy: 0, startRotX: 0, startRotY: 0, startPosX: 0, startPosY: 0, startDist: 0, startScale: 1,
   });
   const [status, setStatus] = useState('loading');
   const [hud, setHud] = useState({ hands: 0, gesture: 'idle' });
+  const [calib, setCalib] = useState(calibRef.current);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [showGuide, setShowGuide] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return !window.localStorage.getItem(ONBOARD_KEY);
+  });
 
+  // Keep the tracking loop (which reads a ref, not state) in sync with the sliders, and
+  // remember the calibration between sessions.
+  useEffect(() => {
+    calibRef.current = calib;
+    gestureRef.current.smooth = calib.smooth;
+    try { window.localStorage.setItem(CALIB_KEY, JSON.stringify(calib)); } catch { /* private mode */ }
+  }, [calib]);
+
+  const updateCalib = useCallback((key, value) => {
+    setCalib((current) => ({ ...current, [key]: value }));
+  }, []);
+  const resetCalib = useCallback(() => setCalib({ ...DEFAULT_CALIB }), []);
   const resetModel = useCallback(() => {
     const g = gestureRef.current;
     g.rotX = 0; g.rotY = 0; g.scale = 1; g.posX = 0; g.posY = 0; g.active = null;
+  }, []);
+  const dismissGuide = useCallback(() => {
+    setShowGuide(false);
+    try { window.localStorage.setItem(ONBOARD_KEY, '1'); } catch { /* private mode */ }
   }, []);
 
   const processResult = useCallback((result) => {
     const hands = result?.landmarks ?? [];
     const g = gestureRef.current;
+    const cal = calibRef.current;
     const count = hands.length;
     let gesture = 'idle';
 
@@ -117,25 +177,25 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
       // Two hands → pinch-zoom: spreading them apart enlarges the model.
       const d = distance(palmMirrored(hands[0]), palmMirrored(hands[1]));
       if (g.active !== 'scale') { g.active = 'scale'; g.startDist = d || 1e-3; g.startScale = g.scale; }
-      else g.scale = clamp(g.startScale * (d / g.startDist), MIN_SCALE, MAX_SCALE);
+      else g.scale = clamp(g.startScale * (d / g.startDist) ** cal.zoom, MIN_SCALE, MAX_SCALE);
       gesture = 'scale';
     } else if (count === 1) {
       const hand = hands[0];
       const c = palmMirrored(hand);
-      if (isPinching(hand)) {
+      if (distance(hand[4], hand[8]) < cal.pinch) {
         // 🤏 Pinch → grab & turn: moving the hand rotates the model.
         if (g.active !== 'rotate') { g.active = 'rotate'; g.startCx = c.x; g.startCy = c.y; g.startRotX = g.rotX; g.startRotY = g.rotY; }
         else {
-          g.rotY = g.startRotY + (c.x - g.startCx) * ROT_GAIN;
-          g.rotX = clamp(g.startRotX + (c.y - g.startCy) * ROT_GAIN, -1.3, 1.3);
+          g.rotY = g.startRotY + (c.x - g.startCx) * ROT_GAIN * cal.rot;
+          g.rotX = clamp(g.startRotX + (c.y - g.startCy) * ROT_GAIN * cal.rot, -1.3, 1.3);
         }
         gesture = 'rotate';
       } else if (fingersExtended(hand) <= 1) {
         // ✊ Closed fist → drag the model anywhere on screen.
         if (g.active !== 'move') { g.active = 'move'; g.startCx = c.x; g.startCy = c.y; g.startPosX = g.posX; g.startPosY = g.posY; }
         else {
-          g.posX = clamp(g.startPosX + (c.x - g.startCx) * MOVE_GAIN, -POS_LIMIT, POS_LIMIT);
-          g.posY = clamp(g.startPosY - (c.y - g.startCy) * MOVE_GAIN, -POS_LIMIT, POS_LIMIT); // screen-y is inverted
+          g.posX = clamp(g.startPosX + (c.x - g.startCx) * MOVE_GAIN * cal.move, -POS_LIMIT, POS_LIMIT);
+          g.posY = clamp(g.startPosY - (c.y - g.startCy) * MOVE_GAIN * cal.move, -POS_LIMIT, POS_LIMIT); // screen-y inverted
         }
         gesture = 'move';
       } else {
@@ -271,6 +331,19 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
             : 'Preparando…'}
         </span>
         <div className="gesture-ar__actions">
+          <button type="button" onClick={() => setShowGuide(true)} title="Cómo se usa" aria-label="Cómo se usa">
+            <AppIcon name="help" size={20} />
+          </button>
+          <button
+            type="button"
+            className={panelOpen ? 'is-active' : ''}
+            onClick={() => setPanelOpen((open) => !open)}
+            title="Calibrar sensibilidad"
+            aria-label="Calibrar sensibilidad"
+            aria-pressed={panelOpen}
+          >
+            <AppIcon name="tune" size={20} />
+          </button>
           <button type="button" onClick={resetModel} title="Centrar el modelo" aria-label="Centrar el modelo">
             <AppIcon name="restart_alt" size={20} />
           </button>
@@ -280,25 +353,61 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
         </div>
       </header>
 
-      {tracking && (
+      {panelOpen && (
+        <aside className="gesture-ar__panel" aria-label="Calibración de gestos">
+          <div className="gesture-ar__panel-head">
+            <strong>Calibra tus gestos</strong>
+            <button type="button" onClick={resetCalib} className="gesture-ar__panel-reset">Restablecer</button>
+          </div>
+          {CALIB_FIELDS.map((field) => (
+            <label key={field.key} className="gesture-ar__slider">
+              <span className="gesture-ar__slider-label">
+                {field.label}
+                <em>{field.hint}</em>
+              </span>
+              <input
+                type="range"
+                min={field.min}
+                max={field.max}
+                step={field.step}
+                value={calib[field.key]}
+                onChange={(event) => updateCalib(field.key, Number(event.target.value))}
+              />
+            </label>
+          ))}
+        </aside>
+      )}
+
+      {tracking && !showGuide && (
         <ul className="gesture-ar__tips" aria-label="Guía de señas">
-          <li className={activeGesture === 'rotate' ? 'is-active' : ''}>
-            <span className="gesture-ar__emoji" aria-hidden="true">🤏</span>
-            <span>Pellizca (pulgar + índice) y mueve la mano para <strong>girar</strong></span>
-          </li>
-          <li className={activeGesture === 'move' ? 'is-active' : ''}>
-            <span className="gesture-ar__emoji" aria-hidden="true">✊</span>
-            <span>Cierra el <strong>puño</strong> y mueve la mano para <strong>desplazar</strong> por la pantalla</span>
-          </li>
-          <li className={activeGesture === 'scale' ? 'is-active' : ''}>
-            <span className="gesture-ar__emoji" aria-hidden="true">🙌</span>
-            <span>Con <strong>dos manos</strong>, junta o separa para <strong>acercar / alejar</strong></span>
-          </li>
-          <li>
-            <span className="gesture-ar__emoji" aria-hidden="true">✋</span>
-            <span>Abre la mano para <strong>soltar</strong></span>
-          </li>
+          {GESTURE_GUIDE.map((g) => (
+            <li key={g.key} className={activeGesture === g.key ? 'is-active' : ''}>
+              <span className="gesture-ar__emoji" aria-hidden="true">{g.emoji}</span>
+              <span><strong>{g.title}.</strong> {g.desc}</span>
+            </li>
+          ))}
         </ul>
+      )}
+
+      {showGuide && (
+        <div className="gesture-ar__onboard" role="dialog" aria-modal="true" aria-label="Cómo usar los gestos">
+          <div className="gesture-ar__onboard-card">
+            <span className="gesture-ar__onboard-kicker">Realidad aumentada</span>
+            <h2>Explora el modelo con tus manos</h2>
+            <p>Colócate frente a la cámara y usa estas señas:</p>
+            <ul>
+              {GESTURE_GUIDE.map((g, index) => (
+                <li key={g.key} style={{ '--i': index }}>
+                  <span className="gesture-ar__emoji" aria-hidden="true">{g.emoji}</span>
+                  <span><strong>{g.title}.</strong> {g.desc}</span>
+                </li>
+              ))}
+            </ul>
+            <button type="button" className="btn gesture-ar__onboard-cta" onClick={dismissGuide}>
+              Empezar
+            </button>
+          </div>
+        </div>
       )}
 
       {errorCopy && (
