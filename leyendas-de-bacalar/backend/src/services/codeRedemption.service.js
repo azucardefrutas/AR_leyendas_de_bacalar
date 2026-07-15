@@ -1,8 +1,5 @@
 import { supabaseAdmin } from '../config/supabaseAdmin.js';
 
-// Procesamiento de canje de codigos EN EL BACKEND (el frontend no procesa nada):
-// normaliza el codigo, aplica rate-limit anti-fuerza-bruta y ejecuta el canje via
-// RPC service-role (redeem_access_code_as) a nombre del usuario ya autenticado.
 
 const MAX_ATTEMPTS = 5;
 const BLOCK_MS = 15 * 60 * 1000; // 15 minutos

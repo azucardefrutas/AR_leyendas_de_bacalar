@@ -1,0 +1,79 @@
+name: CI
+
+# Integración continua: valida frontend y backend en cada push y pull request
+# hacia main. No despliega (no hay paso CD): solo lint + build + pruebas.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Cancela ejecuciones antiguas del mismo ref cuando llega un push nuevo.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (lint sintaxis + pruebas)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: leyendas-de-bacalar/backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Verificación de sintaxis (npm run build)
+        run: npm run build
+
+      - name: Pruebas unitarias (node --test)
+        run: npm test
+
+  frontend:
+    name: Frontend (lint + build + pruebas)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: leyendas-de-bacalar/frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Lint (ESLint)
+        run: npm run lint
+
+      - name: Pruebas (node --test + Vitest)
+        run: npm test
+
+      - name: Cobertura (Vitest)
+        run: npm run test:coverage
+
+      - name: Build de producción (Vite)
+        run: npm run build
+        env:
+          VITE_SUPABASE_URL: https://example.supabase.co
+          VITE_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+          VITE_BACKEND_URL: http://localhost:4000
+
+      - name: Publicar reporte de cobertura como artefacto
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: leyendas-de-bacalar/frontend/coverage
+          if-no-files-found: ignore

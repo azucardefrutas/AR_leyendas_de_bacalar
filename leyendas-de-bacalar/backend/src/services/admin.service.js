@@ -9,9 +9,6 @@ function resolveAssetUrl(asset) {
     || (asset.storage_path ? getPublicUrlForAsset({ bucket: 'legend-assets', path: asset.storage_path }) : null);
 }
 
-// Sensitive admin write moved off the browser: suspending/activating a user used to
-// be a direct users_profile update from the client that relied only on RLS. It now
-// runs server-side behind requireRole(['admin']) with the service-role client.
 const USER_STATUSES = new Set(['active', 'suspended']);
 
 export async function setUserStatus(userId, status) {
@@ -27,8 +24,6 @@ export async function setUserStatus(userId, status) {
   return data;
 }
 
-// Admin aggregations moved server-side: the browser makes ONE call instead of
-// ~10 count round-trips. Ownership is enforced by requireRole(['admin']) on the route.
 
 async function countRows(table, applyFilter) {
   try {
