@@ -143,19 +143,30 @@ function HotspotMarker({ hotspot, index, onClick }) {
   );
 }
 
-// The inline 3D model shown on a page. It floats right where its marker sits (printed
-// on the PDF beneath) and is manipulated like a Blender object — rotate, pan
-// up/down/around and zoom — grabbing it anywhere on its (optionally invisible)
-// canvas. The white backdrop is toggled from the reader's bottom bar (`hideBackdrop`).
-// The flip-book library attaches NATIVE listeners on an ancestor and React's
-// synthetic events can't stop them reliably, so the flip-guard is a native listener
-// (same pattern as HotspotMarker); OrbitControls handles the 3D gestures itself.
+// The inline 3D model shown on a page. Two zones share the same floating panel:
+//  - Over the MODEL: rotate / pan / zoom it like a Blender object (OrbitControls).
+//  - Over the EMPTY canvas (grab cursor): drag the whole frame anywhere on the sheet;
+//    it stays where you drop it. `Model3DViewer` reports which zone the cursor is in
+//    (via a raycast plane) so the two never fight over the same drag.
+// The white backdrop is toggled from the reader's bottom bar (`hideBackdrop`).
+// The flip-book library attaches NATIVE listeners on an ancestor and React's synthetic
+// events can't stop them reliably, so both the flip-guard and the frame-drag are wired
+// as native listeners (same pattern as HotspotMarker).
 function InlineModelLayer({ hotspot, hideBackdrop = false }) {
   const panelRef = useRef(null);
+  const overModelRef = useRef(false);
+  const dragRef = useRef({ active: false, startX: 0, startY: 0, x: 0, y: 0, pointerId: null });
+  const [overModel, setOverModel] = useState(false);
+  const [dragging, setDragging] = useState(false);
 
-  // Swallow the flip-start events over the model so the page never turns while the
-  // reader manipulates it. OrbitControls (native, on the canvas) still rotates/pans/
-  // zooms because its listeners fire before this ancestor stop.
+  const handleHoverModel = useCallback((over) => {
+    overModelRef.current = over;
+    setOverModel(over);
+  }, []);
+
+  // Swallow the flip-start events over the panel so the page never turns while the
+  // reader interacts with it. OrbitControls (native, on the canvas) still runs because
+  // its listeners fire before this ancestor stop.
   useEffect(() => {
     const el = panelRef.current;
     if (!el) return undefined;
@@ -173,17 +184,61 @@ function InlineModelLayer({ hotspot, hideBackdrop = false }) {
     };
   }, []);
 
+  // Frame drag: pressing the EMPTY canvas (cursor not over the model) moves the whole
+  // model around the sheet; it keeps the position where it is dropped. Position is
+  // written to CSS variables so dragging is smooth without re-rendering.
+  useEffect(() => {
+    const el = panelRef.current;
+    if (!el) return undefined;
+    const apply = () => {
+      el.style.setProperty('--pos-x', `${dragRef.current.x}px`);
+      el.style.setProperty('--pos-y', `${dragRef.current.y}px`);
+    };
+    const onDown = (event) => {
+      if (overModelRef.current) return;                 // over the model → OrbitControls
+      if (event.button != null && event.button > 0) return; // primary button / touch only
+      dragRef.current.active = true;
+      dragRef.current.startX = event.clientX - dragRef.current.x;
+      dragRef.current.startY = event.clientY - dragRef.current.y;
+      dragRef.current.pointerId = event.pointerId;
+      try { el.setPointerCapture(event.pointerId); } catch { /* older browsers */ }
+      setDragging(true);
+    };
+    const onMove = (event) => {
+      if (!dragRef.current.active) return;
+      dragRef.current.x = event.clientX - dragRef.current.startX;
+      dragRef.current.y = event.clientY - dragRef.current.startY;
+      apply();
+    };
+    const onUp = (event) => {
+      if (!dragRef.current.active) return;
+      dragRef.current.active = false;
+      try { el.releasePointerCapture(event.pointerId); } catch { /* ignore */ }
+      setDragging(false);
+    };
+    el.addEventListener('pointerdown', onDown);
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerup', onUp);
+    el.addEventListener('pointercancel', onUp);
+    return () => {
+      el.removeEventListener('pointerdown', onDown);
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerup', onUp);
+      el.removeEventListener('pointercancel', onUp);
+    };
+  }, []);
+
   const title = hotspot.scene?.name || hotspot.label || 'Modelo 3D';
 
   return (
     <section
       ref={panelRef}
-      className={`reader-inline-model${hideBackdrop ? ' is-bare' : ''}`}
+      className={`reader-inline-model${hideBackdrop ? ' is-bare' : ''}${overModel ? '' : ' is-movable'}${dragging ? ' is-moving' : ''}`}
       aria-label={`Modelo 3D ${hotspot.label || ''}`.trim()}
     >
       <div className="reader-inline-model-stage">
         <Suspense fallback={<div className="reader-inline-model-loading">Cargando modelo...</div>}>
-          <InlineModel3DViewer scene={hotspot.scene} title={title} embedded fullControls />
+          <InlineModel3DViewer scene={hotspot.scene} title={title} embedded fullControls onHoverModel={handleHoverModel} />
         </Suspense>
       </div>
     </section>

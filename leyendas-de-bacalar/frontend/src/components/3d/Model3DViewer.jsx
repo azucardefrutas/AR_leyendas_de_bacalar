@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Bounds, Center, Html, OrbitControls, useGLTF } from '@react-three/drei';
 import Button from '../ui/Button.jsx';
@@ -44,6 +44,18 @@ function GltfModel({ url }) {
   return <primitive object={scene} />;
 }
 
+// A large invisible plane behind the model. It raycatches the EMPTY canvas so the
+// reader can tell "cursor over empty space" (move the frame) from "cursor over the
+// model" (rotate/zoom). Rendered but fully transparent, so it never shows.
+function HoverCatcher({ onOver }) {
+  return (
+    <mesh position={[0, 0, -8]} onPointerOver={(event) => { event.stopPropagation(); onOver(); }}>
+      <planeGeometry args={[400, 400]} />
+      <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+    </mesh>
+  );
+}
+
 function ModelCanvas({
   url,
   onError,
@@ -51,25 +63,46 @@ function ModelCanvas({
   compactControls = false,
   interactionEnabled = true,
   fullControls = false,
+  onHoverModel,
 }) {
   const orbitOptions = getOrbitControlOptions({ embedded, compactControls, interactionEnabled, fullControls });
+  const controlsRef = useRef(null);
+  // Rotate/pan only while the cursor is over the model; over the empty canvas they are
+  // off so the reader's frame-drag can take over. Set imperatively (not via props) so a
+  // re-render never resets them mid-gesture.
+  const setOverModel = (over) => {
+    const controls = controlsRef.current;
+    if (controls) {
+      controls.enableRotate = over;
+      controls.enablePan = over;
+    }
+    onHoverModel?.(over);
+  };
   return (
     <Canvas gl={{ alpha: true }} camera={{ position: [0, 0, embedded ? 4.2 : 4], fov: embedded ? 35 : 45 }} dpr={[1, 2]}>
       <ambientLight intensity={embedded ? 1.1 : 0.7} />
       <directionalLight position={[5, 5, 5]} intensity={embedded ? 1.45 : 1} />
       <directionalLight position={[-5, -3, -5]} intensity={embedded ? 0.55 : 0.4} />
+      {fullControls && <HoverCatcher onOver={() => setOverModel(false)} />}
       <ModelErrorBoundary onError={onError}>
         <Suspense
           fallback={<Html center><span className="model3d-loading">Cargando modelo 3D...</span></Html>}
         >
           <Bounds fit clip observe margin={embedded ? 0.95 : 1.2}>
             <Center>
-              <GltfModel url={url} />
+              {fullControls ? (
+                <group onPointerOver={(event) => { event.stopPropagation(); setOverModel(true); }}>
+                  <GltfModel url={url} />
+                </group>
+              ) : (
+                <GltfModel url={url} />
+              )}
             </Center>
           </Bounds>
         </Suspense>
       </ModelErrorBoundary>
       <OrbitControls
+        ref={controlsRef}
         makeDefault
         {...orbitOptions}
         autoRotateSpeed={0.8}
@@ -93,6 +126,7 @@ function Model3DViewer({
   compactControls = false,
   interactionEnabled = true,
   fullControls = false,
+  onHoverModel,
 }) {
   const [expanded, setExpanded] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -131,6 +165,7 @@ function Model3DViewer({
                 compactControls={compactControls}
                 interactionEnabled={interactionEnabled}
                 fullControls={fullControls}
+                onHoverModel={onHoverModel}
               />
             </WebGLErrorBoundary>
           )}

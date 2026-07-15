@@ -13420,7 +13420,7 @@ body.reading-immersive .reader-stage { padding-top: clamp(4px, 1vh, 10px); }
   height: clamp(300px, 61%, 560px);
   display: flex;
   flex-direction: column;
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) translate(var(--pos-x, 0px), var(--pos-y, 0px));
   pointer-events: auto;
   overflow: hidden;
   border: 0;
@@ -13435,13 +13435,19 @@ body.reading-immersive .reader-stage { padding-top: clamp(4px, 1vh, 10px); }
 }
 
 /* Eye toggle (from the reader's bottom bar): drop the white "canvas" so the model
-   floats over the page and the marker (printed on the PDF beneath) shows through.
-   Grab it anywhere to rotate / pan / zoom it like a Blender object. */
+   floats over the page and the marker (printed on the PDF beneath) shows through. */
 .reader-inline-model.is-bare {
   background: transparent;
   box-shadow: none;
   overflow: visible;
 }
+
+/* Cursor over the empty canvas invites dragging the whole frame around the sheet;
+   over the model the cursor stays default (that zone rotates/zooms instead). */
+.reader-inline-model.is-movable,
+.reader-inline-model.is-movable canvas { cursor: grab; }
+.reader-inline-model.is-moving,
+.reader-inline-model.is-moving canvas { cursor: grabbing; }
 
 .reader-inline-model-stage {
   flex: 1;
