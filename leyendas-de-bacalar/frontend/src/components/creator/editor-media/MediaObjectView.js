@@ -282,6 +282,30 @@ export default class MediaObjectView {
     return true;
   }
 
+  // Find a MARKER block whose element sits under the given screen point (used when a
+  // model is dropped, so the marker can absorb it). Ignores self.
+  findMarkerViewAt(clientX, clientY) {
+    const candidates = this.getMediaCandidatesAtPoint(clientX, clientY);
+    for (const wrapper of candidates) {
+      const view = wrapper?.__ejsMediaView;
+      if (view && view !== this && view.kind === 'marker') return view;
+    }
+    return null;
+  }
+
+  // The marker records the dropped model (url + asset id + title) and shows its "3D"
+  // badge; the model block is then removed. The reader turns such a marker into a
+  // tappable hotspot that opens the model.
+  absorbIntoMarker(markerView, modelUrl) {
+    markerView.data.modelAssetId = this.data.assetId || '';
+    markerView.data.modelUrl = modelUrl;
+    markerView.data.modelTitle = this.data.title || '';
+    markerView.wrapper?.classList.add('has-linked-model');
+    markerView.config.onDataChange?.();
+    markerView.select?.();
+    this.deleteBlock();
+  }
+
   toggleModelInteraction() {
     if (this.kind !== 'model3d') return;
     this.interacting3d = !this.interacting3d;
@@ -466,11 +490,33 @@ export default class MediaObjectView {
         this.positionQuickToolbar();
         this.config.onDataChange?.();
       };
+      const detach = () => {
+        if (this.frame.hasPointerCapture?.(event.pointerId)) {
+          this.frame.releasePointerCapture(event.pointerId);
+        }
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', stop);
+        window.removeEventListener('pointercancel', stop);
+      };
       const stop = (stopEvent) => {
         const point = {
           x: stopEvent?.clientX ?? startX,
           y: stopEvent?.clientY ?? startY,
         };
+        // Drop a 3D model onto a marker => the marker "absorbs" it (renders as a tappable
+        // hotspot in the reader). Only when dragged and the model has a usable URL.
+        if (moved && this.kind === 'model3d') {
+          const modelUrl = String(this.data.modelUrl || '').trim();
+          if (/^https?:\/\//i.test(modelUrl)) {
+            const marker = this.findMarkerViewAt(point.x, point.y);
+            if (marker) {
+              lastMediaSelectionPoint = point;
+              detach();
+              this.absorbIntoMarker(marker, modelUrl);
+              return;
+            }
+          }
+        }
         if (moved) {
           const redactor = this.wrapper.closest('.codex-editor__redactor');
           this.data.layout = clampFreeLayoutToSheet(this.data.layout, {
@@ -487,12 +533,7 @@ export default class MediaObjectView {
           this.selectBelow(point.x, point.y);
         }
         lastMediaSelectionPoint = point;
-        if (this.frame.hasPointerCapture?.(event.pointerId)) {
-          this.frame.releasePointerCapture(event.pointerId);
-        }
-        window.removeEventListener('pointermove', move);
-        window.removeEventListener('pointerup', stop);
-        window.removeEventListener('pointercancel', stop);
+        detach();
       };
       window.addEventListener('pointermove', move);
       window.addEventListener('pointerup', stop);
@@ -681,6 +722,10 @@ export default class MediaObjectView {
     this.wrapper.className = `ejs-media-object ejs-media-object--${this.kind}`;
     this.wrapper.tabIndex = 0;
     this.wrapper.__ejsMediaView = this;
+    // A marker that already absorbed a 3D model gets a "3D" badge (see CSS).
+    if (this.kind === 'marker' && /^https?:\/\//i.test(String(this.data.modelUrl || '').trim())) {
+      this.wrapper.classList.add('has-linked-model');
+    }
 
     this.frame = document.createElement('div');
     this.frame.className = 'ejs-media-object__frame';

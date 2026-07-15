@@ -249,6 +249,7 @@ const FlipPage = React.forwardRef(({
   page,
   hotspots,
   onHotspotClick,
+  onOpenModel,
   hideBackdrop = false,
 }, ref) => {
   // Editorial template cover / back cover — rendered by the template engine
@@ -279,7 +280,7 @@ const FlipPage = React.forwardRef(({
             // models and marker images appear, auto-fitted by the reader CSS below.
             <div className="reader-paper-text reader-paper-html editorial-content">
               <Suspense fallback={<div className="reader-paper-loading">Cargando contenido…</div>}>
-                <EditorJsPreview data={page.editorData} variant="reader" />
+                <EditorJsPreview data={page.editorData} variant="reader" onOpenModel={onOpenModel} />
               </Suspense>
             </div>
           ) : page.renderedHtml
@@ -332,6 +333,14 @@ function ConalitegStyleReader({
   // The page model floats without its white "canvas" by default (nicer over the page);
   // the reader can toggle the backdrop back on from the bottom bar.
   const [hideModelBackdrop, setHideModelBackdrop] = useState(true);
+  // A marker (Editor.js block) that absorbed a 3D model opens it full-screen on tap.
+  const [inlineModel, setInlineModel] = useState(null);
+  const openInlineModel = useCallback((data) => {
+    const url = String(data?.modelUrl || '').trim();
+    if (/^https?:\/\//i.test(url)) {
+      setInlineModel({ modelUrl: url, title: data?.modelTitle || data?.title || 'Modelo 3D' });
+    }
+  }, []);
   const [viewport, setViewport] = useState(() => ({
     width: typeof window !== 'undefined' ? window.innerWidth : 1280,
     height: typeof window !== 'undefined' ? window.innerHeight : 820,
@@ -557,6 +566,7 @@ function ConalitegStyleReader({
                 page={page}
                 hotspots={hotspotsByPageIndex[index] ?? []}
                 onHotspotClick={openHotspotModel}
+                onOpenModel={openInlineModel}
                 hideBackdrop={hideModelBackdrop}
               />
             ))}
@@ -612,6 +622,17 @@ function ConalitegStyleReader({
         modelBackdropHidden={hideModelBackdrop}
         onToggleModelBackdrop={() => setHideModelBackdrop((value) => !value)}
       />
+
+      {inlineModel && (
+        <Suspense fallback={null}>
+          <InlineModel3DViewer
+            modelUrl={inlineModel.modelUrl}
+            title={inlineModel.title}
+            onClose={() => setInlineModel(null)}
+            hideHeading
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

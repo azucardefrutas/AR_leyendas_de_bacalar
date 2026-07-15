@@ -203,18 +203,43 @@ function Block({ block, onOpenModel, eagerModels = false }) {
     case 'model3d':
       return <InlineModelPreview data={data} onOpenModel={onOpenModel} eager={eagerModels} />;
     case 'marker':
-    case 'leyendaMarker':
-      return (
-        <div className="ejs-model3d ejs-marker" style={getLayoutStyle(data.layout, { defaultWidth: 180, defaultHeight: 'auto' })}>
-          {(data.imageUrl || data.previewUrl)
-            ? <img className="ejs-marker__thumbnail" src={data.imageUrl || data.previewUrl} alt={stripTags(data.title || 'Marcador')} loading="lazy" style={getCropStyle(data.crop)} />
+    case 'leyendaMarker': {
+      const markerImg = data.imageUrl || data.previewUrl;
+      const linkedModelUrl = String(data.modelUrl || '').trim();
+      const hasModel = /^https?:\/\//i.test(linkedModelUrl);
+      const markerBody = (
+        <>
+          {markerImg
+            ? <img className="ejs-marker__thumbnail" src={markerImg} alt={stripTags(data.title || 'Marcador')} loading="lazy" style={getCropStyle(data.crop)} />
             : <span className="ejs-model3d__icon"><EditorIcon name="bookmark" size={24} /></span>}
           <div className="ejs-model3d__info">
             <strong>{data.title || 'Marcador'}</strong>
             {data.caption ? <p><Inline html={data.caption} /></p> : null}
           </div>
+          {hasModel && <span className="ejs-marker__badge" aria-hidden="true">Ver 3D</span>}
+        </>
+      );
+      // A marker that absorbed a model becomes a tappable hotspot: tapping opens the full
+      // 3D viewer (reliable), instead of the inline model that the flip-book can't paint.
+      if (hasModel && onOpenModel) {
+        return (
+          <button
+            type="button"
+            className="ejs-model3d ejs-marker ejs-marker--interactive"
+            style={getLayoutStyle(data.layout, { defaultWidth: 180, defaultHeight: 'auto' })}
+            onClick={() => onOpenModel({ ...data, modelUrl: linkedModelUrl })}
+            title="Ver modelo 3D"
+          >
+            {markerBody}
+          </button>
+        );
+      }
+      return (
+        <div className="ejs-model3d ejs-marker" style={getLayoutStyle(data.layout, { defaultWidth: 180, defaultHeight: 'auto' })}>
+          {markerBody}
         </div>
       );
+    }
     default:
       return data.text ? <Inline as="p" html={data.text} /> : null;
   }
