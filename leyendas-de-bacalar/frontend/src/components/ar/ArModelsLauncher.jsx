@@ -4,6 +4,17 @@ import AppIcon from '../ui/AppIcon.jsx';
 // El visor de piso (model-viewer por CDN) solo se carga cuando el usuario elige
 // un modelo, no al montar el botón.
 const FloorArViewer = lazy(() => import('./FloorArViewer.jsx'));
+// El modo gestos (webcam + MediaPipe) es para escritorio; carga diferida para que su
+// pipeline (three.js + tasks-vision) solo baje cuando el usuario lo abre.
+const GestureArViewer = lazy(() => import('./GestureArViewer.jsx'));
+
+// Escritorio con puntero fino => usamos la webcam + gestos. En móvil se conserva el AR
+// nativo de model-viewer ("Ver en tu espacio"), que ya funciona.
+const supportsGestureAr =
+  typeof window !== 'undefined'
+  && typeof window.matchMedia === 'function'
+  && window.matchMedia('(pointer: fine)').matches
+  && !/Mobi|Android|iPhone|iPad|iPod/i.test(window.navigator?.userAgent || '');
 
 function cleanModelName(name = '') {
   const base = String(name).replace(/\.(glb|gltf)$/i, '').trim();
@@ -24,8 +35,15 @@ function cleanModelName(name = '') {
 function ArModelsLauncher({ models = [], variant = 'floating' }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [active, setActive] = useState(null);
+  const [mode, setMode] = useState('floor'); // 'gesture' (webcam PC) | 'floor' (model-viewer)
 
   if (!models.length) return null;
+
+  const openModel = (model) => {
+    setActive(model);
+    setMode(supportsGestureAr ? 'gesture' : 'floor');
+  };
+  const closeViewer = () => { setActive(null); setSheetOpen(false); };
 
   return (
     <>
@@ -51,8 +69,12 @@ function ArModelsLauncher({ models = [], variant = 'floating' }) {
           <div className="ar-models-sheet" onClick={(event) => event.stopPropagation()}>
             <header className="ar-models-sheet-head">
               <div>
-                <h3>Ver en tu espacio (AR)</h3>
-                <p>Elige un modelo para colocarlo en el piso con la cámara.</p>
+                <h3>{supportsGestureAr ? 'Manipula el modelo con gestos' : 'Ver en tu espacio (AR)'}</h3>
+                <p>
+                  {supportsGestureAr
+                    ? 'Elige un modelo y muévelo con las manos frente a tu cámara.'
+                    : 'Elige un modelo para colocarlo en el piso con la cámara.'}
+                </p>
               </div>
               <button
                 type="button"
@@ -69,7 +91,7 @@ function ArModelsLauncher({ models = [], variant = 'floating' }) {
                 const nice = cleanModelName(model.name);
                 return (
                   <li key={model.id}>
-                    <button type="button" onClick={() => setActive(model)}>
+                    <button type="button" onClick={() => openModel(model)}>
                       <span className="ar-models-index">{index + 1}</span>
                       <span className="ar-models-label">
                         <strong>{`Modelo ${index + 1}`}</strong>
@@ -85,20 +107,34 @@ function ArModelsLauncher({ models = [], variant = 'floating' }) {
         </div>
       )}
 
-      {active && (
+      {active && mode === 'gesture' && (
+        <Suspense fallback={<div className="ar-models-viewer-overlay"><div className="ar-floor-hint">Preparando cámara…</div></div>}>
+          <GestureArViewer
+            modelUrl={active.modelUrl}
+            name={cleanModelName(active.name) || `Modelo ${models.indexOf(active) + 1}`}
+            onClose={closeViewer}
+            onFallback={() => setMode('floor')}
+          />
+        </Suspense>
+      )}
+
+      {active && mode === 'floor' && (
         <div className="ar-models-viewer-overlay" role="dialog" aria-modal="true" aria-label="Realidad aumentada">
           <div className="ar-models-viewer-head">
             <button type="button" className="btn btn-ghost" onClick={() => setActive(null)}>
               ← Modelos
             </button>
             <strong>{cleanModelName(active.name) || `Modelo ${models.indexOf(active) + 1}`}</strong>
-            <button
-              type="button"
-              className="btn btn-ghost"
-              onClick={() => { setActive(null); setSheetOpen(false); }}
-            >
-              Cerrar
-            </button>
+            <div className="ar-models-viewer-head-actions">
+              {supportsGestureAr && (
+                <button type="button" className="btn btn-ghost" onClick={() => setMode('gesture')}>
+                  <AppIcon name="waving_hand" size={18} /> Gestos
+                </button>
+              )}
+              <button type="button" className="btn btn-ghost" onClick={closeViewer}>
+                Cerrar
+              </button>
+            </div>
           </div>
           <div className="ar-models-viewer-body">
             <Suspense fallback={<div className="ar-floor-hint">Cargando visor 3D...</div>}>
