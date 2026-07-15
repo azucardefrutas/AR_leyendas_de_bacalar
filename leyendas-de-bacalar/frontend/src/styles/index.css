@@ -4414,55 +4414,27 @@ pre {
   color: #0e7490;
 }
 
-/* Marcador que "absorbio" un modelo 3D: en el lector es un boton (hotspot) que abre el
-   visor 3D al tocar. Reset del boton + affordance + badge "Ver 3D". */
-.reader-paper-html .ejs-marker--interactive {
-  position: relative;
-  display: flex !important;
-  flex-direction: column;
-  align-items: center;
-  border: 0;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
-  transition: transform 160ms ease;
-}
-.reader-paper-html .ejs-marker--interactive:hover,
-.reader-paper-html .ejs-marker--interactive:focus-visible {
-  transform: translateY(-2px);
-}
-.reader-paper-html .ejs-marker--interactive:focus-visible {
-  outline: 3px solid rgba(4, 157, 217, 0.5);
+/* Editor: al arrastrar un modelo, el marcador bajo el cursor se resalta como zona de
+   destino (soltar ahi = el modelo absorbe el marcador). */
+.ejs-media-object--marker.is-drop-target .ejs-media-object__frame {
+  outline: 3px dashed #049dd9;
   outline-offset: 4px;
-  border-radius: 14px;
-}
-.ejs-marker__badge {
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: linear-gradient(135deg, #049dd9, #2dd4bf);
-  color: #fff;
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.02em;
-  box-shadow: 0 6px 16px rgba(4, 157, 217, 0.4);
-  pointer-events: none;
+  border-radius: 12px;
+  box-shadow: 0 0 0 6px rgba(4, 157, 217, 0.16);
 }
 
-/* Editor: un marcador con modelo vinculado muestra un badge "3D". */
-.ejs-media-object--marker.has-linked-model .ejs-media-object__frame::after {
-  content: '3D';
+/* Editor: un modelo vinculado a un marcador muestra un badge discreto. */
+.ejs-media-object--model3d.has-linked-marker .ejs-media-object__frame::after {
+  content: 'Marcador vinculado';
   position: absolute;
-  right: 6px;
+  left: 6px;
   bottom: 6px;
   z-index: 3;
-  padding: 2px 8px;
+  padding: 3px 9px;
   border-radius: 999px;
   background: linear-gradient(135deg, #049dd9, #2dd4bf);
   color: #fff;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 800;
   box-shadow: 0 4px 12px rgba(4, 157, 217, 0.4);
   pointer-events: none;

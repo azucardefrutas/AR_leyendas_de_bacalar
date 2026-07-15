@@ -76,6 +76,33 @@ function getHotspotMarkerUrl(hotspot) {
   return marker?.url || marker?.fileUrl || marker?.public_url || marker?.file_url || marker?.external_url || '';
 }
 
+// Manual (crear desde cero) pages carry their 3D model as an Editor.js block (a model3d
+// block, or a marker that absorbed one). Turn that into a synthetic model-hotspot so the
+// reader shows it with the SAME floating viewer the PDF uses (InlineModelLayer): the model
+// appears automatically over the page, with the backdrop (eye) toggle and full manipulation
+// — no marker image, no tap.
+function getInlineModelHotspot(page) {
+  const blocks = page?.editorData?.blocks;
+  if (!Array.isArray(blocks)) return null;
+  for (const block of blocks) {
+    const data = block?.data || {};
+    const url = String(data.modelUrl || '').trim();
+    if (!/^https?:\/\//i.test(url)) continue;
+    if (block.type === 'model3d' || block.type === 'marker' || block.type === 'leyendaMarker') {
+      return {
+        id: `inline-model-${page.pageId || page.pageNumber || ''}-${block.id || url.slice(-12)}`,
+        scene: { assets: { url }, name: data.modelTitle || data.title || 'Modelo 3D' },
+        label: data.title || data.modelTitle || 'Modelo 3D',
+        x: 0.5,
+        y: 0.42,
+        width: 0.5,
+        height: 0.5,
+      };
+    }
+  }
+  return null;
+}
+
 function HotspotMarker({ hotspot, index, onClick }) {
   const btnRef = useRef(null);
   const onClickRef = useRef(onClick);
@@ -249,7 +276,6 @@ const FlipPage = React.forwardRef(({
   page,
   hotspots,
   onHotspotClick,
-  onOpenModel,
   hideBackdrop = false,
 }, ref) => {
   // Editorial template cover / back cover — rendered by the template engine
@@ -280,7 +306,7 @@ const FlipPage = React.forwardRef(({
             // models and marker images appear, auto-fitted by the reader CSS below.
             <div className="reader-paper-text reader-paper-html editorial-content">
               <Suspense fallback={<div className="reader-paper-loading">Cargando contenido…</div>}>
-                <EditorJsPreview data={page.editorData} variant="reader" onOpenModel={onOpenModel} />
+                <EditorJsPreview data={page.editorData} variant="reader" />
               </Suspense>
             </div>
           ) : page.renderedHtml
@@ -333,14 +359,6 @@ function ConalitegStyleReader({
   // The page model floats without its white "canvas" by default (nicer over the page);
   // the reader can toggle the backdrop back on from the bottom bar.
   const [hideModelBackdrop, setHideModelBackdrop] = useState(true);
-  // A marker (Editor.js block) that absorbed a 3D model opens it full-screen on tap.
-  const [inlineModel, setInlineModel] = useState(null);
-  const openInlineModel = useCallback((data) => {
-    const url = String(data?.modelUrl || '').trim();
-    if (/^https?:\/\//i.test(url)) {
-      setInlineModel({ modelUrl: url, title: data?.modelTitle || data?.title || 'Modelo 3D' });
-    }
-  }, []);
   const [viewport, setViewport] = useState(() => ({
     width: typeof window !== 'undefined' ? window.innerWidth : 1280,
     height: typeof window !== 'undefined' ? window.innerHeight : 820,
@@ -356,7 +374,13 @@ function ConalitegStyleReader({
     : 1.414;
 
   const hotspotsByPageIndex = useMemo(
-    () => pages.map((page) => getHotspotsForReaderPage(page, hotspots)),
+    () => pages.map((page) => {
+      const list = getHotspotsForReaderPage(page, hotspots);
+      if (page.type !== 'manual') return list;
+      // Float the manual page's inline 3D model via the PDF's InlineModelLayer path.
+      const inlineModel = getInlineModelHotspot(page);
+      return inlineModel ? [...list, inlineModel] : list;
+    }),
     [pages, hotspots],
   );
 
@@ -566,7 +590,6 @@ function ConalitegStyleReader({
                 page={page}
                 hotspots={hotspotsByPageIndex[index] ?? []}
                 onHotspotClick={openHotspotModel}
-                onOpenModel={openInlineModel}
                 hideBackdrop={hideModelBackdrop}
               />
             ))}
@@ -622,17 +645,6 @@ function ConalitegStyleReader({
         modelBackdropHidden={hideModelBackdrop}
         onToggleModelBackdrop={() => setHideModelBackdrop((value) => !value)}
       />
-
-      {inlineModel && (
-        <Suspense fallback={null}>
-          <InlineModel3DViewer
-            modelUrl={inlineModel.modelUrl}
-            title={inlineModel.title}
-            onClose={() => setInlineModel(null)}
-            hideHeading
-          />
-        </Suspense>
-      )}
     </div>
   );
 }

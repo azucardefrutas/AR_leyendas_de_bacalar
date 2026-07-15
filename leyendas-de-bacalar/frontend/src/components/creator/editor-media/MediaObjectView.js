@@ -293,17 +293,31 @@ export default class MediaObjectView {
     return null;
   }
 
-  // The marker records the dropped model (url + asset id + title) and shows its "3D"
-  // badge; the model block is then removed. The reader turns such a marker into a
-  // tappable hotspot that opens the model.
-  absorbIntoMarker(markerView, modelUrl) {
-    markerView.data.modelAssetId = this.data.assetId || '';
-    markerView.data.modelUrl = modelUrl;
-    markerView.data.modelTitle = this.data.title || '';
-    markerView.wrapper?.classList.add('has-linked-model');
-    markerView.config.onDataChange?.();
-    markerView.select?.();
-    this.deleteBlock();
+  // The MODEL records which marker it is linked to (asset id + image + title) and keeps
+  // itself; the marker block is removed. The model is what shows (editor + reader); the
+  // marker link is kept for the physical/AR mapping.
+  absorbMarker(markerView) {
+    this.data.markerAssetId = markerView.data.assetId || '';
+    this.data.markerImageUrl = markerView.data.imageUrl || markerView.data.previewUrl || '';
+    this.data.markerTitle = markerView.data.title || '';
+    this.wrapper?.classList.add('has-linked-marker');
+    markerView.deleteBlock();
+    this.config.onDataChange?.();
+  }
+
+  // Visual feedback while dragging a model: outline the marker it would drop onto.
+  highlightMarkerDropTarget(clientX, clientY) {
+    const marker = this.findMarkerViewAt(clientX, clientY);
+    if (this._markerDropTarget && this._markerDropTarget !== marker) {
+      this._markerDropTarget.wrapper?.classList.remove('is-drop-target');
+    }
+    if (marker) marker.wrapper?.classList.add('is-drop-target');
+    this._markerDropTarget = marker || null;
+  }
+
+  clearMarkerDropTarget() {
+    this._markerDropTarget?.wrapper?.classList.remove('is-drop-target');
+    this._markerDropTarget = null;
   }
 
   toggleModelInteraction() {
@@ -489,6 +503,8 @@ export default class MediaObjectView {
         this.applyLayout();
         this.positionQuickToolbar();
         this.config.onDataChange?.();
+        // Highlight a marker under the cursor so dropping a model onto it reads clearly.
+        if (this.kind === 'model3d') this.highlightMarkerDropTarget(moveEvent.clientX, moveEvent.clientY);
       };
       const detach = () => {
         if (this.frame.hasPointerCapture?.(event.pointerId)) {
@@ -503,19 +519,13 @@ export default class MediaObjectView {
           x: stopEvent?.clientX ?? startX,
           y: stopEvent?.clientY ?? startY,
         };
-        // Drop a 3D model onto a marker => the marker "absorbs" it (renders as a tappable
-        // hotspot in the reader). Only when dragged and the model has a usable URL.
+        this.clearMarkerDropTarget();
+        // Drop a 3D model onto a marker => the MODEL absorbs the marker: the model stays
+        // (it is what matters), records the marker link, and the marker block is removed.
+        // In the reader the model floats over the page (InlineModelLayer).
         if (moved && this.kind === 'model3d') {
-          const modelUrl = String(this.data.modelUrl || '').trim();
-          if (/^https?:\/\//i.test(modelUrl)) {
-            const marker = this.findMarkerViewAt(point.x, point.y);
-            if (marker) {
-              lastMediaSelectionPoint = point;
-              detach();
-              this.absorbIntoMarker(marker, modelUrl);
-              return;
-            }
-          }
+          const marker = this.findMarkerViewAt(point.x, point.y);
+          if (marker) this.absorbMarker(marker);
         }
         if (moved) {
           const redactor = this.wrapper.closest('.codex-editor__redactor');
@@ -722,9 +732,9 @@ export default class MediaObjectView {
     this.wrapper.className = `ejs-media-object ejs-media-object--${this.kind}`;
     this.wrapper.tabIndex = 0;
     this.wrapper.__ejsMediaView = this;
-    // A marker that already absorbed a 3D model gets a "3D" badge (see CSS).
-    if (this.kind === 'marker' && /^https?:\/\//i.test(String(this.data.modelUrl || '').trim())) {
-      this.wrapper.classList.add('has-linked-model');
+    // A model linked to a marker keeps a small "marcador" badge (see CSS).
+    if (this.kind === 'model3d' && (this.data.markerAssetId || this.data.markerImageUrl)) {
+      this.wrapper.classList.add('has-linked-marker');
     }
 
     this.frame = document.createElement('div');

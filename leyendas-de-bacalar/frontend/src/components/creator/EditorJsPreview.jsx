@@ -146,7 +146,7 @@ function InlineModelPreview({ data, onOpenModel, eager = false }) {
   );
 }
 
-function Block({ block, onOpenModel, eagerModels = false }) {
+function Block({ block, onOpenModel, reader = false }) {
   const data = block?.data ?? {};
   switch (block?.type) {
     case 'header': {
@@ -201,14 +201,18 @@ function Block({ block, onOpenModel, eagerModels = false }) {
       );
     }
     case 'model3d':
-      return <InlineModelPreview data={data} onOpenModel={onOpenModel} eager={eagerModels} />;
+      // Reader: the model floats over the page via InlineModelLayer, so skip it here.
+      if (reader) return null;
+      return <InlineModelPreview data={data} onOpenModel={onOpenModel} />;
     case 'marker':
     case 'leyendaMarker': {
       const markerImg = data.imageUrl || data.previewUrl;
-      const linkedModelUrl = String(data.modelUrl || '').trim();
-      const hasModel = /^https?:\/\//i.test(linkedModelUrl);
-      const markerBody = (
-        <>
+      const hasModel = /^https?:\/\//i.test(String(data.modelUrl || '').trim());
+      // Reader: a marker carrying a model is hidden — its model floats over the page via
+      // InlineModelLayer instead (like the PDF). Plain markers still show as an image.
+      if (reader && hasModel) return null;
+      return (
+        <div className="ejs-model3d ejs-marker" style={getLayoutStyle(data.layout, { defaultWidth: 180, defaultHeight: 'auto' })}>
           {markerImg
             ? <img className="ejs-marker__thumbnail" src={markerImg} alt={stripTags(data.title || 'Marcador')} loading="lazy" style={getCropStyle(data.crop)} />
             : <span className="ejs-model3d__icon"><EditorIcon name="bookmark" size={24} /></span>}
@@ -216,27 +220,6 @@ function Block({ block, onOpenModel, eagerModels = false }) {
             <strong>{data.title || 'Marcador'}</strong>
             {data.caption ? <p><Inline html={data.caption} /></p> : null}
           </div>
-          {hasModel && <span className="ejs-marker__badge" aria-hidden="true">Ver 3D</span>}
-        </>
-      );
-      // A marker that absorbed a model becomes a tappable hotspot: tapping opens the full
-      // 3D viewer (reliable), instead of the inline model that the flip-book can't paint.
-      if (hasModel && onOpenModel) {
-        return (
-          <button
-            type="button"
-            className="ejs-model3d ejs-marker ejs-marker--interactive"
-            style={getLayoutStyle(data.layout, { defaultWidth: 180, defaultHeight: 'auto' })}
-            onClick={() => onOpenModel({ ...data, modelUrl: linkedModelUrl })}
-            title="Ver modelo 3D"
-          >
-            {markerBody}
-          </button>
-        );
-      }
-      return (
-        <div className="ejs-model3d ejs-marker" style={getLayoutStyle(data.layout, { defaultWidth: 180, defaultHeight: 'auto' })}>
-          {markerBody}
         </div>
       );
     }
@@ -252,16 +235,17 @@ function Block({ block, onOpenModel, eagerModels = false }) {
 export default function EditorJsPreview({ data, className = '', onOpenModel, variant }) {
   const migrated = migrateEditorDataMedia(data || {});
   const blocks = Array.isArray(migrated?.blocks) ? migrated.blocks : [];
-  // The reader renders inside a CSS 3D flip-book where lazy (IntersectionObserver-gated)
-  // model loading never fires; render models eagerly there so they actually appear.
-  const eagerModels = variant === 'reader';
+  // In the reader the 3D model is rendered separately, floating over the page via the
+  // PDF's InlineModelLayer (auto, backdrop toggle, manipulation). So here we skip the
+  // model3d block and hide markers that carry a model — only text / plain markers remain.
+  const reader = variant === 'reader';
   if (!blocks.length) {
     return <p className="editorial-editor__preview-empty">Esta página todavía no tiene contenido.</p>;
   }
   return (
     <div className={`editorial-content editorial-content--hybrid ${className}`.trim()}>
       {blocks.map((block, index) => (
-        <Block key={block.id || index} block={block} onOpenModel={onOpenModel} eagerModels={eagerModels} />
+        <Block key={block.id || index} block={block} onOpenModel={onOpenModel} reader={reader} />
       ))}
     </div>
   );

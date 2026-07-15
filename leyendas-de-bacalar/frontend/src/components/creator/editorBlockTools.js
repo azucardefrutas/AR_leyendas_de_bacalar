@@ -43,11 +43,14 @@ export function normalizeAssetBlockData(data = {}, { kind, toolTitle }) {
     displayMode: isModel ? 'inline-model' : (data.displayMode || 'inline-card'),
     modelUrl: data.modelUrl || '',
     imageUrl: data.imageUrl || data.previewUrl || '',
-    // Linked 3D model on a MARKER (the marker "absorbs" a model dropped on it) so the
-    // reader shows the marker as a tappable hotspot that opens the model. Empty for a
-    // plain marker and for model blocks (which carry their own model in modelUrl).
+    // Link between a MODEL block and a MARKER: the model "absorbs" a marker dropped on it,
+    // keeps itself (the model is what shows), and records the marker for the physical/AR
+    // mapping. Empty otherwise.
     modelAssetId: data.modelAssetId || '',
     modelTitle: data.modelTitle || '',
+    markerAssetId: data.markerAssetId || '',
+    markerImageUrl: data.markerImageUrl || '',
+    markerTitle: data.markerTitle || '',
     layout: normalizeMediaLayout(data.layout, {
       defaultWidth: isModel ? 520 : 180,
       defaultHeight: isModel ? 360 : 'auto',
@@ -432,6 +435,7 @@ class AssetBlockTool {
     return {
       assetId: false, title: false, caption: false, displayMode: false,
       modelUrl: false, imageUrl: false, modelAssetId: false, modelTitle: false,
+      markerAssetId: false, markerImageUrl: false, markerTitle: false,
       crop: { x: false, y: false, width: false, height: false, zoom: false },
       layout: {
         mode: false, align: false, layer: false, x: false, y: false,
