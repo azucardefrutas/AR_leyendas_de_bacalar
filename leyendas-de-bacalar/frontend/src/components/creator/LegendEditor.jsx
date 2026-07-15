@@ -20,6 +20,7 @@ import {
 import {
   createArMarker,
   saveLegendResource,
+  uploadSourceDocument,
 } from '../../services/assetService.js';
 import {
   generatePagesFromDocument,
@@ -339,6 +340,46 @@ function ResourceCard({ definition, value, existing, disabled, saving, onChange,
   );
 }
 
+const SOURCE_DOCUMENT_EXTENSIONS = ['pdf', 'doc', 'docx'];
+
+// Recovery uploader shown in the "Documento / libro" tab when an upload-mode legend
+// has no registered source document yet (e.g. a previous upload failed at the storage
+// PUT and left the draft without a document). Lets the author (re)upload the PDF/Word
+// so it registers and the book can be prepared — without leaving the editor.
+function SourceDocumentUploader({ file, saving, error, disabled, onSelectFile, onUpload }) {
+  const extension = String(file?.name || '').split('.').pop()?.toLowerCase() || '';
+  const validExtension = !file || SOURCE_DOCUMENT_EXTENSIONS.includes(extension);
+
+  return (
+    <Card className="creator-source-document-card">
+      <div className="creator-editor-card-title">
+        <span><MaterialIcon name="upload_file" /></span>
+        <div>
+          <h2>Sube el documento de tu leyenda</h2>
+          <p>Esta leyenda aun no tiene un documento fuente. Sube el PDF o Word para prepararlo como libro.</p>
+        </div>
+      </div>
+      <label className="creator-source-dropzone" htmlFor="editor-source-document">
+        <input
+          id="editor-source-document"
+          type="file"
+          accept=".pdf,.doc,.docx"
+          disabled={disabled || saving}
+          onChange={(event) => onSelectFile(event.target.files?.[0] || null)}
+        />
+        <MaterialIcon name="description" />
+        <strong>{file?.name || 'Seleccionar PDF o Word'}</strong>
+        <span>.pdf, .doc o .docx</span>
+      </label>
+      {!validExtension && <p className="error-message">El documento fuente debe ser PDF, DOC o DOCX.</p>}
+      {error && <p className="error-message">{error}</p>}
+      <Button type="button" onClick={onUpload} disabled={disabled || saving || !file || !validExtension}>
+        {saving ? 'Subiendo documento...' : 'Subir documento'}
+      </Button>
+    </Card>
+  );
+}
+
 function getDocumentProcessingErrorMessage(error, fallbackMessage) {
   const message = error?.message || fallbackMessage;
 
@@ -380,6 +421,7 @@ function LegendEditor({ legendId }) {
   const [submitting, setSubmitting] = useState(false);
   const [processingDocument, setProcessingDocument] = useState(false);
   const [documentProcessingMessage, setDocumentProcessingMessage] = useState('');
+  const [sourceUpload, setSourceUpload] = useState({ file: null, saving: false, error: '' });
   const [sourceDocumentView, setSourceDocumentView] = useState({
     sourceDocumentId: null,
     data: null,
@@ -708,6 +750,29 @@ function LegendEditor({ legendId }) {
     }
   }
 
+  // (Re)upload the source document from inside the editor. Recovers upload-mode drafts
+  // whose original document upload failed (no legend_source_documents row), so the author
+  // is not stuck with a "Documento / libro" tab that has nothing to prepare.
+  async function handleUploadSourceDocument() {
+    const file = sourceUpload.file;
+    if (!file || !legend?.id) return;
+
+    setSourceUpload((current) => ({ ...current, saving: true, error: '' }));
+    setError(null);
+    setMessage(null);
+
+    const result = await uploadSourceDocument({ legendId: legend.id, file });
+
+    if (result.error) {
+      setSourceUpload((current) => ({ ...current, saving: false, error: result.error.message }));
+      return;
+    }
+
+    setSourceUpload({ file: null, saving: false, error: '' });
+    setMessage('Documento cargado. Prepara el libro para ver las paginas renderizadas.');
+    await loadEditor();
+  }
+
   async function handleSaveResource(definition) {
     setSavingResourceKey(definition.key);
     setError(null);
@@ -1002,10 +1067,21 @@ function LegendEditor({ legendId }) {
               <p>
                 {primarySourceDocument
                   ? 'Prepara el PDF como libro, elige una pagina renderizada y coloca marcadores cuadrados.'
-                  : `${visiblePages.length} paginas en esta version.`}
+                  : 'Sube el documento fuente (PDF o Word) para prepararlo como libro.'}
               </p>
             </div>
           </div>
+
+          {!primarySourceDocument && (
+            <SourceDocumentUploader
+              file={sourceUpload.file}
+              saving={sourceUpload.saving}
+              error={sourceUpload.error}
+              disabled={isReviewLocked}
+              onSelectFile={(file) => setSourceUpload({ file, saving: false, error: '' })}
+              onUpload={handleUploadSourceDocument}
+            />
+          )}
 
           {primarySourceDocument && (
             <SourceDocumentPreview
