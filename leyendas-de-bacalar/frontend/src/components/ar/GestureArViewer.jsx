@@ -7,11 +7,13 @@ import AppIcon from '../ui/AppIcon.jsx';
 // Hand tracking runs 100% in the browser (WASM + GPU). No server, no Python: the
 // webcam frames never leave the device. We keep the frontend light on purpose —
 // downscaled 480p input, GPU delegate, throttled to ~24fps, everything torn down when
-// the viewer closes. The version pins must match the installed @mediapipe/tasks-vision.
-const MEDIAPIPE_VERSION = '0.10.14';
-const WASM_PATH = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}/wasm`;
-const MODEL_PATH =
-  'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task';
+// the viewer closes.
+// The WASM runtime and the hand model are SELF-HOSTED from our own origin
+// (frontend/public/mediapipe/…), not a third-party CDN — robust and private, and the
+// webcam frames never touch a server. BASE_URL keeps it correct under any deploy base.
+const BASE_URL = import.meta.env.BASE_URL || '/';
+const WASM_PATH = `${BASE_URL}mediapipe/wasm`;
+const MODEL_PATH = `${BASE_URL}mediapipe/hand_landmarker.task`;
 
 const TARGET_FPS = 24;
 const FRAME_INTERVAL = 1000 / TARGET_FPS;

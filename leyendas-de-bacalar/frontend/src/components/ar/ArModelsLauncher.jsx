@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, useState } from 'react';
 import AppIcon from '../ui/AppIcon.jsx';
+import { supportsWebcamGestures } from '../../utils/deviceType.js';
 
 // El visor de piso (model-viewer por CDN) solo se carga cuando el usuario elige
 // un modelo, no al montar el botón.
@@ -8,13 +9,9 @@ const FloorArViewer = lazy(() => import('./FloorArViewer.jsx'));
 // pipeline (three.js + tasks-vision) solo baje cuando el usuario lo abre.
 const GestureArViewer = lazy(() => import('./GestureArViewer.jsx'));
 
-// Escritorio con puntero fino => usamos la webcam + gestos. En móvil se conserva el AR
-// nativo de model-viewer ("Ver en tu espacio"), que ya funciona.
-const supportsGestureAr =
-  typeof window !== 'undefined'
-  && typeof window.matchMedia === 'function'
-  && window.matchMedia('(pointer: fine)').matches
-  && !/Mobi|Android|iPhone|iPad|iPod/i.test(window.navigator?.userAgent || '');
+// Solo PC con webcam usa gestos. En móvil/tablet se conserva el AR nativo de
+// model-viewer ("Ver en tu espacio"), que ya funciona.
+const supportsGestureAr = supportsWebcamGestures();
 
 function cleanModelName(name = '') {
   const base = String(name).replace(/\.(glb|gltf)$/i, '').trim();
