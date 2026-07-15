@@ -1,16 +1,17 @@
 import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Bounds, Center, useGLTF } from '@react-three/drei';
+import { ACESFilmicToneMapping } from 'three';
 import { HandLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 import AppIcon from '../ui/AppIcon.jsx';
 
 // Hand tracking runs 100% in the browser (WASM + GPU). No server, no Python: the
 // webcam frames never leave the device. We keep the frontend light on purpose —
-// downscaled 480p input, GPU delegate, throttled to ~24fps, everything torn down when
-// the viewer closes.
+// downscaled 480p input, GPU delegate, throttled to ~24fps, paused when the tab is
+// hidden, and everything torn down when the viewer closes.
 // The WASM runtime and the hand model are SELF-HOSTED from our own origin
-// (frontend/public/mediapipe/…), not a third-party CDN — robust and private, and the
-// webcam frames never touch a server. BASE_URL keeps it correct under any deploy base.
+// (frontend/public/mediapipe/…), not a third-party CDN. BASE_URL keeps it correct
+// under any deploy base.
 const BASE_URL = import.meta.env.BASE_URL || '/';
 const WASM_PATH = `${BASE_URL}mediapipe/wasm`;
 const MODEL_PATH = `${BASE_URL}mediapipe/hand_landmarker.task`;
@@ -18,34 +19,50 @@ const MODEL_PATH = `${BASE_URL}mediapipe/hand_landmarker.task`;
 const TARGET_FPS = 24;
 const FRAME_INTERVAL = 1000 / TARGET_FPS;
 const PINCH_THRESHOLD = 0.07; // normalized thumb-tip ↔ index-tip distance
-const ROT_GAIN = Math.PI * 2.4; // how much a full-frame hand sweep rotates the model
+const EXTEND_RATIO = 1.55; // fingertip-to-wrist / hand-size above this ⇒ finger extended
+const ROT_GAIN = Math.PI * 2.4; // hand sweep → rotation
+const MOVE_GAIN = 3.2; // hand sweep → world translation (≈ full screen)
 const MIN_SCALE = 0.35;
-const MAX_SCALE = 3.2;
+const MAX_SCALE = 3.4;
+const POS_LIMIT = 3; // keep the model reachable on screen
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 // Palm center ≈ middle-finger MCP (landmark 9). x is mirrored to match the selfie view.
 const palmMirrored = (hand) => ({ x: 1 - hand[9].x, y: hand[9].y });
 const isPinching = (hand) => distance(hand[4], hand[8]) < PINCH_THRESHOLD;
+// How many of the four fingers (index/middle/ring/pinky) point away from the palm.
+function fingersExtended(hand) {
+  const wrist = hand[0];
+  const size = distance(wrist, hand[9]) || 1e-4;
+  let count = 0;
+  for (const tip of [8, 12, 16, 20]) {
+    if (distance(hand[tip], wrist) / size > EXTEND_RATIO) count += 1;
+  }
+  return count;
+}
 
 function GltfModel({ url }) {
   const { scene } = useGLTF(url);
   return <primitive object={scene} />;
 }
 
-// Renders the model and eases its rotation/scale toward the gesture targets every
-// frame (smooth, "settles" instead of snapping). Reads a ref so the tracking loop can
-// update the target 24×/s without re-rendering React.
+// Renders the model and eases its position / rotation / scale toward the gesture
+// targets every frame (smooth — "settles" instead of snapping). Reads a ref so the
+// tracking loop updates targets 24×/s without re-rendering React.
 function GestureModel({ url, gestureRef }) {
   const groupRef = useRef(null);
   useFrame(() => {
     const group = groupRef.current;
     if (!group) return;
-    const target = gestureRef.current;
-    group.rotation.y += (target.rotY - group.rotation.y) * 0.22;
-    group.rotation.x += (target.rotX - group.rotation.x) * 0.22;
-    const next = group.scale.x + (target.scale - group.scale.x) * 0.22;
-    group.scale.setScalar(next);
+    const t = gestureRef.current;
+    const k = 0.22;
+    group.position.x += (t.posX - group.position.x) * k;
+    group.position.y += (t.posY - group.position.y) * k;
+    group.rotation.y += (t.rotY - group.rotation.y) * k;
+    group.rotation.x += (t.rotX - group.rotation.x) * k;
+    const s = group.scale.x + (t.scale - group.scale.x) * k;
+    group.scale.setScalar(s);
   });
   return (
     <group ref={groupRef}>
@@ -64,6 +81,7 @@ const STATUS_COPY = {
   error: 'No se pudo iniciar el seguimiento de manos. Revisa tu conexión o prueba el visor 3D.',
   unsupported: 'Tu navegador no permite abrir la cámara aquí. Usa Chrome/Edge en escritorio sobre HTTPS.',
 };
+const GESTURE_LABEL = { rotate: 'Girando', move: 'Moviendo', scale: 'Escalando', idle: 'Listo' };
 
 /**
  * PC "AR con gestos": webcam de fondo + modelo 3D encima, manipulado con las manos
@@ -77,15 +95,16 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
   const lastFrameRef = useRef(0);
   const hudRef = useRef({ hands: 0, gesture: 'idle' });
   const gestureRef = useRef({
-    rotX: 0, rotY: 0, scale: 1,
-    active: null, startCx: 0, startCy: 0, startRotX: 0, startRotY: 0, startDist: 0, startScale: 1,
+    rotX: 0, rotY: 0, scale: 1, posX: 0, posY: 0,
+    active: null,
+    startCx: 0, startCy: 0, startRotX: 0, startRotY: 0, startPosX: 0, startPosY: 0, startDist: 0, startScale: 1,
   });
   const [status, setStatus] = useState('loading');
   const [hud, setHud] = useState({ hands: 0, gesture: 'idle' });
 
   const resetModel = useCallback(() => {
     const g = gestureRef.current;
-    g.rotX = 0; g.rotY = 0; g.scale = 1; g.active = null;
+    g.rotX = 0; g.rotY = 0; g.scale = 1; g.posX = 0; g.posY = 0; g.active = null;
   }, []);
 
   const processResult = useCallback((result) => {
@@ -97,22 +116,33 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
     if (count >= 2) {
       // Two hands → pinch-zoom: spreading them apart enlarges the model.
       const d = distance(palmMirrored(hands[0]), palmMirrored(hands[1]));
-      if (g.active !== 'scale') { g.active = 'scale'; g.startDist = d || 0.001; g.startScale = g.scale; }
+      if (g.active !== 'scale') { g.active = 'scale'; g.startDist = d || 1e-3; g.startScale = g.scale; }
       else g.scale = clamp(g.startScale * (d / g.startDist), MIN_SCALE, MAX_SCALE);
       gesture = 'scale';
-    } else if (count === 1 && isPinching(hands[0])) {
-      // One pinched hand → grab & turn: moving the hand rotates the model.
-      const c = palmMirrored(hands[0]);
-      if (g.active !== 'rotate') {
-        g.active = 'rotate';
-        g.startCx = c.x; g.startCy = c.y; g.startRotX = g.rotX; g.startRotY = g.rotY;
+    } else if (count === 1) {
+      const hand = hands[0];
+      const c = palmMirrored(hand);
+      if (isPinching(hand)) {
+        // 🤏 Pinch → grab & turn: moving the hand rotates the model.
+        if (g.active !== 'rotate') { g.active = 'rotate'; g.startCx = c.x; g.startCy = c.y; g.startRotX = g.rotX; g.startRotY = g.rotY; }
+        else {
+          g.rotY = g.startRotY + (c.x - g.startCx) * ROT_GAIN;
+          g.rotX = clamp(g.startRotX + (c.y - g.startCy) * ROT_GAIN, -1.3, 1.3);
+        }
+        gesture = 'rotate';
+      } else if (fingersExtended(hand) <= 1) {
+        // ✊ Closed fist → drag the model anywhere on screen.
+        if (g.active !== 'move') { g.active = 'move'; g.startCx = c.x; g.startCy = c.y; g.startPosX = g.posX; g.startPosY = g.posY; }
+        else {
+          g.posX = clamp(g.startPosX + (c.x - g.startCx) * MOVE_GAIN, -POS_LIMIT, POS_LIMIT);
+          g.posY = clamp(g.startPosY - (c.y - g.startCy) * MOVE_GAIN, -POS_LIMIT, POS_LIMIT); // screen-y is inverted
+        }
+        gesture = 'move';
       } else {
-        g.rotY = g.startRotY + (c.x - g.startCx) * ROT_GAIN;
-        g.rotX = clamp(g.startRotX + (c.y - g.startCy) * ROT_GAIN, -1.3, 1.3);
+        g.active = null; // ✋ open hand → release, hold the current pose
       }
-      gesture = 'rotate';
     } else {
-      g.active = null; // open hand / no hand → release, keep the current pose
+      g.active = null;
     }
 
     const prev = hudRef.current;
@@ -129,6 +159,7 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
     const loop = (now) => {
       rafRef.current = requestAnimationFrame(loop);
       if (now - lastFrameRef.current < FRAME_INTERVAL) return; // throttle to TARGET_FPS
+      if (typeof document !== 'undefined' && document.hidden) return; // pause when tab is hidden
       lastFrameRef.current = now;
       const video = videoRef.current;
       const landmarker = landmarkerRef.current;
@@ -195,6 +226,7 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
 
   const tracking = status === 'ready';
   const errorCopy = status !== 'ready' && status !== 'loading' ? STATUS_COPY[status] : '';
+  const activeGesture = hud.hands ? hud.gesture : 'idle';
 
   return (
     <div className="gesture-ar" role="dialog" aria-modal="true" aria-label={`Realidad aumentada con gestos: ${name}`}>
@@ -204,13 +236,22 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
       {tracking && (
         <Canvas
           className="gesture-ar__canvas"
-          gl={{ alpha: true }}
-          camera={{ position: [0, 0, 4.2], fov: 35 }}
           dpr={[1, 2]}
+          gl={{
+            alpha: true,
+            antialias: true,
+            powerPreference: 'high-performance',
+            toneMapping: ACESFilmicToneMapping,
+            toneMappingExposure: 1.05,
+          }}
+          camera={{ position: [0, 0, 4.2], fov: 35 }}
         >
-          <ambientLight intensity={1.15} />
-          <directionalLight position={[5, 5, 5]} intensity={1.4} />
-          <directionalLight position={[-5, -3, -5]} intensity={0.5} />
+          {/* Studio-style lighting for a cleaner, more solid render over the video. */}
+          <hemisphereLight args={['#ffffff', '#20252e', 0.65]} />
+          <ambientLight intensity={0.28} />
+          <directionalLight position={[4, 6, 5]} intensity={1.55} />
+          <directionalLight position={[-6, 2, -3]} intensity={0.55} />
+          <directionalLight position={[0, 3, -6]} intensity={0.7} color="#bfe9ff" />
           <Suspense fallback={null}>
             <GestureModel url={modelUrl} gestureRef={gestureRef} />
           </Suspense>
@@ -224,7 +265,9 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
         </span>
         <span className={`gesture-ar__status${hud.hands ? ' is-live' : ''}`}>
           {tracking
-            ? (hud.hands ? `${hud.hands === 2 ? 'Dos manos' : 'Mano'} detectada${hud.hands === 2 ? 's' : ''}` : 'Muestra tu mano…')
+            ? (hud.hands
+              ? `${hud.hands === 2 ? 'Dos manos' : 'Mano'} · ${GESTURE_LABEL[activeGesture]}`
+              : 'Muestra tu mano…')
             : 'Preparando…'}
         </span>
         <div className="gesture-ar__actions">
@@ -239,11 +282,15 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
 
       {tracking && (
         <ul className="gesture-ar__tips" aria-label="Guía de señas">
-          <li className={hud.gesture === 'rotate' ? 'is-active' : ''}>
+          <li className={activeGesture === 'rotate' ? 'is-active' : ''}>
             <span className="gesture-ar__emoji" aria-hidden="true">🤏</span>
             <span>Pellizca (pulgar + índice) y mueve la mano para <strong>girar</strong></span>
           </li>
-          <li className={hud.gesture === 'scale' ? 'is-active' : ''}>
+          <li className={activeGesture === 'move' ? 'is-active' : ''}>
+            <span className="gesture-ar__emoji" aria-hidden="true">✊</span>
+            <span>Cierra el <strong>puño</strong> y mueve la mano para <strong>desplazar</strong> por la pantalla</span>
+          </li>
+          <li className={activeGesture === 'scale' ? 'is-active' : ''}>
             <span className="gesture-ar__emoji" aria-hidden="true">🙌</span>
             <span>Con <strong>dos manos</strong>, junta o separa para <strong>acercar / alejar</strong></span>
           </li>
