@@ -54,6 +54,7 @@ const CreatorProfilePage = lazy(() => import('../pages/creator/CreatorProfilePag
 const CreatorReviewsPage = lazy(() => import('../pages/creator/CreatorReviewsPage.jsx'));
 const EditLegendPage = lazy(() => import('../pages/creator/EditLegendPage.jsx'));
 const FullscreenEditorialEditorPage = lazy(() => import('../pages/creator/FullscreenEditorialEditorPage.jsx'));
+const PhysicalMarkersPage = lazy(() => import('../pages/creator/PhysicalMarkersPage.jsx'));
 const UploadAssetsPage = lazy(() => import('../pages/creator/UploadAssetsPage.jsx'));
 const LibraryPage = lazy(() => import('../pages/reader/LibraryPage.jsx'));
 const ProfilePage = lazy(() => import('../pages/reader/ProfilePage.jsx'));
@@ -140,6 +141,7 @@ export const router = createBrowserRouter([
               { path: 'legends/:legendId/assets', element: <UploadAssetsPage /> },
               { path: 'reviews', element: <CreatorReviewsPage /> },
               { path: 'code-requests', element: <CodeRequestsPage /> },
+              { path: 'physical-markers', element: <PhysicalMarkersPage /> },
               { path: 'profile', element: <CreatorProfilePage /> },
             ],
           },

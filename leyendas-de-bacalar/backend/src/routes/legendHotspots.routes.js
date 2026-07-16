@@ -5,10 +5,13 @@ import { requireRole } from '../middlewares/requireRole.js';
 import {
   createHotspot,
   createMarker,
+  createPhysicalMarker,
   createScene,
   deleteHotspot,
+  deletePhysicalMarker,
   linkPhysicalEditionMarker,
   listHotspots,
+  listPhysicalMarkers,
   listScenes,
   updateHotspot,
 } from '../services/interactiveHotspots.service.js';
@@ -109,6 +112,50 @@ router.post('/:legendId/physical-edition-markers', requireCreatorOrAdmin, async 
     });
 
     res.status(201).json({ ok: true, link });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Physical-edition markers (marcador de libro fisico, sin pagina). Se guardan como
+// interactive_hotspots target_type='physical_edition' publicados -> la app movil los
+// escanea sin recompilar el APK.
+router.get('/:legendId/physical-markers', requireCreatorOrAdmin, async (req, res, next) => {
+  try {
+    const markers = await listPhysicalMarkers({
+      legendId: req.params.legendId,
+      userId: req.user.id,
+      roles: req.user.roles,
+    });
+    res.json({ ok: true, markers });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/:legendId/physical-markers', requireCreatorOrAdmin, async (req, res, next) => {
+  try {
+    const marker = await createPhysicalMarker({
+      legendId: req.params.legendId,
+      userId: req.user.id,
+      roles: req.user.roles,
+      payload: req.body ?? {},
+    });
+    res.status(201).json({ ok: true, marker });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete('/:legendId/physical-markers/:hotspotId', requireCreatorOrAdmin, async (req, res, next) => {
+  try {
+    const result = await deletePhysicalMarker({
+      legendId: req.params.legendId,
+      hotspotId: req.params.hotspotId,
+      userId: req.user.id,
+      roles: req.user.roles,
+    });
+    res.json({ ok: true, ...result });
   } catch (error) {
     next(error);
   }

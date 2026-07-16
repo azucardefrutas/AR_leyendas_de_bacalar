@@ -557,6 +557,30 @@ export function deleteLegendHotspot(legendId, hotspotId) {
   );
 }
 
+// Marcadores de libro fisico (independientes de pagina). El backend los guarda como
+// interactive_hotspots target_type='physical_edition' publicados -> la app movil los
+// escanea sin recompilar. Devuelven { ok, markers } / { ok, marker } / { ok, id }.
+export function listLegendPhysicalMarkers(legendId) {
+  return requestBackend(`/api/v1/legends/${encodeURIComponent(legendId)}/physical-markers`, {
+    operation: 'list-physical-markers',
+  });
+}
+
+export function createLegendPhysicalMarker(legendId, payload) {
+  return requestBackend(`/api/v1/legends/${encodeURIComponent(legendId)}/physical-markers`, {
+    method: 'POST',
+    operation: 'create-physical-marker',
+    body: payload,
+  });
+}
+
+export function deleteLegendPhysicalMarker(legendId, hotspotId) {
+  return requestBackend(
+    `/api/v1/legends/${encodeURIComponent(legendId)}/physical-markers/${encodeURIComponent(hotspotId)}`,
+    { method: 'DELETE', operation: 'delete-physical-marker' },
+  );
+}
+
 export async function uploadFileToSignedUrl({ signedUrl, file, contentType }) {
   if (!signedUrl || !file) {
     throw new BackendApiError('No pudimos preparar la subida del archivo.', { status: 400 });

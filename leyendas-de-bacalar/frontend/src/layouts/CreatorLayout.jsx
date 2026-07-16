@@ -8,6 +8,7 @@ const creatorItems = [
   { label: 'Borradores', to: '/creator/drafts', icon: 'draft' },
   { label: 'Revisiones', to: '/creator/reviews', icon: 'rate_review' },
   { label: 'Generar codigos', to: '/creator/code-requests', icon: 'confirmation_number' },
+  { label: 'Marcadores para app', to: '/creator/physical-markers', icon: 'add_to_home_screen' },
   { label: 'Mi perfil', to: '/creator/profile', icon: 'person' },
 ];
 

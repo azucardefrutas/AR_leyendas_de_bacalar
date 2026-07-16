@@ -1,15 +1,19 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, Pressable, StyleSheet, Image, ActivityIndicator,
+  View, Text, TextInput, StyleSheet, Image, Pressable,
   KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { colors } from '../theme.js';
+import { LinearGradient } from 'expo-linear-gradient';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useTheme } from '../theme.js';
+import { BrandText, GlassCard, GradientButton } from '../components/Brand.js';
 import { supabase, isSupabaseConfigured } from '../lib/supabase.js';
 
-const logo = require('../../assets/logo-upb.png');
+// Ícono de la app (la imagen del usuario).
+const appIcon = require('../../assets/app-icon.png');
 
-// Login glassmorphism (adaptado de la referencia). Usa Supabase auth.
 export default function LoginScreen({ onClose, onLoggedIn }) {
+  const { colors } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -17,14 +21,11 @@ export default function LoginScreen({ onClose, onLoggedIn }) {
 
   async function submit() {
     setError('');
-    if (!isSupabaseConfigured) { setError('Falta configurar el servidor (.env.local).'); return; }
+    if (!isSupabaseConfigured) { setError('Falta configurar el servidor.'); return; }
     if (!email.trim() || !password) { setError('Escribe tu correo y contraseña.'); return; }
     setLoading(true);
     try {
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
+      const { error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
       if (authError) { setError(authError.message || 'No se pudo iniciar sesión.'); return; }
       if (onLoggedIn) onLoggedIn();
     } catch (e) {
@@ -34,29 +35,28 @@ export default function LoginScreen({ onClose, onLoggedIn }) {
     }
   }
 
+  const fieldStyle = [styles.field, { backgroundColor: colors.surface, borderColor: colors.cardBrd }];
+
   return (
-    <View style={styles.container}>
-      <View style={[styles.glow, styles.glowTop]} />
-      <View style={[styles.glow, styles.glowBottom]} />
+    <View style={{ flex: 1 }}>
+      <LinearGradient colors={colors.bgGrad} style={StyleSheet.absoluteFill} />
 
-      <Pressable style={styles.back} onPress={onClose} hitSlop={12}>
-        <Text style={styles.backText}>✕</Text>
-      </Pressable>
-
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.center}
-      >
-        <View style={styles.card}>
-          <View style={styles.avatar}>
-            <Image source={logo} style={styles.avatarImg} resizeMode="contain" />
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.center}>
+        <GlassCard style={styles.card} intensity={40} radius={26}>
+          <View style={styles.iconWrap}>
+            <Image source={appIcon} style={styles.icon} resizeMode="contain" />
           </View>
-          <Text style={styles.title}>Iniciar sesión</Text>
+          <BrandText size={32} color={colors.accent} spacing={2} style={{ textAlign: 'center', marginTop: 12 }}>
+            BIENVENIDO
+          </BrandText>
+          <Text style={[styles.note, { color: colors.muted }]}>
+            Inicia sesión para ver los modelos de tus leyendas
+          </Text>
 
-          <View style={styles.field}>
-            <Text style={styles.icon}>✉</Text>
+          <View style={fieldStyle}>
+            <MaterialIcons name="mail-outline" size={20} color={colors.primary} />
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: colors.text }]}
               placeholder="Correo"
               placeholderTextColor={colors.faint}
               autoCapitalize="none"
@@ -66,10 +66,10 @@ export default function LoginScreen({ onClose, onLoggedIn }) {
             />
           </View>
 
-          <View style={styles.field}>
-            <Text style={styles.icon}>🔒</Text>
+          <View style={fieldStyle}>
+            <MaterialIcons name="lock-outline" size={20} color={colors.primary} />
             <TextInput
-              style={styles.input}
+              style={[styles.input, { color: colors.text }]}
               placeholder="Contraseña"
               placeholderTextColor={colors.faint}
               secureTextEntry
@@ -80,48 +80,35 @@ export default function LoginScreen({ onClose, onLoggedIn }) {
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
-          <Pressable style={[styles.button, loading && styles.buttonDisabled]} onPress={submit} disabled={loading}>
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>ENTRAR</Text>}
-          </Pressable>
+          <GradientButton
+            label={loading ? 'ENTRANDO…' : 'ENTRAR'}
+            onPress={submit}
+            disabled={loading}
+            style={{ marginTop: 18 }}
+            gradient={colors.primaryGrad}
+          />
 
-          <Text style={styles.hint}>Usa la misma cuenta de la página web.</Text>
-        </View>
+          <Pressable onPress={onClose} hitSlop={8} style={styles.ghostWrap}>
+            <Text style={[styles.ghost, { color: colors.primary }]}>Explorar sin cuenta ›</Text>
+          </Pressable>
+        </GlassCard>
       </KeyboardAvoidingView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg, overflow: 'hidden' },
-  glow: { position: 'absolute', width: 380, height: 380, borderRadius: 380, opacity: 0.20 },
-  glowTop: { top: -140, left: -120, backgroundColor: colors.electric },
-  glowBottom: { bottom: -160, right: -120, backgroundColor: colors.cyan },
-  back: { position: 'absolute', top: 48, right: 22, zIndex: 5, padding: 6 },
-  backText: { color: colors.text, fontSize: 22 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  card: {
-    width: '100%', maxWidth: 380, alignItems: 'center', padding: 24, borderRadius: 26,
-    backgroundColor: 'rgba(255,255,255,0.10)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)',
-    gap: 14,
-  },
-  avatar: {
-    width: 92, height: 92, borderRadius: 92, backgroundColor: 'rgba(255,255,255,0.14)',
-    alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
-  },
-  avatarImg: { width: 60, height: 60 },
-  title: { color: colors.text, fontSize: 20, fontWeight: '700', marginBottom: 4 },
+  card: { width: '100%', maxWidth: 380, padding: 22 },
+  iconWrap: { alignSelf: 'center', marginTop: 2 },
+  icon: { width: 84, height: 84, borderRadius: 22 },
+  note: { textAlign: 'center', fontSize: 13, marginTop: 2, marginBottom: 6, lineHeight: 18 },
   field: {
-    flexDirection: 'row', alignItems: 'center', gap: 10, width: '100%',
-    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.3)', paddingBottom: 6,
+    flexDirection: 'row', alignItems: 'center', gap: 10, borderWidth: 1,
+    borderRadius: 14, paddingHorizontal: 12, paddingVertical: 11, marginTop: 12,
   },
-  icon: { color: colors.cyan, fontSize: 16, width: 20, textAlign: 'center' },
-  input: { flex: 1, color: colors.text, fontSize: 16, paddingVertical: 8 },
-  error: { color: colors.danger, fontSize: 13, textAlign: 'center', width: '100%' },
-  button: {
-    width: '100%', backgroundColor: colors.primary, borderRadius: 999, paddingVertical: 14,
-    alignItems: 'center', marginTop: 6,
-  },
-  buttonDisabled: { opacity: 0.6 },
-  buttonText: { color: '#fff', fontWeight: '800', letterSpacing: 1 },
-  hint: { color: colors.faint, fontSize: 12, textAlign: 'center' },
+  input: { flex: 1, fontSize: 16, paddingVertical: 2 },
+  error: { color: '#E24B4A', fontSize: 13, textAlign: 'center', marginTop: 10 },
+  ghostWrap: { marginTop: 14, alignSelf: 'center' },
+  ghost: { fontSize: 13.5, fontWeight: '600' },
 });

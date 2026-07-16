@@ -1,18 +1,19 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  View, Text, Pressable, StyleSheet, Modal, ActivityIndicator, FlatList,
-} from 'react-native';
+import { View, Text, Pressable, StyleSheet, Modal, ActivityIndicator, FlatList } from 'react-native';
 import { ViroARSceneNavigator } from '@reactvision/react-viro';
 import { useCameraPermissions } from 'expo-camera';
-import { Ionicons } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Sharing from 'expo-sharing';
 import ArScene from './ArScene.js';
-import { colors } from '../theme.js';
+import { useTheme } from '../theme.js';
+import { BrandText } from '../components/Brand.js';
 import { fetchArScenes } from '../lib/arScenes.js';
 import { recordScan } from '../lib/scanHistory.js';
 import { openFloorAr } from '../lib/sceneViewer.js';
 
 export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
+  const { colors } = useTheme();
   const navRef = useRef(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [scenes, setScenes] = useState([]);
@@ -20,6 +21,8 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
   const [loadError, setLoadError] = useState('');
   const [toast, setToast] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [flashOn, setFlashOn] = useState(false);
+  const [recording, setRecording] = useState(false);
   const toastTimer = useRef(null);
 
   useEffect(() => {
@@ -63,77 +66,90 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
       const path = result?.url;
       if (path && (await Sharing.isAvailableAsync())) {
         await Sharing.shareAsync(path.startsWith('file') ? path : `file://${path}`);
-      } else {
-        showToast('Captura guardada.');
-      }
-    } catch {
-      showToast('No se pudo capturar.');
+      } else { showToast('Captura guardada.'); }
+    } catch { showToast('No se pudo capturar.'); }
+  }
+
+  async function toggleRecord() {
+    const nav = navRef.current;
+    if (!nav) return;
+    if (!recording) {
+      try {
+        await nav.startVideoRecording?.('leyendas-ar-video', false, () => { setRecording(false); showToast('No se pudo grabar.'); });
+        setRecording(true);
+        showToast('Grabando…');
+      } catch { showToast('Grabación no disponible.'); }
+    } else {
+      try {
+        const res = await nav.stopVideoRecording?.();
+        setRecording(false);
+        const path = res?.url;
+        if (path && (await Sharing.isAvailableAsync())) {
+          await Sharing.shareAsync(path.startsWith('file') ? path : `file://${path}`);
+        } else { showToast('Video guardado.'); }
+      } catch { setRecording(false); showToast('No se pudo detener.'); }
     }
   }
 
+  function toggleFlash() {
+    // El torch depende del dispositivo/motor AR; se intenta de forma best-effort.
+    setFlashOn((v) => !v);
+    showToast(!flashOn ? 'Flash activado' : 'Flash apagado');
+  }
+
   if (!session) {
-    return (
-      <Gate onOpenSidebar={onOpenSidebar} icon="log-in-outline"
-        title="Inicia sesión para escanear"
-        text="Con tu cuenta cargamos los marcadores y modelos de tus leyendas."
-        cta="Iniciar sesión" onCta={onRequireLogin} />
-    );
+    return <Gate colors={colors} onOpenSidebar={onOpenSidebar} icon="login" title="Inicia sesión para escanear"
+      text="Con tu cuenta cargamos los marcadores y modelos de tus leyendas." cta="Iniciar sesión" onCta={onRequireLogin} />;
   }
   if (permission && !permission.granted) {
-    return (
-      <Gate onOpenSidebar={onOpenSidebar} icon="camera-outline"
-        title="Permiso de cámara"
-        text="La app necesita la cámara para escanear los marcadores."
-        cta="Permitir cámara" onCta={requestPermission} />
-    );
+    return <Gate colors={colors} onOpenSidebar={onOpenSidebar} icon="photo-camera" title="Permiso de cámara"
+      text="La app necesita la cámara para escanear los marcadores." cta="Permitir cámara" onCta={requestPermission} />;
   }
   if (loading) {
-    return <View style={styles.centerFill}><ActivityIndicator color={colors.cyan} size="large" /></View>;
+    return <View style={[styles.centerFill, { backgroundColor: colors.bg }]}><ActivityIndicator color={colors.primary} size="large" /></View>;
   }
   if (scenes.length === 0) {
-    return (
-      <Gate onOpenSidebar={onOpenSidebar} icon="cube-outline"
-        title={loadError || 'Sin marcadores'}
-        text={loadError ? 'Revisa tu conexión e intenta de nuevo.' : 'Tu cuenta todavía no tiene marcadores AR publicados.'} />
-    );
+    return <Gate colors={colors} onOpenSidebar={onOpenSidebar} icon="view-in-ar"
+      title={loadError || 'Sin marcadores'}
+      text={loadError ? 'Revisa tu conexión e intenta de nuevo.' : 'Tu cuenta todavía no tiene marcadores AR publicados.'} />;
   }
 
   return (
     <View style={styles.container}>
-      <ViroARSceneNavigator
-        ref={navRef}
-        autofocus
-        initialScene={{ scene: ArScene }}
-        viroAppProps={viroAppProps}
-        style={styles.viro}
-      />
+      <ViroARSceneNavigator ref={navRef} autofocus initialScene={{ scene: ArScene }} viroAppProps={viroAppProps} style={styles.viro} />
 
       <View style={styles.topBar} pointerEvents="box-none">
-        <IconBtn icon="menu" onPress={onOpenSidebar} />
-        <View style={styles.hint}><Text style={styles.hintText}>Apunta al marcador del libro</Text></View>
+        <IconBtn icon="menu" onPress={onOpenSidebar} colors={colors} />
+        <View style={styles.hintWrap}><Text style={styles.hintText}>Apunta al marcador del libro</Text></View>
+        <IconBtn icon={flashOn ? 'flash-on' : 'flash-off'} onPress={toggleFlash} colors={colors} active={flashOn} />
       </View>
 
-      <View style={styles.bottomBar} pointerEvents="box-none">
-        <ActionBtn icon="cube" label="Modelos 3D" onPress={() => setPickerOpen(true)} />
-        <ActionBtn icon="camera" label="Capturar" primary onPress={capture} />
+      {recording && (
+        <View style={styles.recBadge}><View style={styles.recDot} /><Text style={styles.recTxt}>REC</Text></View>
+      )}
+
+      <View style={styles.dock} pointerEvents="box-none">
+        <ActionBtn icon={recording ? 'stop' : 'videocam'} label={recording ? 'Detener' : 'Grabar'} onPress={toggleRecord} colors={colors} danger={recording} />
+        <Shutter onPress={capture} colors={colors} />
+        <ActionBtn icon="view-in-ar" label="Modelos" onPress={() => setPickerOpen(true)} colors={colors} />
       </View>
 
       {!!toast && <View style={styles.toast}><Text style={styles.toastText}>{toast}</Text></View>}
 
       <Modal visible={pickerOpen} transparent animationType="slide" onRequestClose={() => setPickerOpen(false)}>
         <Pressable style={styles.sheetBackdrop} onPress={() => setPickerOpen(false)} />
-        <View style={styles.sheet}>
-          <Text style={styles.sheetTitle}>Ver un modelo en el piso (AR)</Text>
+        <View style={[styles.sheet, { backgroundColor: colors.surfaceSolid }]}>
+          <BrandText size={20} color={colors.text} style={{ marginBottom: 14 }}>VER UN MODELO EN EL PISO</BrandText>
           <FlatList
             data={scenes}
             keyExtractor={(s) => String(s.id)}
             contentContainerStyle={{ gap: 10, paddingBottom: 8 }}
             renderItem={({ item, index }) => (
-              <Pressable style={styles.sheetItem}
+              <Pressable style={[styles.sheetItem, { backgroundColor: colors.surface, borderColor: colors.line }]}
                 onPress={() => { setPickerOpen(false); openFloorAr(item.modelUrl, item.name); }}>
-                <View style={styles.sheetIdx}><Text style={styles.sheetIdxText}>{index + 1}</Text></View>
-                <Text style={styles.sheetItemText} numberOfLines={1}>{item.name || `Modelo ${index + 1}`}</Text>
-                <Ionicons name="cube-outline" size={22} color={colors.cyan} />
+                <View style={[styles.sheetIdx, { backgroundColor: colors.primary }]}><Text style={styles.sheetIdxT}>{index + 1}</Text></View>
+                <Text style={[styles.sheetItemT, { color: colors.text }]} numberOfLines={1}>{item.name || `Modelo ${index + 1}`}</Text>
+                <MaterialIcons name="view-in-ar" size={22} color={colors.primary} />
               </Pressable>
             )}
           />
@@ -143,34 +159,53 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
   );
 }
 
-function IconBtn({ icon, onPress }) {
+function IconBtn({ icon, onPress, colors, active }) {
   return (
-    <Pressable style={styles.iconBtn} onPress={onPress} hitSlop={10}>
-      <Ionicons name={icon} size={24} color="#fff" />
+    <Pressable style={[styles.iconBtn, active && { backgroundColor: colors.primary }]} onPress={onPress} hitSlop={10}>
+      <MaterialIcons name={icon} size={23} color={active ? '#fff' : '#EAF9FB'} />
     </Pressable>
   );
 }
 
-function ActionBtn({ icon, label, onPress, primary }) {
+function ActionBtn({ icon, label, onPress, colors, danger }) {
   return (
-    <Pressable style={[styles.actionBtn, primary && styles.actionBtnPrimary]} onPress={onPress}>
-      <Ionicons name={icon} size={24} color="#fff" />
-      <Text style={styles.actionLabel}>{label}</Text>
+    <Pressable style={styles.act} onPress={onPress}>
+      <View style={[styles.actIc, danger && { backgroundColor: '#E24B4A' }]}>
+        <MaterialIcons name={icon} size={24} color={danger ? '#fff' : '#EAF9FB'} />
+      </View>
+      <Text style={styles.actLabel}>{label}</Text>
     </Pressable>
   );
 }
 
-function Gate({ onOpenSidebar, icon, title, text, cta, onCta }) {
+function Shutter({ onPress, colors }) {
   return (
-    <View style={styles.gate}>
+    <Pressable style={styles.act} onPress={onPress}>
+      <LinearGradient colors={colors.primaryGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.shutter}>
+        <MaterialIcons name="photo-camera" size={26} color="#fff" />
+      </LinearGradient>
+      <Text style={styles.actLabel}>Foto</Text>
+    </Pressable>
+  );
+}
+
+function Gate({ colors, onOpenSidebar, icon, title, text, cta, onCta }) {
+  return (
+    <View style={[styles.gate, { backgroundColor: colors.bg }]}>
       <View style={styles.topBar} pointerEvents="box-none">
-        <IconBtn icon="menu" onPress={onOpenSidebar} />
+        <IconBtn icon="menu" onPress={onOpenSidebar} colors={colors} />
       </View>
       <View style={styles.gateBody}>
-        <Ionicons name={icon} size={54} color={colors.cyan} />
-        <Text style={styles.gateTitle}>{title}</Text>
-        <Text style={styles.gateText}>{text}</Text>
-        {cta ? <Pressable style={styles.gateBtn} onPress={onCta}><Text style={styles.gateBtnText}>{cta}</Text></Pressable> : null}
+        <MaterialIcons name={icon} size={56} color={colors.primary} />
+        <Text style={[styles.gateTitle, { color: colors.text }]}>{title}</Text>
+        <Text style={[styles.gateText, { color: colors.muted }]}>{text}</Text>
+        {cta ? (
+          <Pressable onPress={onCta}>
+            <LinearGradient colors={colors.primaryGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gateBtn}>
+              <Text style={styles.gateBtnT}>{cta}</Text>
+            </LinearGradient>
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -179,43 +214,31 @@ function Gate({ onOpenSidebar, icon, title, text, cta, onCta }) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   viro: { flex: 1 },
-  centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.bg },
-  topBar: { position: 'absolute', top: 46, left: 16, right: 16, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  hint: { flex: 1, alignItems: 'center' },
-  hintText: {
-    color: '#fff', fontSize: 13, backgroundColor: 'rgba(3,12,20,0.5)',
-    paddingVertical: 6, paddingHorizontal: 14, borderRadius: 999, overflow: 'hidden',
-  },
-  iconBtn: {
-    width: 44, height: 44, borderRadius: 999, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: 'rgba(3,12,20,0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
-  },
-  bottomBar: { position: 'absolute', left: 0, right: 0, bottom: 34, flexDirection: 'row', justifyContent: 'center', gap: 20 },
-  actionBtn: {
-    alignItems: 'center', justifyContent: 'center', gap: 4, width: 96, paddingVertical: 12, borderRadius: 18,
-    backgroundColor: 'rgba(3,12,20,0.55)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)',
-  },
-  actionBtnPrimary: { backgroundColor: colors.primary, borderColor: colors.primary },
-  actionLabel: { color: '#fff', fontSize: 12, fontWeight: '600' },
-  toast: {
-    position: 'absolute', bottom: 120, alignSelf: 'center', backgroundColor: 'rgba(3,12,20,0.9)',
-    paddingVertical: 10, paddingHorizontal: 18, borderRadius: 999, borderWidth: 1, borderColor: colors.line,
-  },
+  centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  topBar: { position: 'absolute', top: 46, left: 14, right: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  hintWrap: { flex: 1, alignItems: 'center' },
+  hintText: { color: '#fff', fontSize: 12.5, backgroundColor: 'rgba(0,52,59,0.5)', paddingVertical: 6, paddingHorizontal: 14, borderRadius: 999, overflow: 'hidden' },
+  iconBtn: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,52,59,0.5)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' },
+  recBadge: { position: 'absolute', top: 96, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,52,59,0.6)', paddingVertical: 5, paddingHorizontal: 12, borderRadius: 999 },
+  recDot: { width: 9, height: 9, borderRadius: 999, backgroundColor: '#E24B4A' },
+  recTxt: { color: '#fff', fontWeight: '700', fontSize: 12, letterSpacing: 1 },
+  dock: { position: 'absolute', left: 0, right: 0, bottom: 30, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 26 },
+  act: { alignItems: 'center', gap: 5, width: 78 },
+  actIc: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,52,59,0.55)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' },
+  actLabel: { color: '#fff', fontSize: 12, fontWeight: '600', textShadowColor: 'rgba(0,0,0,0.4)', textShadowRadius: 4 },
+  shutter: { width: 66, height: 66, borderRadius: 999, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: 'rgba(255,255,255,0.9)' },
+  toast: { position: 'absolute', bottom: 128, alignSelf: 'center', backgroundColor: 'rgba(0,52,59,0.92)', paddingVertical: 10, paddingHorizontal: 18, borderRadius: 999 },
   toastText: { color: '#fff', fontSize: 14 },
   sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
-  sheet: { backgroundColor: '#07202e', borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 20, paddingBottom: 34, maxHeight: '60%' },
-  sheetTitle: { color: colors.text, fontSize: 16, fontWeight: '700', marginBottom: 14 },
-  sheetItem: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 14,
-    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line,
-  },
-  sheetIdx: { width: 28, height: 28, borderRadius: 999, backgroundColor: colors.cyan, alignItems: 'center', justifyContent: 'center' },
-  sheetIdxText: { color: colors.bg, fontWeight: '800' },
-  sheetItemText: { color: colors.text, fontSize: 15, flex: 1 },
-  gate: { flex: 1, backgroundColor: colors.bg },
+  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 34, maxHeight: '60%' },
+  sheetItem: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 14, borderWidth: 1 },
+  sheetIdx: { width: 28, height: 28, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  sheetIdxT: { color: '#fff', fontWeight: '800' },
+  sheetItemT: { fontSize: 15, flex: 1 },
+  gate: { flex: 1 },
   gateBody: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
-  gateTitle: { color: colors.text, fontSize: 20, fontWeight: '700', textAlign: 'center' },
-  gateText: { color: colors.faint, fontSize: 14, textAlign: 'center', maxWidth: 300 },
-  gateBtn: { marginTop: 10, backgroundColor: colors.primary, borderRadius: 999, paddingVertical: 13, paddingHorizontal: 28 },
-  gateBtnText: { color: '#fff', fontWeight: '800', letterSpacing: 0.5 },
+  gateTitle: { fontSize: 20, fontWeight: '700', textAlign: 'center' },
+  gateText: { fontSize: 14, textAlign: 'center', maxWidth: 300 },
+  gateBtn: { marginTop: 10, borderRadius: 16, paddingVertical: 13, paddingHorizontal: 30 },
+  gateBtnT: { color: '#fff', fontWeight: '800', letterSpacing: 0.5 },
 });
