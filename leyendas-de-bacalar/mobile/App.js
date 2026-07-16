@@ -2,15 +2,17 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useFonts } from 'expo-font';
 import { supabase } from './src/lib/supabase.js';
+import { ThemeProvider, useTheme } from './src/theme.js';
 import SplashScreen from './src/screens/SplashScreen.js';
 import ScanScreen from './src/screens/ScanScreen.js';
 import LoginScreen from './src/screens/LoginScreen.js';
 import HistoryScreen from './src/screens/HistoryScreen.js';
 import Sidebar from './src/components/Sidebar.js';
-import { colors } from './src/theme.js';
 
-export default function App() {
+function Root() {
+  const { colors, mode } = useTheme();
   const [session, setSession] = useState(null);
   const [screen, setScreen] = useState('splash'); // splash | scan | login | history
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -49,25 +51,35 @@ export default function App() {
   const showSidebar = screen !== 'splash' && screen !== 'login';
 
   return (
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
+      <StatusBar style={mode === 'dark' ? 'light' : 'dark'} translucent backgroundColor="transparent" />
+      {renderScreen()}
+      {showSidebar && (
+        <Sidebar
+          visible={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          current={screen}
+          onNavigate={setScreen}
+          session={session}
+          onLogout={logout}
+        />
+      )}
+    </View>
+  );
+}
+
+export default function App() {
+  // Bebas Neue para títulos (mismo espíritu que el landing intro de la web).
+  useFonts({ BebasNeue: require('./assets/fonts/BebasNeue-Regular.ttf') });
+  return (
     <SafeAreaProvider>
-      <View style={styles.root}>
-        <StatusBar style="light" translucent backgroundColor="transparent" />
-        {renderScreen()}
-        {showSidebar && (
-          <Sidebar
-            visible={sidebarOpen}
-            onClose={() => setSidebarOpen(false)}
-            current={screen}
-            onNavigate={setScreen}
-            session={session}
-            onLogout={logout}
-          />
-        )}
-      </View>
+      <ThemeProvider>
+        <Root />
+      </ThemeProvider>
     </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
+  root: { flex: 1 },
 });

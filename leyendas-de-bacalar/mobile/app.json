@@ -38,7 +38,8 @@
         }
       ],
       "expo-sharing",
-      "@reactvision/react-viro"
+      "@reactvision/react-viro",
+      "expo-font"
     ],
     "extra": {
       "eas": {

@@ -1,41 +1,43 @@
-import React, { useEffect } from 'react';
-import { View, Text, Image, StyleSheet } from 'react-native';
-import { colors } from '../theme.js';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, Animated, Easing } from 'react-native';
+import { BrandText } from '../components/Brand.js';
 
-const logo = require('../../assets/logo-upb.png');
-
-// Intro tipo landing de la web (sin las imágenes de modelos): logo UPB + título.
+// Intro estilo landing web: fondo sólido #00626f + "LEYENDAS / BACALAR" en Bebas
+// (sin partirse, sin imágenes), con entrada animada.
 export default function SplashScreen({ onDone }) {
+  const fade = useRef(new Animated.Value(0)).current;
+  const rise = useRef(new Animated.Value(26)).current;
+
   useEffect(() => {
-    const t = setTimeout(() => { if (onDone) onDone(); }, 2400);
+    Animated.parallel([
+      Animated.timing(fade, { toValue: 1, duration: 700, useNativeDriver: true }),
+      Animated.timing(rise, { toValue: 0, duration: 850, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+    ]).start();
+    const t = setTimeout(() => { if (onDone) onDone(); }, 2600);
     return () => clearTimeout(t);
-  }, [onDone]);
+  }, [onDone, fade, rise]);
 
   return (
     <View style={styles.container}>
-      <View style={[styles.glow, styles.glowTop]} />
-      <View style={[styles.glow, styles.glowBottom]} />
-      <View style={styles.center}>
-        <Image source={logo} style={styles.logo} resizeMode="contain" />
-        <Text style={styles.title}>Leyendas de Bacalar</Text>
-        <Text style={styles.subtitle}>Realidad Aumentada</Text>
-      </View>
-      <Text style={styles.footer}>Universidad Politécnica de Bacalar</Text>
+      <View style={styles.glow} />
+      <Animated.View style={[styles.center, { opacity: fade, transform: [{ translateY: rise }] }]}>
+        <BrandText size={72} color="#FFFFFF" spacing={4} style={styles.word}>LEYENDAS</BrandText>
+        <BrandText size={72} color="#FFFFFF" spacing={4} style={styles.word}>BACALAR</BrandText>
+        <Text style={styles.sub}>REALIDAD AUMENTADA</Text>
+      </Animated.View>
+      <Text style={styles.foot}>Universidad Politécnica de Bacalar</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  glow: { position: 'absolute', width: 360, height: 360, borderRadius: 360, opacity: 0.22 },
-  glowTop: { top: -120, right: -100, backgroundColor: colors.cyan },
-  glowBottom: { bottom: -140, left: -110, backgroundColor: colors.teal },
-  center: { alignItems: 'center', gap: 12, paddingHorizontal: 24 },
-  logo: { width: 130, height: 130, marginBottom: 6 },
-  title: { color: colors.text, fontSize: 30, fontWeight: '800', textAlign: 'center', letterSpacing: 0.5 },
-  subtitle: {
-    color: colors.cyan, fontSize: 14, fontWeight: '600', letterSpacing: 3,
-    textTransform: 'uppercase',
+  container: { flex: 1, backgroundColor: '#00626F', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  glow: {
+    position: 'absolute', width: 420, height: 420, borderRadius: 420, top: '18%',
+    backgroundColor: '#A5F2F3', opacity: 0.12,
   },
-  footer: { position: 'absolute', bottom: 34, color: colors.faint, fontSize: 12 },
+  center: { alignItems: 'center' },
+  word: { lineHeight: 66, textShadowColor: 'rgba(0,0,0,0.25)', textShadowOffset: { width: 0, height: 8 }, textShadowRadius: 24 },
+  sub: { marginTop: 16, color: '#A5F2F3', fontSize: 11, letterSpacing: 6, fontWeight: '600' },
+  foot: { position: 'absolute', bottom: 30, color: 'rgba(255,255,255,0.6)', fontSize: 11 },
 });
