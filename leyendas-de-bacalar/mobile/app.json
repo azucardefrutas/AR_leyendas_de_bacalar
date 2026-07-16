@@ -1,0 +1,49 @@
+{
+  "expo": {
+    "name": "Leyendas AR",
+    "slug": "leyendas-ar",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "leyendasar",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "mx.bacalar.leyendasar",
+      "infoPlist": {
+        "NSCameraUsageDescription": "La camara se usa para escanear los marcadores y ver los modelos en realidad aumentada."
+      }
+    },
+    "android": {
+      "package": "mx.bacalar.leyendasar",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "La camara se usa para escanear los marcadores y ver los modelos en realidad aumentada."
+        }
+      ],
+      "expo-sharing",
+      "@reactvision/react-viro"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "3cdf3673-7e0f-4e0d-9ab2-85cda87ccb20"
+      }
+    }
+  }
+}

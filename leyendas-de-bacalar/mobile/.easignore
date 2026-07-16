@@ -1,0 +1,10 @@
+# EAS solo necesita el código fuente. La nube reinstala node_modules y regenera
+# android/ios con prebuild. Esto evita subir cosas pesadas o symlinks del monorepo.
+node_modules/
+android/
+ios/
+.expo/
+dist/
+.gradle/
+.env*.local
+*.log
