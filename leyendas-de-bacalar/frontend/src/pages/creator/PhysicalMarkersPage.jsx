@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
-import StatusBadge from '../../components/creator/StatusBadge.jsx';
 import AppIcon from '../../components/ui/AppIcon.jsx';
 import { getMyLegends } from '../../services/creatorService.js';
 import { uploadLegendAsset } from '../../services/assetService.js';
@@ -13,12 +12,6 @@ import {
 } from '../../services/backendApiService.js';
 
 const EMPTY_FORM = { markerFile: null, modelFile: null, label: '' };
-
-const statusLabel = (status) => {
-  if (status === 'published') return 'Activo en app';
-  if (status === 'draft') return 'Borrador';
-  return status || 'Borrador';
-};
 
 // Turn technical backend errors into friendly copy (never surface raw stack/route text).
 function friendlyError(message = '') {
@@ -147,6 +140,8 @@ function PhysicalMarkersPage() {
   if (loadingLegends) return <LoadingState message="Cargando tus leyendas..." />;
 
   const canSave = Boolean(selectedLegendId && form.markerFile && form.modelFile && !saving);
+  // Un marcador solo se ve en la app si su hotspot está publicado Y la leyenda está publicada.
+  const liveCount = legendPublished ? markers.filter((marker) => marker.status === 'published').length : 0;
 
   return (
     <section className="page-stack creator-panel pm-page">
@@ -272,7 +267,17 @@ function PhysicalMarkersPage() {
           </Card>
 
           <Card className="pm-list-card">
-            <h2>Marcadores de esta leyenda</h2>
+            <div className="pm-list-head">
+              <h2>Marcadores de esta leyenda</h2>
+              {markers.length > 0 && (
+                <span className={`pm-live-summary${legendPublished ? ' is-live' : ' is-pending'}`}>
+                  <AppIcon name={legendPublished ? 'smartphone' : 'schedule'} size={15} />
+                  {legendPublished
+                    ? `${liveCount} en vivo en la app`
+                    : 'Publica la leyenda para activar'}
+                </span>
+              )}
+            </div>
             {loadingMarkers ? (
               <LoadingState message="Cargando marcadores..." />
             ) : markers.length === 0 ? (
@@ -296,7 +301,10 @@ function PhysicalMarkersPage() {
                       <span className="pm-item-model-icon"><AppIcon name="deployed_code" size={20} /></span>
                       <span className="pm-item-name">{marker.label || marker.model.name || 'Modelo 3D'}</span>
                     </div>
-                    <StatusBadge statusKey={marker.status} label={statusLabel(marker.status)} />
+                    <span className={`pm-app-badge${legendPublished && marker.status === 'published' ? ' is-live' : ' is-pending'}`}>
+                      <AppIcon name={legendPublished && marker.status === 'published' ? 'check_circle' : 'schedule'} size={15} />
+                      {legendPublished && marker.status === 'published' ? 'En vivo en la app' : 'Se verá al publicar'}
+                    </span>
                     <button
                       type="button"
                       className="pm-item-delete"

@@ -16512,6 +16512,44 @@ table {
 }
 .pm-item-delete:hover { background: #fee4e2; }
 
+/* Encabezado de la lista + chip resumen de visibilidad en la app. */
+.pm-list-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.pm-list-head h2 { margin: 0; }
+
+.pm-live-summary {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+.pm-live-summary.is-live { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+.pm-live-summary.is-pending { background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
+
+/* Verdad de visibilidad por fila: en vivo = hotspot publicado + leyenda publicada. */
+.pm-app-badge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.pm-app-badge.is-live { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+.pm-app-badge.is-pending { background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
+
 @media (max-width: 720px) {
   .pm-howto { grid-template-columns: 1fr; }
   .pm-pair { flex-direction: column; }
