@@ -1170,26 +1170,34 @@ function LegendEditor({ legendId }) {
 
       {activeTab === 'resources' && (
         <div className="page-stack">
-          <Card className="creator-editor-card">
-            <div className="creator-editor-card-title">
-              <span>1</span>
-              <div>
-                <h2>Portada y contraportada</h2>
-                <p>Personaliza la plantilla del libro: texto, imagen, colores y tipografía de la portada y la contraportada. Las páginas se editan aparte.</p>
+          {/* The cover template belongs to the "crear desde cero" flow only: an uploaded
+              document already carries its own cover, so the studio would fight the PDF. */}
+          {isManualMode && (
+            <Card className="creator-editor-card">
+              <div className="creator-editor-card-title">
+                <span>1</span>
+                <div>
+                  <h2>Portada y contraportada</h2>
+                  <p>Personaliza la plantilla del libro: texto, imagen, colores y tipografía de la portada y la contraportada. Las páginas se editan aparte.</p>
+                </div>
               </div>
-            </div>
-            <CoverStudio
-              legendId={legendId}
-              meta={{ title: form.title || legend?.title || '', author: legend?.author_name || '', slug: form.slug || legend?.slug || '' }}
-            />
-          </Card>
+              <CoverStudio
+                legendId={legendId}
+                meta={{ title: form.title || legend?.title || '', author: legend?.author_name || '', slug: form.slug || legend?.slug || '' }}
+              />
+            </Card>
+          )}
 
           <Card className="creator-editor-card">
             <div className="creator-editor-card-title">
-              <span>2</span>
+              <span>{isManualMode ? '2' : '1'}</span>
               <div>
                 <h2>Portada y banner</h2>
-                <p>O sube tus propias imagenes visibles en catalogo y detalle antes de preparar la publicacion.</p>
+                <p>
+                  {isManualMode
+                    ? 'O sube tus propias imagenes visibles en catalogo y detalle antes de preparar la publicacion.'
+                    : 'Sube las imagenes visibles en catalogo y detalle antes de preparar la publicacion.'}
+                </p>
               </div>
             </div>
             <div className="creator-resource-grid creator-resource-grid-roomy">
