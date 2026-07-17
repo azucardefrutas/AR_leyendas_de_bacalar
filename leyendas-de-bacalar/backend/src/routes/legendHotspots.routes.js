@@ -122,12 +122,12 @@ router.post('/:legendId/physical-edition-markers', requireCreatorOrAdmin, async 
 // escanea sin recompilar el APK.
 router.get('/:legendId/physical-markers', requireCreatorOrAdmin, async (req, res, next) => {
   try {
-    const markers = await listPhysicalMarkers({
+    const result = await listPhysicalMarkers({
       legendId: req.params.legendId,
       userId: req.user.id,
       roles: req.user.roles,
     });
-    res.json({ ok: true, markers });
+    res.json({ ok: true, ...result });
   } catch (error) {
     next(error);
   }

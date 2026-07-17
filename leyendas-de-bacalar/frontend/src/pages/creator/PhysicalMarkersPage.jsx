@@ -92,7 +92,10 @@ function PhysicalMarkersPage() {
   const [notice, setNotice] = useState(null);
 
   const selectedLegend = legends.find((legend) => String(legend.id) === String(selectedLegendId)) || null;
-  const legendPublished = String(selectedLegend?.status || '') === 'published';
+  // Viene del backend (columna legends.status), que es exactamente lo que filtra el
+  // feed de la app. El status de getMyLegends es derivado (revision/version) y puede
+  // no coincidir, asi que no sirve para prometer visibilidad en la app.
+  const [legendPublished, setLegendPublished] = useState(false);
 
   // Live thumbnail of the marker image while composing (revoked to avoid leaks).
   const markerPreview = useMemo(
@@ -114,14 +117,17 @@ function PhysicalMarkersPage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedLegendId) { setMarkers([]); return undefined; }
+    if (!selectedLegendId) { setMarkers([]); setLegendPublished(false); return undefined; }
     let active = true;
     setLoadingMarkers(true);
     setError(null);
     (async () => {
       try {
         const resp = await listLegendPhysicalMarkers(selectedLegendId);
-        if (active) setMarkers(resp?.markers ?? []);
+        if (active) {
+          setMarkers(resp?.markers ?? []);
+          setLegendPublished(Boolean(resp?.legendPublished));
+        }
       } catch (err) {
         if (active) setError(friendlyError(err?.message));
       } finally {

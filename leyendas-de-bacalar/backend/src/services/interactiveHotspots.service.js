@@ -564,7 +564,21 @@ export const listPhysicalMarkers = async ({ legendId, userId, roles }) => {
     .eq('target_type', PHYSICAL_TARGET)
     .order('created_at', { ascending: true });
   if (error) throw new HotspotError('Could not list physical markers.', 500, { reason: error.message });
-  return (data ?? []).map(serializePhysicalMarker);
+
+  // El feed movil filtra por legends.status. Devolvemos ESA columna (no el status
+  // derivado del panel de creador, que puede ser in_review/changes_requested) para
+  // que la UI no prometa ni niegue visibilidad en la app de forma incorrecta.
+  const { data: legend, error: legendError } = await supabaseAdmin
+    .from('legends')
+    .select('status')
+    .eq('id', legendId)
+    .maybeSingle();
+  if (legendError) throw new HotspotError('Could not load legend status.', 500, { reason: legendError.message });
+
+  return {
+    markers: (data ?? []).map(serializePhysicalMarker),
+    legendPublished: legend?.status === 'published',
+  };
 };
 
 export const createPhysicalMarker = async ({ legendId, userId, roles, payload = {} }) => {
