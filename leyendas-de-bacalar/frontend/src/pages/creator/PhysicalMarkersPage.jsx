@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
 import StatusBadge from '../../components/creator/StatusBadge.jsx';
+import AppIcon from '../../components/ui/AppIcon.jsx';
 import { getMyLegends } from '../../services/creatorService.js';
 import { uploadLegendAsset } from '../../services/assetService.js';
 import {
@@ -19,6 +20,32 @@ const statusLabel = (status) => {
   return status || 'Borrador';
 };
 
+// Turn technical backend errors into friendly copy (never surface raw stack/route text).
+function friendlyError(message = '') {
+  if (/route not found/i.test(message) || /not found/i.test(message)) {
+    return 'El servicio de marcadores aún no responde. Si acabas de actualizar el servidor, espera un momento y reintenta.';
+  }
+  if (/failed to fetch|network|conectar/i.test(message)) {
+    return 'No pudimos conectar con el servidor. Revisa tu conexión e intenta de nuevo.';
+  }
+  if (/409|ya (existe|está)/i.test(message)) {
+    return 'Ese marcador ya está vinculado a un modelo en esta leyenda. Usa una imagen distinta.';
+  }
+  return message || 'Ocurrió un error inesperado.';
+}
+
+function humanSize(bytes) {
+  if (!bytes) return '';
+  const mb = bytes / (1024 * 1024);
+  return mb >= 1 ? `${mb.toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+}
+
+const HOWTO = [
+  { icon: 'add_photo_alternate', title: 'Sube el par', text: 'Imagen del marcador impreso + su modelo 3D (.glb).' },
+  { icon: 'publish', title: 'Publica la leyenda', text: 'Los marcadores se activan en la app al publicar la obra.' },
+  { icon: 'qr_code_scanner', title: 'Escanea con la app', text: 'Apunta al marcador del libro físico y aparece el modelo.' },
+];
+
 function PhysicalMarkersPage() {
   const [legends, setLegends] = useState([]);
   const [selectedLegendId, setSelectedLegendId] = useState('');
@@ -33,13 +60,20 @@ function PhysicalMarkersPage() {
   const selectedLegend = legends.find((legend) => String(legend.id) === String(selectedLegendId)) || null;
   const legendPublished = String(selectedLegend?.status || '') === 'published';
 
+  // Live thumbnail of the marker image while composing (revoked to avoid leaks).
+  const markerPreview = useMemo(
+    () => (form.markerFile ? URL.createObjectURL(form.markerFile) : ''),
+    [form.markerFile],
+  );
+  useEffect(() => () => { if (markerPreview) URL.revokeObjectURL(markerPreview); }, [markerPreview]);
+
   useEffect(() => {
     let active = true;
     (async () => {
       const { data, error: legendsError } = await getMyLegends();
       if (!active) return;
       setLegends(data ?? []);
-      if (legendsError) setError(legendsError.message || 'No se pudieron cargar tus leyendas.');
+      if (legendsError) setError(friendlyError(legendsError.message));
       setLoadingLegends(false);
     })();
     return () => { active = false; };
@@ -55,7 +89,7 @@ function PhysicalMarkersPage() {
         const resp = await listLegendPhysicalMarkers(selectedLegendId);
         if (active) setMarkers(resp?.markers ?? []);
       } catch (err) {
-        if (active) setError(err?.message || 'No se pudieron cargar los marcadores.');
+        if (active) setError(friendlyError(err?.message));
       } finally {
         if (active) setLoadingMarkers(false);
       }
@@ -93,7 +127,7 @@ function PhysicalMarkersPage() {
       event.target.reset();
       setNotice('Par marcador-modelo guardado.');
     } catch (err) {
-      setError(err?.message || 'No se pudo guardar el par marcador-modelo.');
+      setError(friendlyError(err?.message));
     } finally {
       setSaving(false);
     }
@@ -106,25 +140,38 @@ function PhysicalMarkersPage() {
       await deleteLegendPhysicalMarker(selectedLegendId, hotspotId);
       setMarkers((prev) => prev.filter((marker) => String(marker.id) !== String(hotspotId)));
     } catch (err) {
-      setError(err?.message || 'No se pudo eliminar.');
+      setError(friendlyError(err?.message));
     }
   }
 
   if (loadingLegends) return <LoadingState message="Cargando tus leyendas..." />;
 
+  const canSave = Boolean(selectedLegendId && form.markerFile && form.modelFile && !saving);
+
   return (
-    <section className="page-stack creator-panel">
-      <div>
+    <section className="page-stack creator-panel pm-page">
+      <header className="pm-head">
         <p className="creator-kicker">Libro físico · App móvil</p>
         <h1>Marcadores para la app</h1>
         <p className="state-message">
-          Registra los marcadores de tu <strong>libro físico</strong> y vincúlalos a su modelo 3D.
-          Al escanear el marcador impreso con la app, aparece el modelo. Cada leyenda tiene su
-          propia lista; cada marcador va con un solo modelo.
+          Vincula el <strong>marcador impreso</strong> de tu libro físico con su <strong>modelo 3D</strong>.
+          Al escanearlo con la app, el modelo cobra vida. Cada leyenda tiene su propia lista.
         </p>
-      </div>
+        <ol className="pm-howto">
+          {HOWTO.map((step, index) => (
+            <li key={step.icon}>
+              <span className="pm-howto-num">{index + 1}</span>
+              <AppIcon name={step.icon} size={22} />
+              <span className="pm-howto-text">
+                <strong>{step.title}</strong>
+                <em>{step.text}</em>
+              </span>
+            </li>
+          ))}
+        </ol>
+      </header>
 
-      <Card>
+      <Card className="pm-legend-card">
         <label className="field" htmlFor="pm-legend">
           <span>Leyenda</span>
           <select
@@ -138,104 +185,130 @@ function PhysicalMarkersPage() {
               <option key={legend.id} value={legend.id}>{legend.title}</option>
             ))}
           </select>
-          {selectedLegend && !legendPublished && (
-            <small>
-              Esta leyenda no está publicada todavía: los marcadores se guardan, pero se activarán
-              en la app cuando la publiques.
-            </small>
-          )}
         </label>
+        {selectedLegend && (
+          <div className={`pm-legend-status${legendPublished ? ' is-live' : ' is-draft'}`}>
+            <AppIcon name={legendPublished ? 'check_circle' : 'schedule'} size={20} />
+            <p>
+              {legendPublished
+                ? 'Esta leyenda está publicada: sus marcadores ya funcionan en la app.'
+                : 'Esta leyenda aún no está publicada. Puedes guardar marcadores ahora; se activarán en la app cuando la publiques.'}
+            </p>
+          </div>
+        )}
       </Card>
 
-      {error && <p className="error-message">{error}</p>}
-      {notice && <p className="state-message" role="status">{notice}</p>}
+      {error && (
+        <p className="error-message pm-error" role="alert">
+          <AppIcon name="error" size={18} /> {error}
+        </p>
+      )}
+      {notice && (
+        <p className="pm-notice" role="status">
+          <AppIcon name="check_circle" size={18} /> {notice}
+        </p>
+      )}
 
       {selectedLegendId && (
         <>
-          <Card>
+          <Card className="pm-form-card">
             <h2>Agregar par marcador ↔ modelo</h2>
-            <form className="creator-code-form" onSubmit={handleSave}>
-              <label className="field" htmlFor="pm-marker">
-                <span>Imagen del marcador</span>
-                <input
-                  id="pm-marker"
-                  className="input standalone-input"
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={(event) => setForm((prev) => ({ ...prev, markerFile: event.target.files?.[0] || null }))}
-                />
-              </label>
-              <label className="field" htmlFor="pm-model">
-                <span>Modelo 3D (.glb)</span>
-                <input
-                  id="pm-model"
-                  className="input standalone-input"
-                  type="file"
-                  accept=".glb,model/gltf-binary"
-                  onChange={(event) => setForm((prev) => ({ ...prev, modelFile: event.target.files?.[0] || null }))}
-                />
-              </label>
-              <label className="field" htmlFor="pm-label">
+            <form className="pm-form" onSubmit={handleSave}>
+              <div className="pm-pair">
+                <label className={`pm-drop${form.markerFile ? ' is-filled' : ''}`}>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    onChange={(event) => setForm((prev) => ({ ...prev, markerFile: event.target.files?.[0] || null }))}
+                  />
+                  {markerPreview ? (
+                    <img className="pm-drop-thumb" src={markerPreview} alt="Vista previa del marcador" />
+                  ) : (
+                    <span className="pm-drop-icon"><AppIcon name="add_photo_alternate" size={30} /></span>
+                  )}
+                  <span className="pm-drop-label">Imagen del marcador</span>
+                  <span className="pm-drop-hint">
+                    {form.markerFile ? form.markerFile.name : 'PNG, JPG o WEBP'}
+                  </span>
+                </label>
+
+                <span className="pm-pair-link" aria-hidden="true"><AppIcon name="sync_alt" size={22} /></span>
+
+                <label className={`pm-drop${form.modelFile ? ' is-filled' : ''}`}>
+                  <input
+                    type="file"
+                    accept=".glb,model/gltf-binary"
+                    onChange={(event) => setForm((prev) => ({ ...prev, modelFile: event.target.files?.[0] || null }))}
+                  />
+                  <span className={`pm-drop-icon${form.modelFile ? ' is-model' : ''}`}>
+                    <AppIcon name={form.modelFile ? 'deployed_code' : 'view_in_ar'} size={30} />
+                  </span>
+                  <span className="pm-drop-label">Modelo 3D (.glb)</span>
+                  <span className="pm-drop-hint">
+                    {form.modelFile ? `${form.modelFile.name} · ${humanSize(form.modelFile.size)}` : 'Archivo .glb'}
+                  </span>
+                </label>
+              </div>
+
+              <label className="field pm-name-field" htmlFor="pm-label">
                 <span>Nombre (opcional)</span>
                 <input
                   id="pm-label"
                   className="input standalone-input"
                   type="text"
-                  placeholder="Ej. Pirata, Iglesia..."
+                  placeholder="Ej. Pirata, Iglesia, Serpiente…"
                   value={form.label}
                   maxLength={200}
                   onChange={(event) => setForm((prev) => ({ ...prev, label: event.target.value }))}
                 />
               </label>
-              <div className="creator-code-submit-row">
-                <Button type="submit" disabled={saving}>
-                  {saving ? 'Guardando...' : 'Guardar par'}
+
+              <div className="pm-submit-row">
+                <Button type="submit" disabled={!canSave}>
+                  {saving ? 'Guardando…' : 'Guardar par'}
                 </Button>
               </div>
             </form>
           </Card>
 
-          <Card>
+          <Card className="pm-list-card">
             <h2>Marcadores de esta leyenda</h2>
             {loadingMarkers ? (
               <LoadingState message="Cargando marcadores..." />
             ) : markers.length === 0 ? (
-              <p className="state-message">Aún no hay marcadores para esta leyenda.</p>
-            ) : (
-              <div className="admin-table-wrap">
-                <table className="admin-table">
-                  <thead>
-                    <tr>
-                      <th>Marcador</th>
-                      <th>Modelo</th>
-                      <th>Estado</th>
-                      <th>Acción</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {markers.map((marker) => (
-                      <tr key={marker.id}>
-                        <td>
-                          {marker.marker.imageUrl ? (
-                            <img
-                              src={marker.marker.imageUrl}
-                              alt={marker.marker.name}
-                              style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8 }}
-                            />
-                          ) : (
-                            <span className="state-message">{marker.marker.name}</span>
-                          )}
-                        </td>
-                        <td>{marker.label || marker.model.name}</td>
-                        <td><StatusBadge statusKey={marker.status} label={statusLabel(marker.status)} /></td>
-                        <td>
-                          <Button variant="ghost" onClick={() => handleDelete(marker.id)}>Eliminar</Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="pm-empty">
+                <AppIcon name="qr_code_2" size={34} />
+                <p>Aún no hay marcadores. Sube el primer par arriba.</p>
               </div>
+            ) : (
+              <ul className="pm-list">
+                {markers.map((marker) => (
+                  <li key={marker.id} className="pm-item">
+                    <div className="pm-item-marker">
+                      {marker.marker.imageUrl ? (
+                        <img src={marker.marker.imageUrl} alt={marker.marker.name || 'Marcador'} />
+                      ) : (
+                        <AppIcon name="image" size={24} />
+                      )}
+                    </div>
+                    <AppIcon name="sync_alt" size={18} className="pm-item-link" />
+                    <div className="pm-item-model">
+                      <span className="pm-item-model-icon"><AppIcon name="deployed_code" size={20} /></span>
+                      <span className="pm-item-name">{marker.label || marker.model.name || 'Modelo 3D'}</span>
+                    </div>
+                    <StatusBadge statusKey={marker.status} label={statusLabel(marker.status)} />
+                    <button
+                      type="button"
+                      className="pm-item-delete"
+                      onClick={() => handleDelete(marker.id)}
+                      title="Eliminar"
+                      aria-label={`Eliminar ${marker.label || 'marcador'}`}
+                    >
+                      <AppIcon name="delete" size={20} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
             )}
           </Card>
         </>
