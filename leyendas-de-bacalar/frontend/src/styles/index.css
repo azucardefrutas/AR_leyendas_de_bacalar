@@ -16603,6 +16603,33 @@ table {
 }
 .pm-item-delete:hover { background: #fee4e2; }
 
+/* Tabla centralizada: # | Marcador | Modelo | Estado. El número es el
+   identificador del par (reusa el círculo teal de los pasos "cómo funciona"). */
+.pm-table td { vertical-align: middle; }
+.pm-table .pm-col-num { width: 56px; }
+
+.pm-num {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 999px;
+  background: #0f766e;
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.pm-cell { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.pm-cell-name {
+  font-weight: 600;
+  color: #0f2b2b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 240px;
+}
+
 /* Encabezado de la lista + chip resumen de visibilidad en la app. */
 .pm-list-head {
   display: flex;

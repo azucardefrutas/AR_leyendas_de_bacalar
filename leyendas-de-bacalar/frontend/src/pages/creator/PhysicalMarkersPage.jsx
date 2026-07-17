@@ -6,6 +6,7 @@ import AppIcon from '../../components/ui/AppIcon.jsx';
 import MarkerModelPreview from '../../components/3d/MarkerModelPreview.jsx';
 import { getMyLegends } from '../../services/creatorService.js';
 import { uploadLegendAsset } from '../../services/assetService.js';
+import { pickUploadedAsset } from '../../utils/uploadedAsset.js';
 import {
   listLegendPhysicalMarkers,
   createLegendPhysicalMarker,
@@ -140,19 +141,26 @@ function PhysicalMarkersPage() {
 
     setSaving(true);
     try {
+      // forceBackend: marker_image/model_3d solo pasan por el backend con este flag
+      // (shouldUseBackendUpload). Sin él caen a Supabase directo, que además de
+      // saltarse el registro service-role devuelve otra forma de respuesta.
       const markerUpload = await uploadLegendAsset({
-        file: form.markerFile, legendId: selectedLegendId, assetType: 'marker_image',
+        file: form.markerFile, legendId: selectedLegendId, assetType: 'marker_image', forceBackend: true,
       });
       if (markerUpload.error) throw new Error(markerUpload.error.message || 'No se pudo subir el marcador.');
+      const markerAsset = pickUploadedAsset(markerUpload);
+      if (!markerAsset) throw new Error('No pudimos registrar la imagen del marcador. Intenta de nuevo.');
 
       const modelUpload = await uploadLegendAsset({
-        file: form.modelFile, legendId: selectedLegendId, assetType: 'model_3d',
+        file: form.modelFile, legendId: selectedLegendId, assetType: 'model_3d', forceBackend: true,
       });
       if (modelUpload.error) throw new Error(modelUpload.error.message || 'No se pudo subir el modelo.');
+      const modelAsset = pickUploadedAsset(modelUpload);
+      if (!modelAsset) throw new Error('No pudimos registrar el modelo 3D. Intenta de nuevo.');
 
       const resp = await createLegendPhysicalMarker(selectedLegendId, {
-        marker_asset_id: markerUpload.data.asset.id,
-        model_asset_id: modelUpload.data.asset.id,
+        marker_asset_id: markerAsset.id,
+        model_asset_id: modelAsset.id,
         label: form.label.trim() || null,
       });
       setMarkers((prev) => [...prev, resp.marker]);
@@ -326,37 +334,64 @@ function PhysicalMarkersPage() {
                 <p>Aún no hay marcadores. Sube el primer par arriba.</p>
               </div>
             ) : (
-              <ul className="pm-list">
-                {markers.map((marker) => (
-                  <li key={marker.id} className="pm-item">
-                    <div className="pm-item-marker">
-                      {marker.marker.imageUrl ? (
-                        <img src={marker.marker.imageUrl} alt={marker.marker.name || 'Marcador'} />
-                      ) : (
-                        <AppIcon name="image" size={24} />
-                      )}
-                    </div>
-                    <AppIcon name="sync_alt" size={18} className="pm-item-link" />
-                    <div className="pm-item-model">
-                      <ModelThumb url={marker.model.url} />
-                      <span className="pm-item-name">{marker.label || marker.model.name || 'Modelo 3D'}</span>
-                    </div>
-                    <span className={`pm-app-badge${legendPublished && marker.status === 'published' ? ' is-live' : ' is-pending'}`}>
-                      <AppIcon name={legendPublished && marker.status === 'published' ? 'check_circle' : 'schedule'} size={15} />
-                      {legendPublished && marker.status === 'published' ? 'En vivo en la app' : 'Se verá al publicar'}
-                    </span>
-                    <button
-                      type="button"
-                      className="pm-item-delete"
-                      onClick={() => handleDelete(marker.id)}
-                      title="Eliminar"
-                      aria-label={`Eliminar ${marker.label || 'marcador'}`}
-                    >
-                      <AppIcon name="delete" size={20} />
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <div className="admin-table-wrap">
+                <table className="admin-table pm-table">
+                  <thead>
+                    <tr>
+                      <th className="pm-col-num">#</th>
+                      <th>Marcador</th>
+                      <th>Modelo</th>
+                      <th>Estado</th>
+                      <th aria-label="Acciones" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {markers.map((marker, index) => {
+                      const live = legendPublished && marker.status === 'published';
+                      return (
+                        <tr key={marker.id}>
+                          <td><span className="pm-num">{index + 1}</span></td>
+                          <td>
+                            <div className="pm-cell">
+                              <div className="pm-item-marker">
+                                {marker.marker.imageUrl ? (
+                                  <img src={marker.marker.imageUrl} alt={marker.marker.name || 'Marcador'} />
+                                ) : (
+                                  <AppIcon name="image" size={24} />
+                                )}
+                              </div>
+                              <span className="pm-cell-name">{marker.marker.name || 'Marcador'}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <div className="pm-cell">
+                              <ModelThumb url={marker.model.url} />
+                              <span className="pm-cell-name">{marker.label || marker.model.name || 'Modelo 3D'}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`pm-app-badge${live ? ' is-live' : ' is-pending'}`}>
+                              <AppIcon name={live ? 'check_circle' : 'schedule'} size={15} />
+                              {live ? 'En vivo en la app' : 'Se verá al publicar'}
+                            </span>
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              className="pm-item-delete"
+                              onClick={() => handleDelete(marker.id)}
+                              title="Eliminar"
+                              aria-label={`Eliminar marcador ${index + 1}`}
+                            >
+                              <AppIcon name="delete" size={20} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             )}
           </Card>
         </>
