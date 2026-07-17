@@ -244,9 +244,15 @@ export const listHotspots = async ({ legendId, userId, roles, query = {} }) => {
 };
 
 export const createHotspot = async ({ legendId, userId, roles, payload }) => {
-  await getLegendAccessContext({ legendId, userId, roles });
+  const { legend } = await getLegendAccessContext({ legendId, userId, roles });
 
   const input = await buildHotspotInput({ legendId, payload, roles, requireTarget: true });
+  // Si la leyenda YA está publicada, el hotspot debe nacer publicado para verse de
+  // inmediato en el lector web y la app. Si naciera 'draft' quedaría invisible (el lector
+  // solo trae published) y no habría transición de la leyenda que lo publique después
+  // (ese caso lo cubre el trigger trg_publish_legend_hotspots). Juntos: ningún hotspot de
+  // una leyenda publicada queda atorado en borrador.
+  const defaultStatus = legend?.status === 'published' ? 'published' : 'draft';
   const record = {
     hotspot_type: 'marker',
     x: 0.85,
@@ -254,7 +260,7 @@ export const createHotspot = async ({ legendId, userId, roles, payload }) => {
     ...input,
     legend_id: legendId,
     created_by: userId,
-    status: input.status ?? 'draft',
+    status: input.status ?? defaultStatus,
   };
 
   const { data, error } = await supabaseAdmin
