@@ -95,7 +95,7 @@ const assertCanReadLegend = async ({ legend, userId, roles }) => {
 const loadAuthor = async (legend) => {
   const { data, error } = await supabaseAdmin
     .from('creator_profiles')
-    .select('id, user_id, pen_name')
+    .select('user_id, pen_name')
     .eq('user_id', legend.creator_id)
     .maybeSingle();
 
@@ -106,7 +106,7 @@ const loadAuthor = async (legend) => {
 const loadGenres = async (legendId) => {
   const { data, error } = await supabaseAdmin
     .from('legend_genres')
-    .select('legend_id, genres(id, name, slug)')
+    .select('legend_id, genres(id, name)')
     .eq('legend_id', legendId);
 
   if (error) return [];
