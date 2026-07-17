@@ -21,6 +21,7 @@ export const adminNavItems = [
   { label: 'Lotes de codigos', to: '/admin/code-batches', icon: 'qr_code_2' },
   { label: 'Compras', to: '/admin/purchases', icon: 'shopping_bag' },
   { label: 'Suscripciones', to: '/admin/subscriptions', icon: 'workspace_premium' },
+  { label: 'Promociones', to: '/admin/promotions', icon: 'card_giftcard' },
   { label: 'Actividad', to: '/admin/activity', icon: 'monitoring' },
   { label: 'Configuracion', to: '/admin/settings', icon: 'settings' },
 ];

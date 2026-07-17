@@ -24,6 +24,70 @@ export async function setUserStatus(userId, status) {
   return data;
 }
 
+// ---- Promociones: el admin regala acceso a una leyenda (source 'admin_grant') ----
+// Reutiliza la misma via de acceso que compras/codigos: una fila en user_legend_access.
+// user_has_active_legend_access ya la respeta, asi que el acceso es inmediato.
+
+export async function listLegendGrants() {
+  const { data: grants, error } = await supabaseAdmin
+    .from('user_legend_access')
+    .select('id, user_id, legend_id, status, starts_at, expires_at, created_at')
+    .eq('access_source', 'admin_grant')
+    .order('created_at', { ascending: false });
+  if (error) { const err = new Error('No se pudieron cargar las promociones.'); err.status = 500; throw err; }
+
+  const userIds = [...new Set((grants ?? []).map((row) => row.user_id).filter(Boolean))];
+  const legendIds = [...new Set((grants ?? []).map((row) => row.legend_id).filter(Boolean))];
+  const [usersResult, legendsResult] = await Promise.all([
+    userIds.length
+      ? supabaseAdmin.from('users_profile').select('id, full_name, username').in('id', userIds)
+      : Promise.resolve({ data: [] }),
+    legendIds.length
+      ? supabaseAdmin.from('legends').select('id, title, slug, access_type').in('id', legendIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+  const userById = new Map((usersResult.data ?? []).map((row) => [String(row.id), row]));
+  const legendById = new Map((legendsResult.data ?? []).map((row) => [String(row.id), row]));
+
+  return (grants ?? []).map((grant) => ({
+    ...grant,
+    user: userById.get(String(grant.user_id)) ?? null,
+    legend: legendById.get(String(grant.legend_id)) ?? null,
+  }));
+}
+
+export async function grantLegendAccessToUser({ userId, legendId, expiresAt = null }) {
+  if (!userId || !legendId) { const err = new Error('Selecciona el usuario y la leyenda.'); err.status = 400; throw err; }
+  const { data, error } = await supabaseAdmin.rpc('grant_legend_access', {
+    p_user_id: userId,
+    p_legend_id: legendId,
+    p_access_source: 'admin_grant',
+    p_source_id: null,
+    p_expires_at: expiresAt || null,
+  });
+  if (error) {
+    const err = new Error(error.message || 'No se pudo otorgar el acceso.');
+    err.status = 400;
+    throw err;
+  }
+  return { accessId: data };
+}
+
+export async function revokeLegendGrant(accessId) {
+  if (!accessId) { const err = new Error('accessId requerido.'); err.status = 400; throw err; }
+  // Solo se revocan promociones del admin: nunca una compra ni un codigo canjeado.
+  const { data, error } = await supabaseAdmin
+    .from('user_legend_access')
+    .update({ status: 'revoked', updated_at: new Date().toISOString() })
+    .eq('id', accessId)
+    .eq('access_source', 'admin_grant')
+    .select('id, status')
+    .maybeSingle();
+  if (error) { const err = new Error('No se pudo revocar la promocion.'); err.status = 500; throw err; }
+  if (!data) { const err = new Error('Promocion no encontrada.'); err.status = 404; throw err; }
+  return data;
+}
+
 
 async function countRows(table, applyFilter) {
   try {

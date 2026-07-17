@@ -39,6 +39,7 @@ const AdminLegendsPage = lazy(() => import('../pages/admin/AdminLegendsPage.jsx'
 const AdminReviewsPage = lazy(() => import('../pages/admin/AdminReviewsPage.jsx'));
 const AdminSettingsPage = lazy(() => import('../pages/admin/AdminSettingsPage.jsx'));
 const AdminOrdersPage = lazy(() => import('../pages/admin/AdminOrdersPage.jsx'));
+const AdminPromotionsPage = lazy(() => import('../pages/admin/AdminPromotionsPage.jsx'));
 const AdminSubscriptionsPage = lazy(() => import('../pages/admin/AdminSubscriptionsPage.jsx'));
 const AdminUsersPage = lazy(() => import('../pages/admin/AdminUsersPage.jsx'));
 const ArExperiencePage = lazy(() => import('../pages/ar/ArExperiencePage.jsx'));
@@ -167,6 +168,7 @@ export const router = createBrowserRouter([
               { path: 'purchases', element: <AdminOrdersPage /> },
               { path: 'orders', element: <AdminOrdersPage /> },
               { path: 'subscriptions', element: <AdminSubscriptionsPage /> },
+              { path: 'promotions', element: <AdminPromotionsPage /> },
               { path: 'activity', element: <AdminActivityPage /> },
               { path: 'settings', element: <AdminSettingsPage /> },
             ],

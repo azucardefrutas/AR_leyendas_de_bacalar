@@ -2,7 +2,15 @@ import { Router } from 'express';
 
 import { requireAuth } from '../middlewares/requireAuth.js';
 import { requireRole } from '../middlewares/requireRole.js';
-import { getAdminDashboardStats, listAdminLegends, listContentReviews, setUserStatus } from '../services/admin.service.js';
+import {
+  getAdminDashboardStats,
+  grantLegendAccessToUser,
+  listAdminLegends,
+  listContentReviews,
+  listLegendGrants,
+  revokeLegendGrant,
+  setUserStatus,
+} from '../services/admin.service.js';
 import { getAllSettings, updateSettings } from '../services/systemSettings.service.js';
 
 const router = Router();
@@ -44,6 +52,38 @@ router.post('/users/:userId/status', requireAdmin, async (req, res, next) => {
   try {
     const user = await setUserStatus(req.params.userId, req.body?.status);
     res.json({ ok: true, user });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Promociones: accesos regalados por el admin (user_legend_access, source admin_grant).
+router.get('/legend-grants', requireAdmin, async (req, res, next) => {
+  try {
+    const grants = await listLegendGrants();
+    res.json({ ok: true, grants });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/legend-grants', requireAdmin, async (req, res, next) => {
+  try {
+    const result = await grantLegendAccessToUser({
+      userId: req.body?.userId,
+      legendId: req.body?.legendId,
+      expiresAt: req.body?.expiresAt ?? null,
+    });
+    res.status(201).json({ ok: true, ...result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete('/legend-grants/:accessId', requireAdmin, async (req, res, next) => {
+  try {
+    const grant = await revokeLegendGrant(req.params.accessId);
+    res.json({ ok: true, grant });
   } catch (error) {
     next(error);
   }
