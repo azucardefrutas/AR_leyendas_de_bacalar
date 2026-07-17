@@ -152,6 +152,10 @@ function LegendDetailPage() {
       setActionMessage('La compra de esta leyenda aun no esta disponible. El autor debe asignarle un precio.');
       return;
     }
+    if (accessType === 'subscription') {
+      navigate('/reader/subscription');
+      return;
+    }
     setActionMessage('Para desbloquear esta leyenda se habilitaran opciones de acceso desde tu cuenta.');
   }
 
