@@ -12,6 +12,37 @@ function getClient() {
   return { data: supabase, error: null };
 }
 
+// Lightweight display identity for the header chips: the personalized name the user set
+// in their profile (pen name for creators, full name / username for readers), falling
+// back to the email alias — but NEVER the raw email address, which reads badly in the UI.
+export async function getDisplayIdentity() {
+  const { data: client, error: clientError } = getClient();
+  if (clientError) return { data: null, error: clientError };
+
+  const { data: userData, error: userError } = await getCurrentUser();
+  if (userError) return { data: null, error: userError };
+  const user = userData?.user;
+  if (!user) return { data: null, error: null };
+
+  const [profileResult, creatorResult] = await Promise.all([
+    client.from('users_profile').select('full_name, username').eq('id', user.id).maybeSingle(),
+    client.from('creator_profiles').select('pen_name').eq('user_id', user.id).maybeSingle(),
+  ]);
+
+  const clean = (value) => (typeof value === 'string' ? value.trim() : '');
+  const emailAlias = clean(user.email?.split('@')?.[0]);
+  const displayName =
+    clean(creatorResult.data?.pen_name)
+    || clean(profileResult.data?.full_name)
+    || clean(profileResult.data?.username)
+    || clean(user.user_metadata?.full_name)
+    || clean(user.user_metadata?.display_name)
+    || emailAlias
+    || 'Usuario';
+
+  return { data: { displayName, email: user.email || '' }, error: null };
+}
+
 export async function getCurrentProfile() {
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: null, error: clientError };

@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import * as roleService from '../services/roleService.js';
+import { getDisplayIdentity } from '../services/profileService.js';
 import { useAuth } from '../hooks/useAuth.js';
 
 // Single source of truth for the current user's roles. Before, useRoles() was a
@@ -10,6 +11,7 @@ import { useAuth } from '../hooks/useAuth.js';
 const defaultValue = {
   roles: [],
   activeRole: null,
+  displayName: '',
   loading: false,
   error: null,
   hasRole: () => false,
@@ -24,6 +26,7 @@ export function RolesProvider({ children }) {
   const { isAuthenticated, user } = useAuth();
   const [roles, setRoles] = useState([]);
   const [activeRole, setActiveRoleState] = useState(null);
+  const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(Boolean(isAuthenticated));
   const [error, setError] = useState(null);
 
@@ -31,20 +34,25 @@ export function RolesProvider({ children }) {
     if (!isAuthenticated) {
       setRoles([]);
       setActiveRoleState(null);
+      setDisplayName('');
       setLoading(false);
       return { data: [], error: null };
     }
 
     setLoading(true);
-    const { data, error: rolesError } = await roleService.getCurrentUserRoles();
-    const { data: currentRole } = await roleService.getActiveRole();
-    const roleNames = roleService.normalizeRoleNames(data ?? []);
+    const [rolesResult, currentRoleResult, identityResult] = await Promise.all([
+      roleService.getCurrentUserRoles(),
+      roleService.getActiveRole(),
+      getDisplayIdentity(),
+    ]);
+    const roleNames = roleService.normalizeRoleNames(rolesResult.data ?? []);
     setRoles(roleNames);
-    setActiveRoleState(roleService.normalizeRoleName(currentRole));
-    setError(rolesError);
+    setActiveRoleState(roleService.normalizeRoleName(currentRoleResult.data));
+    setDisplayName(identityResult.data?.displayName || '');
+    setError(rolesResult.error);
     setLoading(false);
 
-    return { data: roleNames, error: rolesError };
+    return { data: roleNames, error: rolesResult.error };
   }, [isAuthenticated]);
 
   async function setActiveRole(role) {
@@ -62,6 +70,7 @@ export function RolesProvider({ children }) {
   const value = {
     roles,
     activeRole,
+    displayName,
     loading,
     error,
     hasRole: (role) => {

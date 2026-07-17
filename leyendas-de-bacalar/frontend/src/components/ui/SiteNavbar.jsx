@@ -21,13 +21,13 @@ const TiktokGlyph = (
 
 function SiteNavbar() {
   const { isAuthenticated, signOut, user } = useAuth();
-  const { roles } = useRoles();
+  const { roles, displayName: profileName } = useRoles();
   const location = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
   const isAdmin = roles.includes('admin');
   const isCreator = roles.includes('creator');
   const emailAlias = user?.email?.split('@')?.[0];
-  const displayName = user?.user_metadata?.display_name || user?.user_metadata?.full_name || emailAlias || 'Usuario';
+  const displayName = profileName || user?.user_metadata?.display_name || user?.user_metadata?.full_name || emailAlias || 'Usuario';
   const initial = displayName.slice(0, 1).toUpperCase();
   const creatorPath = isAuthenticated && isCreator ? '/creator' : '/creator/apply';
   const loginPath = location.pathname === '/' ? '/login' : getLoginPathForRedirect(location);

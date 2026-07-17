@@ -1,6 +1,7 @@
 import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.js';
+import { useRoles } from '../../hooks/useRoles.js';
 import { UserIcon } from '../ui/CreatorIcons.jsx';
 import AppIcon from '../ui/AppIcon.jsx';
 import Picture from '../ui/Picture.jsx';
@@ -61,7 +62,9 @@ function CreatorShell({ items }) {
     };
   }, [navOpen]);
 
-  const displayName = user?.user_metadata?.full_name || user?.email || 'Autor';
+  const { displayName: profileName } = useRoles();
+  // Show the personalized name (pen name / full name) rather than the raw email.
+  const displayName = profileName || user?.user_metadata?.full_name || 'Autor';
   const initial = displayName.slice(0, 1).toUpperCase();
 
   return (

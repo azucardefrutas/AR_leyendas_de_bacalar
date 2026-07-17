@@ -1,6 +1,7 @@
 import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.js';
+import { useRoles } from '../../hooks/useRoles.js';
 import StatusBadge from '../../shared/status/StatusBadge.jsx';
 import AppIcon from './AppIcon.jsx';
 import Button from './Button.jsx';
@@ -69,6 +70,7 @@ function useAdminClock() {
 
 export function AdminLayoutShell() {
   const { user, signOut } = useAuth();
+  const { displayName: profileName } = useRoles();
   const navigate = useNavigate();
   const location = useLocation();
   const clock = useAdminClock();
@@ -145,7 +147,7 @@ export function AdminLayoutShell() {
                   <strong>Admin</strong>
                   <small><i /> Conectado</small>
                 </div>
-                <span>{(user?.email || 'A').slice(0, 1).toUpperCase()}</span>
+                <span>{(profileName || user?.email || 'A').slice(0, 1).toUpperCase()}</span>
               </button>
               {userMenuOpen && (
                 <div className="admin-user-dropdown">
@@ -189,9 +191,9 @@ export function AdminLayoutShell() {
 
         <div className="shell-nav-footer">
           <div className="shell-nav-user">
-            <span className="shell-nav-user__avatar" aria-hidden="true">{(user?.email || 'A').slice(0, 1).toUpperCase()}</span>
+            <span className="shell-nav-user__avatar" aria-hidden="true">{(profileName || user?.email || 'A').slice(0, 1).toUpperCase()}</span>
             <span className="shell-nav-user__meta">
-              <strong>{user?.email || 'Administrador'}</strong>
+              <strong>{profileName || 'Administrador'}</strong>
               <span>Administrador</span>
             </span>
           </div>
