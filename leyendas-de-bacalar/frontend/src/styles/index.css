@@ -16489,6 +16489,22 @@ table {
   background: rgba(37, 99, 235, 0.1);
   color: #1d4ed8;
 }
+
+/* Miniatura 3D real del modelo en cada fila (canvas transparente sobre el
+   azul de marca del modelo; MarkerModelPreview llena el contenedor). */
+.pm-item-model3d {
+  position: relative;
+  flex: none;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(37, 99, 235, 0.1);
+  color: #1d4ed8;
+}
+.pm-item-model3d .marker-model-preview { background: transparent; }
 .pm-item-name {
   font-weight: 700;
   color: #0f2b2b;

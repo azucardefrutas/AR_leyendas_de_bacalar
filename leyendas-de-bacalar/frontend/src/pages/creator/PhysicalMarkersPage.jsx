@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
 import AppIcon from '../../components/ui/AppIcon.jsx';
+import MarkerModelPreview from '../../components/3d/MarkerModelPreview.jsx';
 import { getMyLegends } from '../../services/creatorService.js';
 import { uploadLegendAsset } from '../../services/assetService.js';
 import {
@@ -12,6 +13,45 @@ import {
 } from '../../services/backendApiService.js';
 
 const EMPTY_FORM = { markerFile: null, modelFile: null, label: '' };
+
+// Miniatura 3D perezosa: monta el <canvas> WebGL solo cuando la fila entra en el
+// viewport, para no agotar contextos WebGL en listas con muchos modelos. La lista
+// es un scroll vertical normal (no un flip-book), así que el IntersectionObserver
+// sí dispara. MarkerModelPreview ya trae WebGLErrorBoundary + fallback si falla.
+function ModelThumb({ url }) {
+  const ref = useRef(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const node = ref.current;
+    if (!node || visible || typeof IntersectionObserver === 'undefined') {
+      if (!node) return undefined;
+      setVisible(true);
+      return undefined;
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '150px' },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [visible]);
+
+  return (
+    <div className="pm-item-model3d" ref={ref}>
+      {visible && url ? (
+        <MarkerModelPreview modelUrl={url} />
+      ) : (
+        <AppIcon name="deployed_code" size={20} />
+      )}
+    </div>
+  );
+}
 
 // Turn technical backend errors into friendly copy (never surface raw stack/route text).
 function friendlyError(message = '') {
@@ -298,7 +338,7 @@ function PhysicalMarkersPage() {
                     </div>
                     <AppIcon name="sync_alt" size={18} className="pm-item-link" />
                     <div className="pm-item-model">
-                      <span className="pm-item-model-icon"><AppIcon name="deployed_code" size={20} /></span>
+                      <ModelThumb url={marker.model.url} />
                       <span className="pm-item-name">{marker.label || marker.model.name || 'Modelo 3D'}</span>
                     </div>
                     <span className={`pm-app-badge${legendPublished && marker.status === 'published' ? ' is-live' : ' is-pending'}`}>
