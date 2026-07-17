@@ -1,4 +1,8 @@
+import { createClient } from '@supabase/supabase-js';
+
+import { env } from '../config/env.js';
 import { supabaseAdmin } from '../config/supabaseAdmin.js';
+import { collectLegendAssetIds, purgeOrphanAssets } from './assetCleanup.service.js';
 import { getLegendAccessContext } from './legendAccess.service.js';
 import { getPublicUrlForAsset } from './storage.service.js';
 
@@ -594,4 +598,56 @@ export async function duplicateLegend({ legendId, userId, roles }) {
   }
 
   return created;
+}
+
+// Los RPC de borrado (ver CLAUDE.md §16: ya corregidos, no se tocan) limpian la leyenda
+// y sus relaciones, pero nunca tocaron `assets` ni Storage: cada borrado dejaba portada,
+// banner, PDF, paginas renderizadas, modelos y marcadores huerfanos para siempre. Aqui
+// solo los envolvemos para cerrar esa fuga; el RPC sigue haciendo exactamente lo mismo.
+const DELETE_LEGEND_RPCS = {
+  draft: 'delete_legend_draft',
+  full: 'delete_creator_legend',
+};
+
+// Los RPC son SECURITY DEFINER y resuelven al dueno con auth.uid(). Con el service-role
+// auth.uid() seria null y rechazarian el borrado, asi que van con el JWT del usuario
+// (mismo patron que creatorCodes.service.js).
+function createUserScopedClient(accessToken) {
+  if (!accessToken) throw new CreatorLegendError('Unauthorized.', 401);
+
+  return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY, {
+    global: {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    },
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
+
+export async function deleteLegendWithAssets({ legendId, accessToken, mode = 'draft' }) {
+  if (!legendId) throw new CreatorLegendError('Falta el ID de la leyenda.', 400);
+
+  const rpcName = DELETE_LEGEND_RPCS[mode];
+  if (!rpcName) throw new CreatorLegendError('Modo de borrado no valido.', 400);
+
+  // Obligatorio antes del DELETE: despues las relaciones ya no existen y las rutas de
+  // Storage se pierden, que es justo como se acumulo la basura historica.
+  const assetIds = await collectLegendAssetIds(legendId);
+
+  const userClient = createUserScopedClient(accessToken);
+  const { data, error } = await userClient.rpc(rpcName, { p_legend_id: legendId });
+
+  if (error) {
+    throw new CreatorLegendError(error.message || 'No pudimos eliminar la leyenda.', 400);
+  }
+  if (data?.success !== true) {
+    throw new CreatorLegendError('No pudimos eliminar la leyenda.', 400);
+  }
+
+  // La leyenda ya se fue: la limpieza no debe tumbar la respuesta si falla (§15).
+  const cleanup = await purgeOrphanAssets(assetIds);
+
+  return { ...data, cleanup };
 }

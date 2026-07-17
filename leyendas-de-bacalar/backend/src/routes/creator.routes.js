@@ -9,7 +9,7 @@ import {
   generateCreatorCodes,
   getCreatorCodesOverview,
 } from '../services/creatorCodes.service.js';
-import { listCreatorLegends } from '../services/creatorLegends.service.js';
+import { deleteLegendWithAssets, listCreatorLegends } from '../services/creatorLegends.service.js';
 
 const router = Router();
 const requireCreatorOrAdmin = [requireAuth, requireRole(['creator', 'admin'])];
@@ -72,6 +72,22 @@ router.delete('/legends/:legendId/physical-editions', requireCreatorOrAdmin, asy
       return res.status(error.statusCode).json({ ok: false, error: error.message });
     }
     return next(error);
+  }
+});
+
+// Borra una leyenda del creador y, a diferencia del RPC suelto que llamaba el navegador,
+// tambien retira sus assets y los archivos de Storage que quedan sin dueno.
+// mode=draft usa delete_legend_draft; mode=full usa delete_creator_legend.
+router.delete('/legends/:legendId', requireCreatorOrAdmin, async (req, res, next) => {
+  try {
+    const result = await deleteLegendWithAssets({
+      legendId: req.params.legendId,
+      accessToken: req.accessToken,
+      mode: req.query?.mode === 'full' ? 'full' : 'draft',
+    });
+    res.json({ ok: true, ...result });
+  } catch (error) {
+    next(error);
   }
 });
 

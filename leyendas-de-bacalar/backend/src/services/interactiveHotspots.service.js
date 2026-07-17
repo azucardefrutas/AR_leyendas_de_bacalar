@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../config/supabaseAdmin.js';
+import { purgeOrphanAssets } from './assetCleanup.service.js';
 import { getLegendAccessContext } from './legendAccess.service.js';
 import { getPublicUrlForAsset } from './storage.service.js';
 
@@ -508,7 +509,11 @@ export const deleteHotspot = async ({ legendId, hotspotId, userId, roles }) => {
     .delete()
     .eq('id', hotspotId);
   if (error) throw new HotspotError('Could not delete hotspot.', 500, { reason: error.message });
-  return { id: hotspotId };
+
+  // La imagen del marcador quedaba huerfana en assets y en Storage. Se conserva sola si
+  // otro hotspot la sigue usando (la FK RESTRICT lo decide).
+  const cleanup = await purgeOrphanAssets([existing.marker_asset_id]);
+  return { id: hotspotId, cleanup };
 };
 
 // ---------------------------------------------------------------------------
@@ -643,5 +648,7 @@ export const deletePhysicalMarker = async ({ legendId, hotspotId, userId, roles 
     .delete()
     .eq('id', hotspotId);
   if (error) throw new HotspotError('Could not delete physical marker.', 500, { reason: error.message });
-  return { id: hotspotId };
+
+  const cleanup = await purgeOrphanAssets([existing.marker_asset_id]);
+  return { id: hotspotId, cleanup };
 };

@@ -7,6 +7,7 @@ import { getLegendResources, STORAGE_BUCKETS } from './assetService.js';
 import {
   BackendApiError,
   createLegendDraftBackend,
+  deleteCreatorLegendBackend,
   duplicateLegendBackend,
   getCreatorLegendsBackend,
   getEditorDataBackend,
@@ -1367,37 +1368,19 @@ export async function deleteLegendDraft(legendId) {
     };
   }
 
-  const { data: client, error: clientError } = getClient();
-  if (clientError) return { data: null, error: clientError };
-
   try {
-    const { data, error } = await client.rpc('delete_legend_draft', {
-      p_legend_id: legendId,
-    });
-
-    if (error) {
-      logDeleteSupabaseError('rpc delete_legend_draft', error, {
-        table: 'rpc/delete_legend_draft',
-        legendId,
-      });
-      return {
-        data: null,
-        error: createDeleteDraftError({
-          message: error.message || DELETE_DRAFT_GENERIC_MESSAGE,
-          operation: 'rpc',
-          table: 'delete_legend_draft',
-          error,
-        }),
-      };
-    }
+    // Via backend: envuelve el mismo RPC delete_legend_draft y ademas retira los assets
+    // y los archivos de Storage que el RPC nunca borraba (portada, banner, PDF, paginas
+    // renderizadas, modelos y marcadores quedaban huerfanos para siempre).
+    const data = await deleteCreatorLegendBackend(legendId, { mode: 'draft' });
 
     if (data?.success !== true) {
       const rpcError = createDeleteDraftError({
         message: DELETE_DRAFT_GENERIC_MESSAGE,
-        operation: 'rpc',
+        operation: 'backend',
         table: 'delete_legend_draft',
       });
-      logDeleteSupabaseError('rpc delete_legend_draft returned without success', rpcError, {
+      logDeleteSupabaseError('backend delete_legend_draft returned without success', rpcError, {
         table: 'rpc/delete_legend_draft',
         legendId,
         data,
@@ -1410,7 +1393,11 @@ export async function deleteLegendDraft(legendId) {
     logDeleteSupabaseError('deleteLegendDraft unexpected error', error, { legendId });
     return {
       data: null,
-      error: createDeleteDraftError({ operation: 'deleteLegendDraft', error }),
+      error: createDeleteDraftError({
+        message: error?.message || DELETE_DRAFT_GENERIC_MESSAGE,
+        operation: 'deleteLegendDraft',
+        error,
+      }),
     };
   }
 }
@@ -1434,46 +1421,22 @@ export async function deleteCreatorLegend(legendId, { status = null } = {}) {
     };
   }
 
-  const { data: client, error: clientError } = getClient();
-  if (clientError) return { data: null, error: clientError };
-
   try {
-    const { data, error } = await client.rpc('delete_creator_legend', {
-      p_legend_id: legendId,
-    });
-
-    if (error) {
-      logDeleteCreatorLegendError('rpc delete_creator_legend', error, {
-        legendId,
-        status: statusKey,
-      });
-      logDeleteSupabaseError('rpc delete_creator_legend', error, {
-        table: 'rpc/delete_creator_legend',
-        legendId,
-        status: statusKey,
-      });
-      return {
-        data: null,
-        error: createDeleteCreatorLegendError({
-          message: error.message || DELETE_CREATOR_LEGEND_GENERIC_MESSAGE,
-          operation: 'rpc',
-          table: 'delete_creator_legend',
-          error,
-        }),
-      };
-    }
+    // Via backend: mismo RPC delete_creator_legend, mas la retirada de assets y archivos
+    // de Storage que el RPC nunca hizo.
+    const data = await deleteCreatorLegendBackend(legendId, { mode: 'full' });
 
     if (data?.success !== true) {
       const rpcError = createDeleteCreatorLegendError({
-        operation: 'rpc',
+        operation: 'backend',
         table: 'delete_creator_legend',
       });
-      logDeleteCreatorLegendError('rpc delete_creator_legend returned without success', rpcError, {
+      logDeleteCreatorLegendError('backend delete_creator_legend returned without success', rpcError, {
         legendId,
         status: statusKey,
         data,
       });
-      logDeleteSupabaseError('rpc delete_creator_legend returned without success', rpcError, {
+      logDeleteSupabaseError('backend delete_creator_legend returned without success', rpcError, {
         table: 'rpc/delete_creator_legend',
         legendId,
         status: statusKey,
@@ -1494,7 +1457,11 @@ export async function deleteCreatorLegend(legendId, { status = null } = {}) {
     });
     return {
       data: null,
-      error: createDeleteCreatorLegendError({ operation: 'deleteCreatorLegend', error }),
+      error: createDeleteCreatorLegendError({
+        message: error?.message || DELETE_CREATOR_LEGEND_GENERIC_MESSAGE,
+        operation: 'deleteCreatorLegend',
+        error,
+      }),
     };
   }
 }

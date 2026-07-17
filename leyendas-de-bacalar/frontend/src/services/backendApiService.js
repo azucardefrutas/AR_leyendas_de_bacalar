@@ -417,6 +417,19 @@ export function deleteLegendPhysicalEditions(legendId) {
   });
 }
 
+// Deletes a creator legend through the backend, which wraps the same delete RPC the
+// browser used to call and additionally retires the assets + Storage files the RPC
+// never touched. mode: 'draft' (delete_legend_draft) | 'full' (delete_creator_legend).
+export function deleteCreatorLegendBackend(legendId, { mode = 'draft' } = {}) {
+  return requestBackend(
+    `/api/v1/creator/legends/${encodeURIComponent(legendId)}?mode=${encodeURIComponent(mode)}`,
+    {
+      method: 'DELETE',
+      operation: 'delete-creator-legend',
+    }
+  );
+}
+
 export function startDocumentExtraction(sourceDocumentId) {
   return requestBackend(`/api/v1/documents/${encodeURIComponent(sourceDocumentId)}/extraction/start`, {
     method: 'POST',
