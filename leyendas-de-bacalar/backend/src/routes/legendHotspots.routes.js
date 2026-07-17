@@ -14,6 +14,7 @@ import {
   listPhysicalMarkers,
   listScenes,
   updateHotspot,
+  updatePhysicalMarker,
 } from '../services/interactiveHotspots.service.js';
 
 const router = Router();
@@ -142,6 +143,21 @@ router.post('/:legendId/physical-markers', requireCreatorOrAdmin, async (req, re
       payload: req.body ?? {},
     });
     res.status(201).json({ ok: true, marker });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.patch('/:legendId/physical-markers/:hotspotId', requireCreatorOrAdmin, async (req, res, next) => {
+  try {
+    const marker = await updatePhysicalMarker({
+      legendId: req.params.legendId,
+      hotspotId: req.params.hotspotId,
+      userId: req.user.id,
+      roles: req.user.roles,
+      payload: req.body ?? {},
+    });
+    res.json({ ok: true, marker });
   } catch (error) {
     next(error);
   }

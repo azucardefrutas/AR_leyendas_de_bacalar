@@ -10,6 +10,7 @@ import { pickUploadedAsset } from '../../utils/uploadedAsset.js';
 import {
   listLegendPhysicalMarkers,
   createLegendPhysicalMarker,
+  updateLegendPhysicalMarker,
   deleteLegendPhysicalMarker,
 } from '../../services/backendApiService.js';
 
@@ -88,6 +89,7 @@ function PhysicalMarkersPage() {
   const [loadingMarkers, setLoadingMarkers] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [replacingId, setReplacingId] = useState(null);
   const [error, setError] = useState(null);
   const [notice, setNotice] = useState(null);
 
@@ -177,6 +179,29 @@ function PhysicalMarkersPage() {
       setError(friendlyError(err?.message));
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleReplaceModel(hotspotId, file) {
+    if (!file) return;
+    setError(null);
+    setNotice(null);
+    setReplacingId(hotspotId);
+    try {
+      const upload = await uploadLegendAsset({
+        file, legendId: selectedLegendId, assetType: 'model_3d', forceBackend: true,
+      });
+      if (upload.error) throw new Error(upload.error.message || 'No se pudo subir el modelo.');
+      const asset = pickUploadedAsset(upload);
+      if (!asset) throw new Error('No pudimos registrar el modelo 3D. Intenta de nuevo.');
+
+      const resp = await updateLegendPhysicalMarker(selectedLegendId, hotspotId, { model_asset_id: asset.id });
+      setMarkers((prev) => prev.map((marker) => (String(marker.id) === String(hotspotId) ? resp.marker : marker)));
+      setNotice('Modelo reemplazado.');
+    } catch (err) {
+      setError(friendlyError(err?.message));
+    } finally {
+      setReplacingId(null);
     }
   }
 
@@ -382,15 +407,32 @@ function PhysicalMarkersPage() {
                             </span>
                           </td>
                           <td>
-                            <button
-                              type="button"
-                              className="pm-item-delete"
-                              onClick={() => handleDelete(marker.id)}
-                              title="Eliminar"
-                              aria-label={`Eliminar marcador ${index + 1}`}
-                            >
-                              <AppIcon name="delete" size={20} />
-                            </button>
+                            <div className="pm-item-actions">
+                              <label
+                                className={`pm-item-replace${replacingId === marker.id ? ' is-busy' : ''}`}
+                                title="Reemplazar modelo 3D"
+                              >
+                                <input
+                                  type="file"
+                                  accept=".glb,model/gltf-binary"
+                                  disabled={replacingId === marker.id}
+                                  onChange={(event) => {
+                                    handleReplaceModel(marker.id, event.target.files?.[0]);
+                                    event.target.value = '';
+                                  }}
+                                />
+                                <AppIcon name={replacingId === marker.id ? 'hourglass_top' : 'cached'} size={18} />
+                              </label>
+                              <button
+                                type="button"
+                                className="pm-item-delete"
+                                onClick={() => handleDelete(marker.id)}
+                                title="Eliminar"
+                                aria-label={`Eliminar marcador ${index + 1}`}
+                              >
+                                <AppIcon name="delete" size={20} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );

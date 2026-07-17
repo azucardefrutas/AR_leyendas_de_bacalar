@@ -651,6 +651,85 @@ export const createPhysicalMarker = async ({ legendId, userId, roles, payload = 
   return serializePhysicalMarker(data);
 };
 
+// Reemplaza el modelo (y/o el marcador) de un par ya guardado, sin borrarlo. Crea/
+// reutiliza la escena del nuevo modelo y reengancha el registro de edición física.
+export const updatePhysicalMarker = async ({ legendId, hotspotId, userId, roles, payload = {} }) => {
+  const existing = await loadHotspot(hotspotId);
+  if (String(existing.legend_id) !== String(legendId) || existing.target_type !== PHYSICAL_TARGET) {
+    throw new HotspotError('Physical marker not found for this legend.', 404);
+  }
+  await getLegendAccessContext({ legendId, userId, roles });
+
+  const patch = {};
+
+  if (payload.model_asset_id) {
+    await assertAssetInLegend(legendId, payload.model_asset_id, 'model_3d');
+    const scene = await createScene({
+      legendId,
+      userId,
+      roles,
+      payload: { model_asset_id: payload.model_asset_id, name: payload.label || 'Modelo (libro fisico)' },
+    });
+    patch.ar_scene_id = scene.id;
+  }
+
+  if (payload.marker_asset_id) {
+    await assertAssetInLegend(legendId, payload.marker_asset_id, 'marker_image');
+    // El nuevo marcador no puede estar ya vinculado a OTRO par de esta leyenda.
+    const { data: clash, error: clashError } = await supabaseAdmin
+      .from('interactive_hotspots')
+      .select('id')
+      .eq('legend_id', legendId)
+      .eq('target_type', PHYSICAL_TARGET)
+      .eq('marker_asset_id', payload.marker_asset_id)
+      .neq('id', hotspotId)
+      .maybeSingle();
+    if (clashError) throw new HotspotError('Could not validate marker uniqueness.', 500, { reason: clashError.message });
+    if (clash) throw new HotspotError('Ese marcador ya esta vinculado a un modelo en esta leyenda.', 409);
+    patch.marker_asset_id = payload.marker_asset_id;
+  }
+
+  if (payload.label !== undefined) {
+    patch.label = payload.label ? String(payload.label).slice(0, 200) : null;
+  }
+
+  if (Object.keys(patch).length === 0) {
+    const { data: current, error: currentError } = await supabaseAdmin
+      .from('interactive_hotspots')
+      .select(PHYSICAL_MARKER_SELECT)
+      .eq('id', hotspotId)
+      .single();
+    if (currentError || !current) throw new HotspotError('Could not load physical marker.', 500, { reason: currentError?.message });
+    return serializePhysicalMarker(current);
+  }
+
+  const { data, error } = await supabaseAdmin
+    .from('interactive_hotspots')
+    .update(patch)
+    .eq('id', hotspotId)
+    .select(PHYSICAL_MARKER_SELECT)
+    .single();
+  if (error || !data) throw new HotspotError('Could not update physical marker.', 500, { reason: error?.message });
+
+  // Reengancha el registro de edición física con el marcador/escena finales (best-effort).
+  const finalMarkerId = patch.marker_asset_id || existing.marker_asset_id;
+  const finalSceneId = patch.ar_scene_id || existing.ar_scene_id;
+  if (finalMarkerId) {
+    try {
+      await linkPhysicalEditionMarker({
+        legendId,
+        userId,
+        roles,
+        payload: { marker_asset_id: finalMarkerId, ar_scene_id: finalSceneId, page_reference: 'libro-fisico' },
+      });
+    } catch {
+      // El mapeo escaneable (hotspot) ya quedó actualizado; el registro físico es secundario.
+    }
+  }
+
+  return serializePhysicalMarker(data);
+};
+
 export const deletePhysicalMarker = async ({ legendId, hotspotId, userId, roles }) => {
   const existing = await loadHotspot(hotspotId);
   if (String(existing.legend_id) !== String(legendId) || existing.target_type !== PHYSICAL_TARGET) {

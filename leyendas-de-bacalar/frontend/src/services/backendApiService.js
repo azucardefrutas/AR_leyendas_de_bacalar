@@ -595,6 +595,13 @@ export function createLegendPhysicalMarker(legendId, payload) {
   });
 }
 
+export function updateLegendPhysicalMarker(legendId, hotspotId, payload) {
+  return requestBackend(
+    `/api/v1/legends/${encodeURIComponent(legendId)}/physical-markers/${encodeURIComponent(hotspotId)}`,
+    { method: 'PATCH', operation: 'update-physical-marker', body: payload },
+  );
+}
+
 export function deleteLegendPhysicalMarker(legendId, hotspotId) {
   return requestBackend(
     `/api/v1/legends/${encodeURIComponent(legendId)}/physical-markers/${encodeURIComponent(hotspotId)}`,
