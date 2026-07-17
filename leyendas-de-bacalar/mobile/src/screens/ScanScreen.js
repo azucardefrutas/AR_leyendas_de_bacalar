@@ -5,6 +5,9 @@ import { useCameraPermissions } from 'expo-camera';
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Sharing from 'expo-sharing';
+import * as MediaLibrary from 'expo-media-library';
+import * as Haptics from 'expo-haptics';
+import * as Network from 'expo-network';
 import ArScene from './ArScene.js';
 import { useTheme } from '../theme.js';
 import { BrandText } from '../components/Brand.js';
@@ -21,8 +24,8 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
   const [loadError, setLoadError] = useState('');
   const [toast, setToast] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [flashOn, setFlashOn] = useState(false);
   const [recording, setRecording] = useState(false);
+  const [offline, setOffline] = useState(false);
   const toastTimer = useRef(null);
 
   useEffect(() => {
@@ -53,7 +56,26 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
   }, []);
   useEffect(() => () => clearTimeout(toastTimer.current), []);
 
+  // Aviso de sin conexión (los modelos GLB se descargan por internet).
+  useEffect(() => {
+    let active = true;
+    Network.getNetworkStateAsync()
+      .then((s) => { if (active) setOffline(!s.isConnected); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  async function saveToGallery(uri) {
+    try {
+      const perm = await MediaLibrary.requestPermissionsAsync();
+      if (!perm.granted) return false;
+      await MediaLibrary.saveToLibraryAsync(uri);
+      return true;
+    } catch { return false; }
+  }
+
   const onFound = useCallback((scene) => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     recordScan(scene);
     showToast(`Escaneado: ${scene.name || 'modelo'}`);
   }, [showToast]);
@@ -64,9 +86,12 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
     try {
       const result = await navRef.current?.takeScreenshot?.('leyendas-ar', false);
       const path = result?.url;
-      if (path && (await Sharing.isAvailableAsync())) {
-        await Sharing.shareAsync(path.startsWith('file') ? path : `file://${path}`);
-      } else { showToast('Captura guardada.'); }
+      if (!path) { showToast('No se pudo capturar.'); return; }
+      const uri = path.startsWith('file') ? path : `file://${path}`;
+      const saved = await saveToGallery(uri);
+      if (saved) { showToast('Foto guardada en la galería.'); }
+      else if (await Sharing.isAvailableAsync()) { await Sharing.shareAsync(uri); }
+      else { showToast('Foto lista.'); }
     } catch { showToast('No se pudo capturar.'); }
   }
 
@@ -84,17 +109,14 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
         const res = await nav.stopVideoRecording?.();
         setRecording(false);
         const path = res?.url;
-        if (path && (await Sharing.isAvailableAsync())) {
-          await Sharing.shareAsync(path.startsWith('file') ? path : `file://${path}`);
-        } else { showToast('Video guardado.'); }
+        if (!path) { showToast('Video guardado.'); return; }
+        const uri = path.startsWith('file') ? path : `file://${path}`;
+        const saved = await saveToGallery(uri);
+        if (saved) { showToast('Video guardado en la galería.'); }
+        else if (await Sharing.isAvailableAsync()) { await Sharing.shareAsync(uri); }
+        else { showToast('Video listo.'); }
       } catch { setRecording(false); showToast('No se pudo detener.'); }
     }
-  }
-
-  function toggleFlash() {
-    // El torch depende del dispositivo/motor AR; se intenta de forma best-effort.
-    setFlashOn((v) => !v);
-    showToast(!flashOn ? 'Flash activado' : 'Flash apagado');
   }
 
   if (!session) {
@@ -120,8 +142,12 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
 
       <View style={styles.topBar} pointerEvents="box-none">
         <IconBtn icon="menu" onPress={onOpenSidebar} colors={colors} />
-        <View style={styles.hintWrap}><Text style={styles.hintText}>Apunta al marcador del libro</Text></View>
-        <IconBtn icon={flashOn ? 'flash-on' : 'flash-off'} onPress={toggleFlash} colors={colors} active={flashOn} />
+        <View style={styles.hintWrap}>
+          <Text style={styles.hintText}>{offline ? 'Sin conexión a internet' : 'Apunta al marcador del libro'}</Text>
+        </View>
+        {offline
+          ? <View style={styles.iconBtn}><MaterialIcons name="wifi-off" size={22} color="#F2C14E" /></View>
+          : <View style={{ width: 44 }} />}
       </View>
 
       {recording && (
