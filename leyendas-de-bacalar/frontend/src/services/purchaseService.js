@@ -21,6 +21,18 @@ export async function getActiveProducts() {
   return { data: data ?? [], error };
 }
 
+// Producto comprable asociado a una leyenda (para "Comprar libro"). Prefiere un
+// producto de libro físico; si no hay, cae al producto de la leyenda (p. ej. digital).
+// Devuelve { data: product|null, error }.
+export async function getLegendProduct(legendId) {
+  if (!legendId) return { data: null, error: null };
+  const { data, error } = await getActiveProducts();
+  if (error) return { data: null, error };
+  const forLegend = (data ?? []).filter((product) => String(product.legend_id) === String(legendId));
+  const physical = forLegend.find((product) => /physical|book|libro|edition/i.test(product.product_type || ''));
+  return { data: physical || forLegend[0] || null, error: null };
+}
+
 export async function buyProduct(productId, checkoutSnapshot = {}, cardLastFour = '4242') {
   const { data: client, error: clientError } = getClient();
   if (clientError) return { data: null, error: clientError };

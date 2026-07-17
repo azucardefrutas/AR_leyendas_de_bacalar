@@ -202,6 +202,7 @@ function LegendDetailPage() {
 
       {activationOpen && (
         <PhysicalBookActivationModal
+          legend={{ id: legend.id, title: legend.title }}
           onClose={() => setActivationOpen(false)}
           onRedeemed={refreshAccess}
         />

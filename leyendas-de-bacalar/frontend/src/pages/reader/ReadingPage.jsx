@@ -241,7 +241,11 @@ function ReadingPage() {
       </div>
 
       {activationOpen && (
-        <PhysicalBookActivationModal onClose={() => setActivationOpen(false)} onRedeemed={loadReader} />
+        <PhysicalBookActivationModal
+          legend={{ id: legend?.id, title: legend?.title }}
+          onClose={() => setActivationOpen(false)}
+          onRedeemed={loadReader}
+        />
       )}
 
       {sceneModal && (
