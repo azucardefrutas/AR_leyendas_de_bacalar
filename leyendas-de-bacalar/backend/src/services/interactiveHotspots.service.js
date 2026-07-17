@@ -120,10 +120,10 @@ const assertSceneInLegend = async (legendId, sceneId) => {
   throw new HotspotError('AR scene does not belong to this legend.', 400);
 };
 
-const assertAssetInLegend = async (legendId, assetId) => {
+const assertAssetInLegend = async (legendId, assetId, expectedType = null) => {
   const { data: asset, error } = await supabaseAdmin
     .from('assets')
-    .select('id, metadata')
+    .select('id, asset_type, metadata')
     .eq('id', assetId)
     .maybeSingle();
   if (error) throw new HotspotError('Could not validate asset.', 500, { reason: error.message });
@@ -132,6 +132,10 @@ const assertAssetInLegend = async (legendId, assetId) => {
   if (assetLegendId && String(assetLegendId) !== String(legendId)) {
     throw new HotspotError('Asset does not belong to this legend.', 400);
   }
+  if (expectedType && asset.asset_type !== expectedType) {
+    throw new HotspotError(`Asset must be of type ${expectedType}.`, 400);
+  }
+  return asset;
 };
 
 const buildHotspotInput = async ({ legendId, payload = {}, roles, requireTarget }) => {
@@ -565,8 +569,9 @@ export const createPhysicalMarker = async ({ legendId, userId, roles, payload = 
   const modelAssetId = payload.model_asset_id;
   if (!markerAssetId) throw new HotspotError('marker_asset_id is required.', 400);
   if (!modelAssetId) throw new HotspotError('model_asset_id is required.', 400);
-  await assertAssetInLegend(legendId, markerAssetId);
-  await assertAssetInLegend(legendId, modelAssetId);
+  // Validamos tipo: un archivo intercambiado (modelo<->marcador) crearia una escena rota.
+  await assertAssetInLegend(legendId, markerAssetId, 'marker_image');
+  await assertAssetInLegend(legendId, modelAssetId, 'model_3d');
 
   // Unicidad: un marcador se vincula a un solo modelo por leyenda.
   const { data: clash, error: clashError } = await supabaseAdmin
