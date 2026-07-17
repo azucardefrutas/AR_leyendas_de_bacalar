@@ -12,6 +12,7 @@ import {
   getEditorDataBackend,
   saveEditorPagesBackend,
   updateLegendGeneralBackend,
+  updateLegendProductBackend,
 } from './backendApiService.js';
 
 // The backend is the preferred write path for creators, but the direct Supabase
@@ -1259,6 +1260,18 @@ export async function updateLegendGeneralData(legendId, payload) {
     }
   }
   return updateLegendDraft(legendId, payload);
+}
+
+// Set the legend's purchase price (upserts/deactivates the digital_legend product).
+// Backend-only (service-role); needs the backend deployed. Best-effort: a failure does
+// not block the metadata save — the price just is not updated.
+export async function setLegendPrice(legendId, price) {
+  try {
+    const response = await updateLegendProductBackend(legendId, price);
+    return { data: response?.product ?? null, error: null };
+  } catch (backendError) {
+    return { data: null, error: friendlyLegendError(backendError?.message || 'No pudimos guardar el precio.') };
+  }
 }
 
 export async function getCreatorLegends({ limit = CREATOR_LEGENDS_DEFAULT_LIMIT } = {}) {

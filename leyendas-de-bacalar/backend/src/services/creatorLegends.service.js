@@ -351,6 +351,62 @@ export async function updateLegendGeneral({ legendId, userId, roles, payload = {
   return { legend: updated, genres };
 }
 
+// Access types that can carry a one-time purchase price (the creator sets the price).
+const PURCHASABLE_ACCESS = ['paid', 'mixed'];
+
+// The legend's digital purchase product. Fetched for the editor (to prefill the price).
+async function getLegendDigitalProduct(legendId) {
+  const { data } = await supabaseAdmin
+    .from('products')
+    .select('id, name, price, currency, status, product_type, legend_id')
+    .eq('legend_id', legendId)
+    .eq('product_type', 'digital_legend')
+    .maybeSingle();
+  return data ?? null;
+}
+
+// Upsert the legend's "buy to unlock" product so a reader can purchase access. Buying it
+// runs process_simulated_product_purchase -> grant_legend_access (unlocks directly). A
+// non-purchasable access_type or a price <= 0 deactivates the product. Ownership is
+// validated the same way as the rest of the creator flow (getLegendAccessContext).
+export async function upsertLegendProduct({ legendId, userId, roles, price }) {
+  const { legend } = await getLegendAccessContext({ legendId, userId, roles });
+  const numericPrice = Math.round(Number(price) * 100) / 100;
+  const purchasable = PURCHASABLE_ACCESS.includes(String(legend.access_type))
+    && Number.isFinite(numericPrice) && numericPrice > 0;
+  const existing = await getLegendDigitalProduct(legendId);
+
+  if (!purchasable) {
+    if (existing && existing.status === 'active') {
+      await supabaseAdmin
+        .from('products')
+        .update({ status: 'inactive', updated_at: new Date().toISOString() })
+        .eq('id', existing.id);
+    }
+    return { product: null };
+  }
+
+  const row = {
+    name: `${legend.title} — Acceso digital`,
+    description: `Compra digital simulada de la leyenda ${legend.title}.`,
+    price: numericPrice,
+    currency: 'MXN',
+    legend_id: legendId,
+    product_type: 'digital_legend',
+    status: 'active',
+    updated_at: new Date().toISOString(),
+  };
+
+  if (existing) {
+    const { data, error } = await supabaseAdmin.from('products').update(row).eq('id', existing.id).select('*').single();
+    if (error) throw new CreatorLegendError('No pudimos actualizar el precio.', 500);
+    return { product: data };
+  }
+  const { data, error } = await supabaseAdmin.from('products').insert(row).select('*').single();
+  if (error) throw new CreatorLegendError('No pudimos crear el producto.', 500);
+  return { product: data };
+}
+
 // ---- B1: full editor load (legend + version + pages + genres + resources) ----
 
 async function hydrateWithAssets(rows) {
@@ -457,12 +513,14 @@ export async function getEditorData({ legendId, userId, roles }) {
   const genresMap = await genresByLegend([legendId]);
   const genres = genresMap.get(legendId) || [];
   const resources = await loadLegendResources(legendId);
+  const product = await getLegendDigitalProduct(legendId);
 
   return {
     legend,
     version,
     pages,
     genres,
+    product,
     media: resources.media,
     sourceDocuments: resources.documents,
     modelAssets: resources.modelAssets,

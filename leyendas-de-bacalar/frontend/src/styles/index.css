@@ -16334,6 +16334,38 @@ table {
   .gesture-ar__onboard-card li .gesture-ar__emoji { animation: none; }
 }
 
+/* Barrita de precio del creador (leyendas de pago / mixtas) */
+.legend-price-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+.legend-price-input > span { font-weight: 900; color: #0f766e; font-size: 1.05rem; }
+.legend-price-input > em { font-style: normal; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.04em; color: #64748b; }
+
+.legend-price-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 13px 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f2b2b;
+  outline: none;
+}
+
+.legend-price-input:focus-within {
+  border-color: #0f766e;
+  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.16);
+}
+
 /* ---- Marcadores para la app (libro físico) ---------------------------------- */
 .pm-head h1 { margin: 2px 0 8px; }
 

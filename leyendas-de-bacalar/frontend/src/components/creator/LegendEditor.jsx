@@ -14,6 +14,7 @@ import {
   getLegendDisplayStatus,
   getLegendEditorData,
   saveLegendPages,
+  setLegendPrice,
   submitLegendForReview,
   updateLegendGeneralData,
   validateReadyForReview,
@@ -126,6 +127,7 @@ function getInitialForm() {
     age_rating: 'general',
     access_type: 'free',
     is_featured: false,
+    price: '',
   };
 }
 
@@ -476,6 +478,7 @@ function LegendEditor({ legendId }) {
         age_rating: data.legend.age_rating || 'general',
         access_type: data.legend.access_type || 'free',
         is_featured: Boolean(data.legend.is_featured),
+        price: data.product?.price != null ? String(data.product.price) : '',
       });
       const loadedPages = data.pages.length
         ? data.pages.map((page) => ({
@@ -629,6 +632,10 @@ function LegendEditor({ legendId }) {
     }
 
     setLegend(data);
+    // Persist the purchase price (upserts/deactivates the product). Best-effort so a
+    // price failure never blocks the metadata save. Needs the backend deployed.
+    const { error: priceError } = await setLegendPrice(legend.id, Number(form.price) || 0);
+    if (priceError && import.meta.env.DEV) console.error('[CreatorModule] price save error', priceError);
     setMessage('Datos generales guardados.');
     return true;
   }
@@ -993,6 +1000,27 @@ function LegendEditor({ legendId }) {
                 {accessTypeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </label>
+            {['paid', 'mixed'].includes(form.access_type) && (
+              <label className="field" htmlFor="legend-price">
+                <span>Precio de compra</span>
+                <div className="legend-price-input">
+                  <span aria-hidden="true">$</span>
+                  <input
+                    id="legend-price"
+                    type="number"
+                    min="0"
+                    step="1"
+                    inputMode="decimal"
+                    value={form.price}
+                    onChange={(event) => updateField('price', event.target.value)}
+                    placeholder="0"
+                    disabled={isReviewLocked}
+                  />
+                  <em aria-hidden="true">MXN</em>
+                </div>
+                <small className="creator-muted">El lector paga este precio para desbloquear la leyenda. Déjalo en 0 para quitar la compra.</small>
+              </label>
+            )}
             <div className="creator-section-block form-span-2">
               <h3>Generos editoriales</h3>
               {genresLoading ? (

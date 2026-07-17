@@ -7,6 +7,7 @@ import {
   duplicateLegend,
   getEditorData,
   updateLegendGeneral,
+  upsertLegendProduct,
 } from '../services/creatorLegends.service.js';
 
 const router = Router();
@@ -34,6 +35,22 @@ router.patch('/:legendId', requireCreatorOrAdmin, async (req, res, next) => {
       userId: req.user.id,
       roles: req.user.roles,
       payload: req.body?.legend ?? req.body ?? {},
+    });
+    res.json({ ok: true, ...result });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Set the legend's purchase price (upserts a digital_legend product). Price <= 0 or a
+// non-purchasable access_type deactivates it. Buying it unlocks the legend directly.
+router.put('/:legendId/product', requireCreatorOrAdmin, async (req, res, next) => {
+  try {
+    const result = await upsertLegendProduct({
+      legendId: req.params.legendId,
+      userId: req.user.id,
+      roles: req.user.roles,
+      price: req.body?.price,
     });
     res.json({ ok: true, ...result });
   } catch (error) {

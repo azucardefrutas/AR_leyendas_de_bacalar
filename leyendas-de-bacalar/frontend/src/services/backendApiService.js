@@ -275,6 +275,14 @@ export function updateLegendGeneralBackend(legendId, legend) {
   });
 }
 
+export function updateLegendProductBackend(legendId, price) {
+  return requestBackend(`/api/v1/legends/${encodeURIComponent(legendId)}/product`, {
+    method: 'PUT',
+    operation: 'update-legend-product',
+    body: { price },
+  });
+}
+
 export function duplicateLegendBackend(legendId) {
   return requestBackend(`/api/v1/legends/${encodeURIComponent(legendId)}/duplicate`, {
     method: 'POST',

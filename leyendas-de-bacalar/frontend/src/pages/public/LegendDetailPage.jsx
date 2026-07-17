@@ -6,6 +6,8 @@ import LockedPreview from '../../components/legend/LockedPreview.jsx';
 import GlassButton from '../../components/ui/GlassButton.jsx';
 import StoryActions from '../../components/ui/StoryActions.jsx';
 import PhysicalBookActivationModal from '../../components/reader/PhysicalBookActivationModal.jsx';
+import CheckoutModal from '../../components/reader/experience/CheckoutModal.jsx';
+import { getLegendProduct, buyProduct } from '../../services/purchaseService.js';
 import EmptyState from '../../components/ui/EmptyState.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
 import { useAuth } from '../../hooks/useAuth.js';
@@ -53,6 +55,8 @@ function LegendDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [activationOpen, setActivationOpen] = useState(false);
+  const [checkoutOpen, setCheckoutOpen] = useState(false);
+  const [product, setProduct] = useState(null);
   const [actionMessage, setActionMessage] = useState(null);
   const [bookModels, setBookModels] = useState([]);
 
@@ -101,6 +105,14 @@ function LegendDetailPage() {
     return () => { cancelled = true; };
   }, [legend?.id]);
 
+  // Producto comprable de la leyenda (para el botón de compra en leyendas de pago).
+  useEffect(() => {
+    if (!legend?.id) { setProduct(null); return undefined; }
+    let active = true;
+    getLegendProduct(legend.id).then(({ data }) => { if (active) setProduct(data || null); });
+    return () => { active = false; };
+  }, [legend?.id]);
+
   if (loading) return <LoadingState message="Cargando detalle..." />;
   if (error) return <EmptyState title="Leyenda no disponible" message={error.message} />;
 
@@ -135,7 +147,18 @@ function LegendDetailPage() {
       setActivationOpen(true);
       return;
     }
+    if (accessType === 'paid') {
+      if (product) { setCheckoutOpen(true); return; }
+      setActionMessage('La compra de esta leyenda aun no esta disponible. El autor debe asignarle un precio.');
+      return;
+    }
     setActionMessage('Para desbloquear esta leyenda se habilitaran opciones de acceso desde tu cuenta.');
+  }
+
+  async function handleConfirmPurchase(lastFour, snapshot) {
+    const result = await buyProduct(product.id, { ...snapshot, legend_id: legend.id }, lastFour);
+    if (!result.error) await refreshAccess();
+    return result;
   }
 
   const heroActions = (
@@ -205,6 +228,18 @@ function LegendDetailPage() {
           legend={{ id: legend.id, title: legend.title }}
           onClose={() => setActivationOpen(false)}
           onRedeemed={refreshAccess}
+        />
+      )}
+
+      {checkoutOpen && product && (
+        <CheckoutModal
+          open={checkoutOpen}
+          title="Comprar leyenda"
+          subtitle={legend.title}
+          item={{ id: product.id, name: product.name, price: product.price, currency: product.currency }}
+          ctaLabel="Comprar"
+          onClose={() => setCheckoutOpen(false)}
+          onConfirm={handleConfirmPurchase}
         />
       )}
     </section>
