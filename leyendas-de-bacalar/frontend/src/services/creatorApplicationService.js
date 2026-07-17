@@ -47,8 +47,22 @@ function friendlyCreatorApplicationError(error, { context = 'general', code = nu
   if (message.includes('confirmar tu correo')) {
     return new Error('Debes confirmar tu correo antes de continuar como creador.');
   }
-  if (context === 'confirm' && (message.includes('enlace') || message.includes('Token') || message.includes('token'))) {
-    return new Error('El enlace de confirmacion no es valido o expiro.');
+  if (context === 'confirm') {
+    // Surface the specific reason from the RPC so the user knows exactly what to do,
+    // instead of a generic "no es valido o expiro". The most common case is clicking an
+    // older confirmation email: each resend invalidates the previous link.
+    if (message.includes('ya fue utilizado')) {
+      return new Error('Este enlace ya fue utilizado. Reenviar el correo invalida los enlaces anteriores: abre el correo MAS RECIENTE, o reenvia y usa ese.');
+    }
+    if (message.includes('no corresponde a tu cuenta')) {
+      return new Error('Este enlace es de otra cuenta. Inicia sesion con la MISMA cuenta que lleno el formulario y vuelve a abrir el enlace.');
+    }
+    if (message.includes('expir')) {
+      return new Error('El enlace de confirmacion expiro. Reenvia el correo para obtener uno nuevo.');
+    }
+    if (message.includes('enlace') || message.includes('Token') || message.includes('token')) {
+      return new Error('El enlace de confirmacion no es valido. Reenvia el correo para obtener uno nuevo.');
+    }
   }
   if (message.includes('terminos') || message.includes('privacidad') || message.includes('autoria')) {
     return new Error('Debes aceptar los terminos, el aviso de privacidad y la declaracion de autoria.');
