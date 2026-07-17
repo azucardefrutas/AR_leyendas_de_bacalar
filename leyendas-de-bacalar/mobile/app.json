@@ -11,7 +11,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "mx.bacalar.leyendasar",
       "infoPlist": {
-        "NSCameraUsageDescription": "La camara se usa para escanear los marcadores y ver los modelos en realidad aumentada."
+        "NSCameraUsageDescription": "La camara se usa para escanear los marcadores y ver los modelos en realidad aumentada.",
+        "NSPhotoLibraryUsageDescription": "Allow $(PRODUCT_NAME) to access your photos",
+        "NSPhotoLibraryAddUsageDescription": "Allow $(PRODUCT_NAME) to save photos",
+        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to use your microphone"
       }
     },
     "android": {
@@ -22,7 +25,13 @@
         "android.permission.INTERNET",
         "android.permission.ACCESS_NETWORK_STATE",
         "android.permission.ACCESS_WIFI_STATE",
-        "android.permission.VIBRATE"
+        "android.permission.VIBRATE",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#0B2A33",
@@ -53,8 +62,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "3cdf3673-7e0f-4e0d-9ab2-85cda87ccb20"
+        "projectId": "7f0ae9fd-0f82-4ff6-8d5f-b01ad6118d22"
       }
-    }
+    },
+    "owner": "tonyhuh1"
   }
 }

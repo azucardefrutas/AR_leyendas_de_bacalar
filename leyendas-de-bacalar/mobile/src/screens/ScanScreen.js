@@ -130,11 +130,10 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
   if (loading) {
     return <View style={[styles.centerFill, { backgroundColor: colors.bg }]}><ActivityIndicator color={colors.primary} size="large" /></View>;
   }
-  if (scenes.length === 0) {
-    return <Gate colors={colors} onOpenSidebar={onOpenSidebar} icon="view-in-ar"
-      title={loadError || 'Sin marcadores'}
-      text={loadError ? 'Revisa tu conexión e intenta de nuevo.' : 'Tu cuenta todavía no tiene marcadores AR publicados.'} />;
-  }
+
+  // La cámara AR se muestra SIEMPRE (con sesión + permiso), aun sin marcadores
+  // publicados. Si no hay, se avisa encima pero la cámara sigue viva.
+  const hasScenes = scenes.length > 0;
 
   return (
     <View style={styles.container}>
@@ -150,6 +149,20 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
           : <View style={{ width: 44 }} />}
       </View>
 
+      {!hasScenes && (
+        <View style={styles.noMarkers} pointerEvents="none">
+          <View style={styles.noMarkersCard}>
+            <MaterialIcons name={loadError ? 'wifi-off' : 'qr-code-2'} size={40} color="#EAF9FB" />
+            <Text style={styles.noMarkersTitle}>{loadError ? 'Sin conexión' : 'Aún no hay marcadores'}</Text>
+            <Text style={styles.noMarkersText}>
+              {loadError
+                ? 'Revisa tu internet para cargar tus marcadores.'
+                : 'Publica un par marcador ↔ modelo desde la web y aparecerá aquí para escanear.'}
+            </Text>
+          </View>
+        </View>
+      )}
+
       {recording && (
         <View style={styles.recBadge}><View style={styles.recDot} /><Text style={styles.recTxt}>REC</Text></View>
       )}
@@ -157,7 +170,9 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
       <View style={styles.dock} pointerEvents="box-none">
         <ActionBtn icon={recording ? 'stop' : 'videocam'} label={recording ? 'Detener' : 'Grabar'} onPress={toggleRecord} colors={colors} danger={recording} />
         <Shutter onPress={capture} colors={colors} />
-        <ActionBtn icon="view-in-ar" label="Modelos" onPress={() => setPickerOpen(true)} colors={colors} />
+        {hasScenes
+          ? <ActionBtn icon="view-in-ar" label="Modelos" onPress={() => setPickerOpen(true)} colors={colors} />
+          : <View style={{ width: 78 }} />}
       </View>
 
       {!!toast && <View style={styles.toast}><Text style={styles.toastText}>{toast}</Text></View>}
@@ -241,6 +256,10 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   viro: { flex: 1 },
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  noMarkers: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: 32 },
+  noMarkersCard: { alignItems: 'center', gap: 8, backgroundColor: 'rgba(0,52,59,0.62)', borderRadius: 20, padding: 22, maxWidth: 300 },
+  noMarkersTitle: { color: '#EAF9FB', fontSize: 17, fontWeight: '700' },
+  noMarkersText: { color: 'rgba(234,249,251,0.82)', fontSize: 13.5, textAlign: 'center', lineHeight: 19 },
   topBar: { position: 'absolute', top: 46, left: 14, right: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
   hintWrap: { flex: 1, alignItems: 'center' },
   hintText: { color: '#fff', fontSize: 12.5, backgroundColor: 'rgba(0,52,59,0.5)', paddingVertical: 6, paddingHorizontal: 14, borderRadius: 999, overflow: 'hidden' },

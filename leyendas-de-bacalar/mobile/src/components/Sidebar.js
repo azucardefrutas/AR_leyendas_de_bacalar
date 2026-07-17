@@ -64,7 +64,7 @@ export default function Sidebar({ visible, onClose, current, onNavigate, session
         </View>
 
         <View style={styles.nav}>
-          <Item icon="qr-code-scanner" label="Escanear" active={current === 'scan'} onPress={() => go('scan')} colors={colors} />
+          <Item icon="photo-camera" label="Abrir cámara (escanear)" active={current === 'scan'} onPress={() => go('scan')} colors={colors} />
           <Item icon="view-in-ar" label="Modelos escaneados" active={current === 'history'} onPress={() => go('history')} colors={colors} />
         </View>
 
