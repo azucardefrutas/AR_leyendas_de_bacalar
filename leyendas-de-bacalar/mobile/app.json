@@ -4,7 +4,7 @@
     "slug": "leyendas-ar",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/app-icon.png",
+    "icon": "./assets/app-icon-fullbleed.png",
     "userInterfaceStyle": "light",
     "scheme": "leyendasar",
     "ios": {
@@ -34,8 +34,8 @@
         "android.permission.READ_MEDIA_AUDIO"
       ],
       "adaptiveIcon": {
-        "backgroundColor": "#0B2A33",
-        "foregroundImage": "./assets/app-icon.png"
+        "backgroundColor": "#146e86",
+        "foregroundImage": "./assets/app-icon-fullbleed.png"
       }
     },
     "web": {

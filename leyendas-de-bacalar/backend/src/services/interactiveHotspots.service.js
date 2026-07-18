@@ -17,7 +17,7 @@ const decorateModelAsset = (asset) => {
   }
   return { ...asset, bucket, url, public_url: url };
 };
-
+  
 class HotspotError extends Error {
   constructor(message, statusCode = 500, details = {}) {
     super(message);

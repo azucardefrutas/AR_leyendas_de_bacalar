@@ -70,7 +70,7 @@ export default function DownloadAppPage() {
               <div className="appdl-phone">
                 <span className="appdl-phone-notch" />
                 <div className="appdl-phone-screen">
-                  <span className="appdl-phone-mark"><AppIcon name="view_in_ar" size={54} /></span>
+                  <img className="appdl-phone-appicon" src="/app-icon.png" alt="Icono de Leyendas de Bacalar" />
                   <span className="appdl-phone-name">Leyendas de Bacalar</span>
                   <span className="appdl-phone-sub">Realidad aumentada</span>
                   <span className="appdl-phone-scan" />
