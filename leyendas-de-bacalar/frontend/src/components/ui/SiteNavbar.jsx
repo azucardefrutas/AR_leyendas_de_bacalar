@@ -45,6 +45,7 @@ function SiteNavbar() {
     { to: '/', label: 'Inicio', icon: 'home', end: true },
     { to: '/reader/library', label: 'Estanteria', icon: 'shelves' },
     { to: '/catalog', label: 'Biblioteca', icon: 'local_library' },
+    { to: '/descargar', label: 'Descargar app', icon: 'download_for_offline' },
     { to: creatorPath, label: 'Creador', icon: 'edit_square' },
     ...(isAuthenticated ? [{ to: '/reader/redeem', label: 'Canjear codigo', icon: 'redeem' }] : []),
     ...(isAdmin ? [{ to: '/admin', label: 'Admin', icon: 'admin_panel_settings' }] : []),
@@ -76,7 +77,10 @@ function SiteNavbar() {
         </nav>
 
         <div className="header-extras">
-          <div className="site-social" aria-label="Redes de la UPB Bacalar">
+          <div className="site-social" aria-label="Recursos y redes">
+            <NavLink to="/descargar" className="site-download-link" aria-label="Descargar la app móvil" title="Descargar la app móvil">
+              <span className="material-symbols-rounded" aria-hidden="true">download_for_offline</span>
+            </NavLink>
             <a href="https://www.upb.edu.mx/" target="_blank" rel="noreferrer noopener" aria-label="Sitio web UPB" title="Sitio web UPB">
               <span className="material-symbols-rounded" aria-hidden="true">language</span>
             </a>
