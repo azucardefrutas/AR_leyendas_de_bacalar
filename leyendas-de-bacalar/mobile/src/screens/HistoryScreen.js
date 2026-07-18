@@ -7,14 +7,15 @@ import { BrandText } from '../components/Brand.js';
 import { getScanHistory, clearScanHistory } from '../lib/scanHistory.js';
 import { openFloorAr } from '../lib/sceneViewer.js';
 
-export default function HistoryScreen({ onOpenSidebar }) {
+export default function HistoryScreen({ session, onOpenSidebar }) {
   const { colors } = useTheme();
+  const uid = session?.user?.id;
   const [items, setItems] = useState([]);
 
-  const load = useCallback(async () => { setItems(await getScanHistory()); }, []);
+  const load = useCallback(async () => { setItems(await getScanHistory(uid)); }, [uid]);
   useEffect(() => { load(); }, [load]);
 
-  async function handleClear() { await clearScanHistory(); load(); }
+  async function handleClear() { await clearScanHistory(uid); load(); }
 
   return (
     <View style={{ flex: 1 }}>

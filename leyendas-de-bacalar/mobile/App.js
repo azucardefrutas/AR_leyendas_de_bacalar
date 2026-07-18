@@ -35,7 +35,7 @@ function Root() {
       case 'login':
         return <LoginScreen onClose={() => setScreen('scan')} onLoggedIn={() => setScreen('scan')} />;
       case 'history':
-        return <HistoryScreen onOpenSidebar={() => setSidebarOpen(true)} />;
+        return <HistoryScreen session={session} onOpenSidebar={() => setSidebarOpen(true)} />;
       case 'scan':
       default:
         return (

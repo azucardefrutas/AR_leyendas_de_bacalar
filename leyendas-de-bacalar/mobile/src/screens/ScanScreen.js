@@ -12,11 +12,12 @@ import ArScene from './ArScene.js';
 import { useTheme } from '../theme.js';
 import { BrandText } from '../components/Brand.js';
 import { fetchArScenes } from '../lib/arScenes.js';
-import { recordScan } from '../lib/scanHistory.js';
+import { recordScan, getScanHistory } from '../lib/scanHistory.js';
 import { openFloorAr } from '../lib/sceneViewer.js';
 
 export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
   const { colors } = useTheme();
+  const uid = session?.user?.id;
   const navRef = useRef(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [scenes, setScenes] = useState([]);
@@ -26,6 +27,7 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [recording, setRecording] = useState(false);
   const [offline, setOffline] = useState(false);
+  const [scanned, setScanned] = useState([]); // colección local del lector (por cuenta)
   const toastTimer = useRef(null);
 
   useEffect(() => {
@@ -48,6 +50,13 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
     })();
     return () => { cancelled = true; };
   }, [session]);
+
+  // Colección local del lector: SOLO los modelos que ÉL escaneó, separada por cuenta.
+  useEffect(() => {
+    let active = true;
+    getScanHistory(uid).then((h) => { if (active) setScanned(h); });
+    return () => { active = false; };
+  }, [uid]);
 
   const showToast = useCallback((m) => {
     setToast(m);
@@ -76,9 +85,10 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
 
   const onFound = useCallback((scene) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    recordScan(scene);
+    // Guarda el modelo en la colección de ESTA cuenta y refresca la lista al vuelo.
+    recordScan(uid, scene).then(setScanned).catch(() => {});
     showToast(`Escaneado: ${scene.name || 'modelo'}`);
-  }, [showToast]);
+  }, [uid, showToast]);
 
   const viroAppProps = useMemo(() => ({ scenes, onFound }), [scenes, onFound]);
 
@@ -170,8 +180,8 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
       <View style={styles.dock} pointerEvents="box-none">
         <ActionBtn icon={recording ? 'stop' : 'videocam'} label={recording ? 'Detener' : 'Grabar'} onPress={toggleRecord} colors={colors} danger={recording} />
         <Shutter onPress={capture} colors={colors} />
-        {hasScenes
-          ? <ActionBtn icon="view-in-ar" label="Modelos" onPress={() => setPickerOpen(true)} colors={colors} />
+        {scanned.length > 0
+          ? <ActionBtn icon="view-in-ar" label="Mis modelos" onPress={() => setPickerOpen(true)} colors={colors} />
           : <View style={{ width: 78 }} />}
       </View>
 
@@ -182,7 +192,7 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
         <View style={[styles.sheet, { backgroundColor: colors.surfaceSolid }]}>
           <BrandText size={20} color={colors.text} style={{ marginBottom: 14 }}>VER UN MODELO EN EL PISO</BrandText>
           <FlatList
-            data={scenes}
+            data={scanned}
             keyExtractor={(s) => String(s.id)}
             contentContainerStyle={{ gap: 10, paddingBottom: 8 }}
             renderItem={({ item, index }) => (

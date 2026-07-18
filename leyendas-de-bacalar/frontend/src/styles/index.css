@@ -16707,23 +16707,59 @@ table {
   position: relative;
   overflow: hidden;
   color: #eaf7f8;
-  background: radial-gradient(115% 88% at 50% -12%, #0c5563, #073a48 52%, #052430);
-  padding: clamp(28px, 6vw, 72px) clamp(16px, 4vw, 48px) clamp(40px, 6vw, 80px);
+  /* Full-bleed: rompe el .page-container centrado para llegar a los dos bordes de la
+     pantalla y sentarse detras del navbar translucido (nada de "recuadro"). body ya
+     tiene overflow-x:hidden, asi que el 100vw no genera scroll horizontal. */
+  width: 100vw;
+  max-width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  margin-top: -108px;
+  border-radius: 0;
+  isolation: isolate;
+  padding: clamp(132px, 17vh, 190px) clamp(20px, 5vw, 60px) clamp(56px, 8vw, 104px);
+  background: radial-gradient(130% 100% at 50% -18%, #0e5f6e 0%, #08414f 34%, #052a36 62%, #041c26 100%);
 }
 
-.appdl-aurora {
+/* Capas de profundidad tipo cenote (brillos arriba, oscurece abajo) */
+.appdl-depth {
   position: absolute;
-  inset: -20% -10% auto -10%;
-  height: 70%;
+  inset: 0;
+  z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(42% 62% at 20% 26%, rgba(121, 219, 220, 0.32), transparent 70%),
-    radial-gradient(48% 68% at 84% 16%, rgba(109, 189, 230, 0.26), transparent 72%),
-    radial-gradient(40% 52% at 62% 6%, rgba(99, 162, 176, 0.20), transparent 70%);
-  filter: blur(22px);
+    radial-gradient(50% 42% at 18% 4%, rgba(121, 219, 220, 0.26), transparent 62%),
+    radial-gradient(48% 40% at 88% -2%, rgba(109, 189, 230, 0.22), transparent 64%),
+    radial-gradient(120% 70% at 50% 122%, rgba(3, 20, 27, 0.95), transparent 66%);
+}
+/* Motas de luz que ascienden (canvas ParticleField) */
+.appdl-particles {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+/* Vineta suave para enfocar el centro */
+.appdl-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(125% 90% at 50% 26%, transparent 52%, rgba(2, 13, 19, 0.6) 100%);
 }
 
-.appdl-inner { position: relative; max-width: 1120px; margin: 0 auto; }
+.appdl-inner { position: relative; z-index: 1; max-width: 1180px; margin: 0 auto; }
+
+@keyframes appdl-rise {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.appdl-rise {
+  animation: appdl-rise 0.72s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: var(--d, 0ms);
+}
 
 .appdl-badge {
   display: inline-flex;
@@ -16740,31 +16776,43 @@ table {
   border: 1px solid rgba(124, 240, 217, 0.28);
 }
 
-.appdl-hero-grid {
+.appdl-hero {
   display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
-  gap: clamp(24px, 4vw, 56px);
+  grid-template-columns: 1.12fr 0.88fr;
+  gap: clamp(28px, 5vw, 72px);
   align-items: center;
-  margin-top: 22px;
 }
 
-.appdl-hero-copy h1 {
-  margin: 0 0 14px;
-  font-size: clamp(2.2rem, 6vw, 3.7rem);
-  line-height: 1.02;
-  font-weight: 800;
-  letter-spacing: -0.02em;
+.appdl-title {
+  margin: 20px 0 18px;
+  font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+  font-optical-sizing: auto;
+  font-weight: 600;
+  font-size: clamp(2.7rem, 7.4vw, 4.7rem);
+  line-height: 0.97;
+  letter-spacing: -0.015em;
   text-wrap: balance;
+  color: #f3fbfb;
 }
-.appdl-hero-copy h1 span { display: block; color: #62d9c4; font-weight: 600; }
+.appdl-title em {
+  display: block;
+  font-style: italic;
+  font-weight: 500;
+  background: linear-gradient(100deg, #79dbdc, #6dbde6 52%, #a5f2f3);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
 
-.appdl-hero-copy > p {
-  margin: 0 0 26px;
-  max-width: 46ch;
-  font-size: clamp(1rem, 2.4vw, 1.12rem);
-  line-height: 1.6;
-  color: rgba(224, 240, 255, 0.82);
+.appdl-lead {
+  margin: 0 0 30px;
+  max-width: 48ch;
+  font-size: clamp(1.02rem, 2.2vw, 1.16rem);
+  line-height: 1.66;
+  color: rgba(220, 240, 246, 0.8);
 }
+.appdl-lead strong { color: #a5f2f3; font-weight: 600; }
 
 .appdl-cta { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
 
@@ -16781,7 +16829,8 @@ table {
   transition: transform 180ms ease, box-shadow 180ms ease;
 }
 .appdl-download:hover { transform: translateY(-2px); box-shadow: 0 24px 52px rgba(28, 189, 200, 0.5); }
-.appdl-download span { display: flex; flex-direction: column; line-height: 1.15; text-align: left; }
+.appdl-download-ico { display: inline-flex; }
+.appdl-download-txt { display: flex; flex-direction: column; line-height: 1.15; text-align: left; }
 .appdl-download strong { font-size: 1.06rem; font-weight: 800; }
 .appdl-download em { font-style: normal; font-size: 0.78rem; opacity: 0.75; }
 
@@ -16820,119 +16869,148 @@ table {
   color: rgba(224, 240, 255, 0.55);
 }
 
-/* Phone mockup */
-.appdl-device { display: grid; place-items: center; }
+/* Telefono flotante con halo luminoso */
+.appdl-device { position: relative; display: grid; place-items: center; }
+.appdl-phone-halo {
+  position: absolute;
+  z-index: 0;
+  left: 50%; top: 50%;
+  width: 130%; height: 130%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  background: radial-gradient(circle, rgba(121, 219, 220, 0.3), transparent 60%);
+  filter: blur(34px);
+}
 .appdl-phone {
   position: relative;
-  width: min(248px, 72vw);
+  z-index: 1;
+  width: min(256px, 74vw);
   aspect-ratio: 9 / 19;
-  border-radius: 38px;
+  border-radius: 40px;
   padding: 12px;
-  background: linear-gradient(160deg, #12333d, #081a22);
-  border: 1px solid rgba(124, 240, 217, 0.22);
-  box-shadow: 0 40px 90px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+  background: linear-gradient(160deg, #143a44, #081a22);
+  border: 1px solid rgba(121, 219, 220, 0.24);
+  box-shadow: 0 46px 100px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  animation: appdl-float 6s ease-in-out infinite;
+}
+@keyframes appdl-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
 }
 .appdl-phone-notch {
   position: absolute;
-  top: 14px; left: 50%;
+  top: 15px; left: 50%;
   transform: translateX(-50%);
-  width: 74px; height: 7px;
+  width: 78px; height: 7px;
   border-radius: 999px;
   background: rgba(0, 0, 0, 0.5);
+  z-index: 2;
 }
 .appdl-phone-screen {
   position: relative;
   height: 100%;
-  border-radius: 28px;
+  border-radius: 30px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   overflow: hidden;
-  background: radial-gradient(120% 80% at 50% 20%, #0f4d50, #061a22 70%);
-}
-.appdl-phone-mark {
-  display: grid; place-items: center;
-  width: 92px; height: 92px;
-  border-radius: 26px;
-  color: #04121a;
-  background: linear-gradient(140deg, #4ff0cf, #2bd3f5);
-  box-shadow: 0 14px 30px rgba(28, 189, 200, 0.45), inset 2px 2px 5px rgba(255, 255, 255, 0.45);
+  background: radial-gradient(120% 80% at 50% 18%, #10545a, #061a22 72%);
 }
 .appdl-phone-appicon {
-  width: 96px; height: 96px;
-  border-radius: 24px;
+  width: 104px; height: 104px;
+  border-radius: 26px;
   object-fit: cover;
-  box-shadow: 0 18px 38px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 0 34px rgba(121, 219, 220, 0.35);
+  box-shadow: 0 20px 42px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 44px rgba(121, 219, 220, 0.4);
 }
-.appdl-phone-name { font-weight: 800; font-size: 0.98rem; }
-.appdl-phone-sub { font-size: 0.74rem; color: #7cf0d9; letter-spacing: 0.05em; text-transform: uppercase; }
+.appdl-phone-name { font-weight: 800; font-size: 1rem; letter-spacing: 0.01em; }
+.appdl-phone-sub { font-size: 0.72rem; color: #a5f2f3; letter-spacing: 0.14em; text-transform: uppercase; }
 .appdl-phone-scan {
   position: absolute;
-  left: 16%; right: 16%; height: 2px;
-  background: linear-gradient(90deg, transparent, #4ff0cf, transparent);
-  box-shadow: 0 0 14px #4ff0cf;
-  animation: appdl-scan 3.4s ease-in-out infinite;
+  left: 14%; right: 14%; height: 2px;
+  background: linear-gradient(90deg, transparent, #a5f2f3, transparent);
+  box-shadow: 0 0 16px #79dbdc;
+  animation: appdl-scan 3.6s ease-in-out infinite;
 }
 @keyframes appdl-scan {
-  0%, 100% { top: 26%; opacity: 0.25; }
-  50% { top: 74%; opacity: 1; }
+  0%, 100% { top: 24%; opacity: 0.25; }
+  50% { top: 76%; opacity: 1; }
 }
 
 .appdl-cols {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 18px;
-  margin-top: clamp(34px, 6vw, 64px);
+  gap: 20px;
+  margin-top: clamp(44px, 7vw, 80px);
 }
 
 .appdl-panel {
-  padding: 24px clamp(18px, 3vw, 28px);
+  padding: 28px clamp(20px, 3vw, 32px);
   border-radius: 22px;
-  background: rgba(8, 26, 34, 0.55);
-  border: 1px solid rgba(148, 197, 255, 0.14);
-  backdrop-filter: blur(10px);
+  background: linear-gradient(180deg, rgba(12, 44, 52, 0.5), rgba(6, 24, 32, 0.42));
+  border: 1px solid rgba(121, 219, 220, 0.14);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.26);
 }
-.appdl-panel h2 { margin: 0 0 16px; font-size: 1.12rem; font-weight: 800; }
+.appdl-panel h2 {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 0 0 20px;
+  font-size: 1.16rem;
+  font-weight: 800;
+  color: #eefafb;
+}
+.appdl-panel-kicker {
+  font-family: 'Fraunces', Georgia, serif;
+  font-style: italic;
+  font-weight: 500;
+  font-size: 1.05rem;
+  color: #79dbdc;
+}
 
-.appdl-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
-.appdl-steps li { display: flex; align-items: center; gap: 13px; }
+.appdl-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
+.appdl-steps li { display: flex; align-items: center; gap: 14px; }
 .appdl-step-num {
-  flex: none; width: 26px; height: 26px; display: grid; place-items: center;
+  flex: none; width: 27px; height: 27px; display: grid; place-items: center;
   border-radius: 999px; font-size: 0.8rem; font-weight: 800;
-  color: #04121a; background: #4ff0cf;
+  color: #04121a; background: linear-gradient(140deg, #a5f2f3, #79dbdc);
 }
 .appdl-step-icon, .appdl-feature-icon {
-  flex: none; width: 42px; height: 42px; display: grid; place-items: center;
-  border-radius: 12px; color: #7cf0d9; background: rgba(52, 211, 182, 0.12);
+  flex: none; width: 44px; height: 44px; display: grid; place-items: center;
+  border-radius: 13px; color: #a5f2f3; background: rgba(121, 219, 220, 0.12);
+  border: 1px solid rgba(121, 219, 220, 0.16);
 }
-.appdl-step-copy, .appdl-feature-copy { display: flex; flex-direction: column; gap: 1px; }
-.appdl-step-copy strong, .appdl-feature-copy strong { font-size: 0.92rem; }
-.appdl-step-copy em, .appdl-feature-copy em { font-style: normal; font-size: 0.8rem; color: rgba(224, 240, 255, 0.62); line-height: 1.35; }
+.appdl-step-copy, .appdl-feature-copy { display: flex; flex-direction: column; gap: 2px; }
+.appdl-step-copy strong, .appdl-feature-copy strong { font-size: 0.94rem; color: #eefafb; }
+.appdl-step-copy em, .appdl-feature-copy em { font-style: normal; font-size: 0.82rem; color: rgba(224, 240, 255, 0.6); line-height: 1.4; }
 
-.appdl-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 16px; }
-.appdl-features li { display: flex; align-items: center; gap: 13px; }
+.appdl-features { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 18px; }
+.appdl-features li { display: flex; align-items: center; gap: 14px; }
 
 .appdl-foot {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 26px;
-  margin-top: 30px;
+  gap: 12px 28px;
+  margin-top: 34px;
   font-size: 0.82rem;
   color: rgba(224, 240, 255, 0.5);
 }
-.appdl-foot span { display: inline-flex; align-items: center; gap: 7px; }
+.appdl-foot span { display: inline-flex; align-items: center; gap: 8px; }
 
 @media (max-width: 860px) {
-  .appdl-hero-grid { grid-template-columns: 1fr; }
-  .appdl-device { order: -1; margin-bottom: 6px; }
+  .appdl { padding-top: clamp(104px, 15vh, 150px); }
+  .appdl-hero { grid-template-columns: 1fr; gap: 28px; }
+  .appdl-device { order: -1; margin-bottom: 8px; }
   .appdl-cols { grid-template-columns: 1fr; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .appdl-phone-scan { animation: none; opacity: 0.6; top: 50%; }
+  .appdl-phone { animation: none; }
+  .appdl-rise { animation: none; }
 }
 
 /* Icono de descarga en el navbar: mismo tamano que las redes, con acento teal */
