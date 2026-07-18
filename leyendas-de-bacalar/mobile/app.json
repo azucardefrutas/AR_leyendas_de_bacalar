@@ -2,7 +2,7 @@
   "expo": {
     "name": "Leyendas AR",
     "slug": "leyendas-ar",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/app-icon-fullbleed.png",
     "userInterfaceStyle": "light",

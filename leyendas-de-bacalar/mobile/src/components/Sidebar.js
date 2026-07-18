@@ -91,7 +91,7 @@ export default function Sidebar({ visible, onClose, current, onNavigate, session
             </View>
           </Pressable>
 
-          <Text style={[styles.version, { color: colors.faint }]}>Leyendas de Bacalar · v1.0</Text>
+          <Text style={[styles.version, { color: colors.faint }]}>Leyendas de Bacalar · v1.1</Text>
         </View>
       </Animated.View>
     </View>

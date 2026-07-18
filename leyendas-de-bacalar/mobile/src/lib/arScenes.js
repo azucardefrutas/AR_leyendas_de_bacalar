@@ -1,9 +1,10 @@
 import { supabase } from './supabase.js';
 
-// Trae los modelos 3D + marcadores escaneables. Es el MISMO mapeo que el feed del
-// backend `getMobileArScenes` (mobileAr.service.js), pero client-side con el token
-// del usuario: RLS permite a un autenticado leer estas tablas, así que la app no
-// depende del backend. Solo contenido publicado.
+// Trae los modelos 3D + marcadores escaneables de LIBRO FÍSICO. Client-side con el
+// token del usuario (RLS permite a un autenticado leer estas tablas, así que la app no
+// depende del backend). Solo contenido publicado y SOLO `target_type='physical_edition'`:
+// la app de escaneo NO debe cruzarse con los hotspots del editor digital
+// (`source_document` / `legend_page`), que pertenecen a la experiencia web.
 export async function fetchArScenes() {
   const { data, error } = await supabase
     .from('interactive_hotspots')
@@ -13,7 +14,8 @@ export async function fetchArScenes() {
       marker:marker_asset_id(file_url),
       scene:ar_scene_id(name, scale, position, rotation, model:model_asset_id(file_url))
     `)
-    .eq('status', 'published');
+    .eq('status', 'published')
+    .eq('target_type', 'physical_edition');
 
   if (error) throw error;
 
