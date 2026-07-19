@@ -3,7 +3,10 @@ import { supabaseAdmin } from '../config/supabaseAdmin.js';
 // Feed de solo lectura para la app movil AR: por cada hotspot publicado devuelve el
 // marcador (imagen) + el modelo 3D (url + transformaciones) + la leyenda. NO duplica
 // datos: lee las tablas AR existentes (interactive_hotspots -> ar_scenes/assets), asi
-// siempre esta sincronizado. Solo expone contenido publicado (leyenda + hotspot).
+// siempre esta sincronizado. Solo expone contenido publicado (leyenda + hotspot) y SOLO
+// marcadores de LIBRO FISICO (target_type='physical_edition'): la app de escaneo no debe
+// cruzarse con los hotspots del editor digital (source_document / legend_page). Debe
+// coincidir con el filtro del cliente directo (mobile/src/lib/arScenes.js).
 export async function getMobileArScenes() {
   const { data, error } = await supabaseAdmin
     .from('interactive_hotspots')
@@ -16,6 +19,7 @@ export async function getMobileArScenes() {
       scene:ar_scene_id(name, scale, position, rotation, model:model_asset_id(file_url))
     `)
     .eq('status', 'published')
+    .eq('target_type', 'physical_edition')
     .order('created_at', { ascending: true });
 
   if (error) {

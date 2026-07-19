@@ -211,6 +211,12 @@ async function getDatabaseShowcaseModels(client) {
     if (!modelUrl) continue;
     const modelKey = getModelKeyFromAsset(asset, modelUrl);
     const localMatch = LOCAL_MODEL_LOOKUP.get(modelKey);
+    // Curacion del home: el showcase publico SOLO muestra los modelos OFICIALES del
+    // proyecto (los GLB del landing intro / LOCAL_SHOWCASE_MODELS). Los modelos que un
+    // creador sube a sus leyendas —incluidas leyendas de PRUEBA publicadas (Los Baymen,
+    // etc.)— NO deben colarse al carrusel. Para agregar un modelo real al home en el
+    // futuro, se anade a LOCAL_SHOWCASE_MODELS (arriba).
+    if (!localMatch) continue;
     const rawName = asset.metadata?.display_name || asset.metadata?.original_name || getStoredFileName(asset.storage_path);
 
     items.push(
