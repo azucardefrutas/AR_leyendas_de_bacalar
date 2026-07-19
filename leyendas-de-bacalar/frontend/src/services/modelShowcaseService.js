@@ -79,6 +79,17 @@ const LOCAL_MODEL_LOOKUP = new Map(
   ]),
 );
 
+// Orden curado fijo del carrusel = el orden de LOCAL_SHOWCASE_MODELS (UPB siempre al
+// final), sin importar si un modelo llego desde la DB o desde el fallback local.
+const LOCAL_ORDER = new Map(
+  LOCAL_SHOWCASE_MODELS.map((model, index) => [normalizeModelKey(model.modelPath), index]),
+);
+function sortByCuratedOrder(items = []) {
+  return [...items].sort(
+    (a, b) => (LOCAL_ORDER.get(a.modelKey) ?? 999) - (LOCAL_ORDER.get(b.modelKey) ?? 999),
+  );
+}
+
 // Browsers/loaders need spaces and accented characters percent-encoded.
 function encodePath(path) {
   return path ? encodeURI(path) : '';
@@ -267,7 +278,7 @@ export async function getShowcaseModels() {
   try {
     const dbItems = await withTimeout(getDatabaseShowcaseModels(supabase), DB_LOOKUP_TIMEOUT_MS);
     if (dbItems.length) {
-      return { data: uniqueByModel([...dbItems, ...localItems]), source: 'database', error: null };
+      return { data: sortByCuratedOrder(uniqueByModel([...dbItems, ...localItems])), source: 'database', error: null };
     }
   } catch (error) {
     if (import.meta.env.DEV) console.error('[modelShowcase] unexpected error', error);
