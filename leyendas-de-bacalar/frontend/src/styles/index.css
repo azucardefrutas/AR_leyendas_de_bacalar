@@ -9761,11 +9761,25 @@ body.model3d-open .site-header {
   box-shadow: 0 22px 52px rgba(0, 98, 111, 0.42);
 }
 
-.poster-card-art img {
+/* Portada COMPLETA (contain) sobre un fondo desenfocado de si misma. Ambas capas van
+   position:absolute en orden DOM (bg -> img -> badge -> shade), asi el badge y el
+   sombreado siguen encima sin necesidad de z-index. Se adapta a cualquier proporcion:
+   nunca recorta ni se desborda. */
+.poster-card-art-bg,
+.poster-card-art-img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
   display: block;
+}
+.poster-card-art-bg {
+  object-fit: cover;
+  filter: blur(20px) saturate(1.12) brightness(0.55);
+  transform: scale(1.2);
+}
+.poster-card-art-img {
+  object-fit: contain;
 }
 
 .poster-card-fallback {
