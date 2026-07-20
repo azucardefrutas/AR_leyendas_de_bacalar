@@ -3,6 +3,7 @@ import { motion, useReducedMotion } from 'motion/react';
 import AppIcon from '../ui/AppIcon.jsx';
 import BackButton from '../ui/BackButton.jsx';
 import Picture from '../ui/Picture.jsx';
+import { resizedImageUrl, onImageError } from '../../utils/imageUrl.js';
 
 const infoStagger = {
   hidden: {},
@@ -65,7 +66,7 @@ export default function LegendHero({
         <div className="legend-hero__layout">
           <motion.div className="legend-hero__cover" style={coverStyle} {...coverProps}>
             {coverImage ? (
-              <Picture src={coverImage} alt={`Portada de ${title}`} loading="lazy" decoding="async" />
+              <Picture src={resizedImageUrl(coverImage, 900)} alt={`Portada de ${title}`} loading="lazy" decoding="async" onError={(e) => onImageError(e, coverImage)} />
             ) : (
               <div className="legend-hero__cover-fallback">
                 <span>{title?.slice(0, 2).toUpperCase()}</span>

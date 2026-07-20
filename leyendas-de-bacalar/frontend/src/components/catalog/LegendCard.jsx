@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion, useReducedMotion } from 'motion/react';
 import StoryActions from '../ui/StoryActions.jsx';
+import { resizedImageUrl, onImageError } from '../../utils/imageUrl.js';
 
 const premiumLabels = {
   paid: 'Premium',
@@ -45,8 +46,8 @@ function LegendCard({ legend }) {
             <>
               {/* Fondo desenfocado de la misma portada: rellena las barras cuando la
                   proporcion no coincide, sin recortar la portada real. */}
-              <img className="poster-card-art-bg" src={coverUrl} alt="" aria-hidden="true" loading="lazy" decoding="async" />
-              <img className="poster-card-art-img" src={coverUrl} alt={`Portada de ${legend.title}`} loading="lazy" decoding="async" />
+              <img className="poster-card-art-bg" src={resizedImageUrl(coverUrl, 340)} alt="" aria-hidden="true" loading="lazy" decoding="async" onError={(e) => onImageError(e, coverUrl)} />
+              <img className="poster-card-art-img" src={resizedImageUrl(coverUrl, 640)} alt={`Portada de ${legend.title}`} loading="lazy" decoding="async" onError={(e) => onImageError(e, coverUrl)} />
             </>
           ) : (
             <div className="poster-card-fallback"><span>{getInitials(legend.title)}</span></div>

@@ -6,6 +6,9 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Preconnect a Supabase: adelanta DNS + TLS para que el primer fetch de contenido
+         (catalogo, portadas, modelos 3D) arranque antes, sin esperar a que el JS lo pida. -->
+    <link rel="preconnect" href="https://wkkzgyhyarqwxoqcdaul.supabase.co" crossorigin />
     <!-- Preload de la imagen LCP del home (hero a pantalla completa): empieza a bajar
          de inmediato en vez de esperar a que el CSS la descubra. -->
     <link rel="preload" as="image" href="/landing-intro/display-motion/collage_final.webp" type="image/webp" fetchpriority="high" />
@@ -17,8 +20,13 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&display=swap" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&display=swap" />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap" />
-    <!-- Fuentes editoriales del lector/editor (los .woff2 solo bajan donde se usan). -->
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Libre+Baskerville:wght@400;700&family=Lora:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700&family=Nunito+Sans:wght@400;500;600;700;800&family=Raleway:wght@400;500;600;700&family=Work+Sans:wght@400;500;600;700&family=Cormorant+Garamond:wght@400;500;600;700&display=swap" />
+    <!-- Inter (fuente de CUERPO, se usa en todo el sitio): se mantiene render-blocking. -->
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" />
+    <!-- Fuentes editoriales (SOLO lector/editor): NO bloquean el render. Se cargan async
+         con media=print + onload; noscript como respaldo sin JS. Antes bloqueaban el
+         primer render en home/catalogo aunque ahi no se usen. -->
+    <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&family=Lora:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700&family=Nunito+Sans:wght@400;500;600;700;800&family=Raleway:wght@400;500;600;700&family=Work+Sans:wght@400;500;600;700&family=Cormorant+Garamond:wght@400;500;600;700&display=swap" />
+    <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700&family=Libre+Baskerville:wght@400;700&family=Lora:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600;6..72,700&family=Nunito+Sans:wght@400;500;600;700;800&family=Raleway:wght@400;500;600;700&family=Work+Sans:wght@400;500;600;700&family=Cormorant+Garamond:wght@400;500;600;700&display=swap" /></noscript>
     <title>Leyendas de Bacalar</title>
   </head>
   <body>
