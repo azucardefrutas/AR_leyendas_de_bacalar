@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { supabaseAdmin } from '../config/supabaseAdmin.js';
 import { purgeOrphanAssets } from './assetCleanup.service.js';
 import { getLegendAccessContext } from './legendAccess.service.js';
@@ -587,6 +588,56 @@ export const listPhysicalMarkers = async ({ legendId, userId, roles }) => {
   };
 };
 
+// Hash SHA-256 del contenido de la imagen de un marcador (best-effort; null si falla).
+const markerImageHash = async (asset) => {
+  if (!asset?.storage_path) return null;
+  const bucket = asset.metadata?.bucket || 'legend-assets';
+  const { data, error } = await supabaseAdmin.storage.from(bucket).download(asset.storage_path);
+  if (error || !data) return null;
+  const buf = Buffer.from(await data.arrayBuffer());
+  return crypto.createHash('sha256').update(buf).digest('hex');
+};
+
+// Politica anti-duplicado GLOBAL: el MISMO marcador impreso (misma imagen, aunque sea un
+// archivo re-subido por otro creador) no puede usarse en dos marcadores fisicos PUBLICADOS,
+// porque la app de escaneo no podria distinguirlos. Compara por hash de contenido y cachea
+// el hash en assets.metadata.markerHash para no re-descargar. Devuelve el legend_id en
+// conflicto, o null. Best-effort: si un hash no se puede calcular, NO bloquea la creacion.
+const findDuplicatePublishedPhysicalMarker = async (newMarkerAssetId) => {
+  const { data: newAsset } = await supabaseAdmin
+    .from('assets').select('id, storage_path, metadata').eq('id', newMarkerAssetId).maybeSingle();
+  const newHash = await markerImageHash(newAsset);
+  if (!newHash) return null;
+
+  const { data: rows } = await supabaseAdmin
+    .from('interactive_hotspots')
+    .select('legend_id, marker:marker_asset_id(id, storage_path, metadata)')
+    .eq('target_type', PHYSICAL_TARGET)
+    .eq('status', 'published');
+
+  for (const row of rows ?? []) {
+    const m = row.marker;
+    if (!m?.storage_path || String(m.id) === String(newMarkerAssetId)) continue;
+    let h = m.metadata?.markerHash;
+    if (!h) {
+      h = await markerImageHash(m);
+      if (h) {
+        try {
+          await supabaseAdmin.from('assets')
+            .update({ metadata: { ...(m.metadata || {}), markerHash: h } }).eq('id', m.id);
+        } catch { /* cache opcional */ }
+      }
+    }
+    if (h && h === newHash) return row.legend_id;
+  }
+
+  try {
+    await supabaseAdmin.from('assets')
+      .update({ metadata: { ...(newAsset.metadata || {}), markerHash: newHash } }).eq('id', newMarkerAssetId);
+  } catch { /* cache opcional */ }
+  return null;
+};
+
 export const createPhysicalMarker = async ({ legendId, userId, roles, payload = {} }) => {
   await getLegendAccessContext({ legendId, userId, roles });
 
@@ -608,6 +659,23 @@ export const createPhysicalMarker = async ({ legendId, userId, roles, payload = 
     .maybeSingle();
   if (clashError) throw new HotspotError('Could not validate marker uniqueness.', 500, { reason: clashError.message });
   if (clash) throw new HotspotError('Ese marcador ya esta vinculado a un modelo en esta leyenda.', 409);
+
+  // Unicidad GLOBAL por imagen: el mismo marcador impreso no puede reusarse en otro modelo
+  // publicado (aunque sea de otra leyenda/creador). Best-effort: solo un duplicado confirmado
+  // bloquea; un fallo al descargar/hashear deja pasar para no romper la creacion.
+  try {
+    const conflictLegendId = await findDuplicatePublishedPhysicalMarker(markerAssetId);
+    if (conflictLegendId) {
+      throw new HotspotError(
+        'Ese marcador impreso ya esta en uso por otro modelo publicado. Usa un marcador distinto para que la app no lo confunda.',
+        409,
+        { conflictLegendId },
+      );
+    }
+  } catch (err) {
+    if (err instanceof HotspotError) throw err;
+    // Error de red/descarga: no bloquear la creacion.
+  }
 
   // La escena enlaza el modelo (idempotente por model_asset_id).
   const scene = await createScene({
