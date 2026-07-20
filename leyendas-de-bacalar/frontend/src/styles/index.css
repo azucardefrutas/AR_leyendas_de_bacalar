@@ -334,6 +334,133 @@ pre {
   color: var(--muted);
 }
 
+/* ==========================================================================
+   Auth (iniciar sesion / registrarse): perimetro luminiscente animado y
+   entradas escalonadas. Paleta: #00626f -> #097aa3 -> #a5f2f3.
+   Ambas paginas comparten .cinematic-card, asi que esto aplica a las dos.
+   ========================================================================== */
+
+/* Angulo animable para el degradado conico (si el navegador no soporta
+   @property, el anillo simplemente queda fijo: degrada con elegancia). */
+@property --lb-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.cinematic-card {
+  position: relative;
+  animation: lb-card-in 720ms cubic-bezier(0.22, 0.8, 0.28, 1) both;
+}
+
+/* OJO: `.card` declara su propio box-shadow MAS ABAJO en este archivo y, al tener la
+   misma especificidad, pisaba al de `.cinematic-card` (por eso su sombra nunca se veia).
+   Usamos dos clases para que el halo luminiscente si gane. */
+.cinematic-card.card {
+  box-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.44),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 0 22px rgba(9, 122, 163, 0.3),
+    0 0 52px rgba(0, 98, 111, 0.22);
+}
+
+/* Anillo de luz que recorre el perimetro. El mask deja visible SOLO el borde. */
+.cinematic-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1.6px;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--lb-angle),
+    #00626f 0%,
+    #097aa3 25%,
+    #a5f2f3 50%,
+    #097aa3 75%,
+    #00626f 100%
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  /* 3s por vuelta: se percibe el recorrido de la luz sin distraer al escribir. */
+  animation: lb-spin 3s linear infinite;
+}
+
+@keyframes lb-spin {
+  to { --lb-angle: 360deg; }
+}
+
+@keyframes lb-card-in {
+  from { opacity: 0; transform: translateY(18px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Entrada escalonada de los campos del formulario. */
+@keyframes lb-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+.cinematic-card .form-stack > * {
+  animation: lb-rise 560ms cubic-bezier(0.22, 0.8, 0.28, 1) both;
+}
+.cinematic-card .form-stack > *:nth-child(1) { animation-delay: 140ms; }
+.cinematic-card .form-stack > *:nth-child(2) { animation-delay: 210ms; }
+.cinematic-card .form-stack > *:nth-child(3) { animation-delay: 280ms; }
+.cinematic-card .form-stack > *:nth-child(4) { animation-delay: 350ms; }
+.cinematic-card .form-stack > *:nth-child(5) { animation-delay: 420ms; }
+.cinematic-card .form-stack > *:nth-child(6) { animation-delay: 490ms; }
+
+/* Campos: foco luminiscente en la paleta (sustituye al outline, sigue siendo
+   un indicador de foco claro y visible). */
+.cinematic-card input,
+.cinematic-card select {
+  transition: border-color 220ms ease, box-shadow 220ms ease, background-color 220ms ease;
+}
+.cinematic-card input:focus,
+.cinematic-card input:focus-visible,
+.cinematic-card select:focus,
+.cinematic-card select:focus-visible {
+  outline: none;
+  border-color: rgba(165, 242, 243, 0.7);
+  box-shadow: 0 0 0 3px rgba(9, 122, 163, 0.28), 0 0 18px rgba(165, 242, 243, 0.22);
+}
+
+/* Boton principal: eleva y enciende. */
+.cinematic-card .btn-wide {
+  transition: transform 180ms cubic-bezier(0.22, 0.8, 0.28, 1), box-shadow 180ms ease, filter 180ms ease;
+}
+.cinematic-card .btn-wide:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 34px rgba(9, 122, 163, 0.45), 0 0 22px rgba(165, 242, 243, 0.28);
+  filter: saturate(1.08);
+}
+.cinematic-card .btn-wide:active { transform: translateY(0); }
+
+/* Botones sociales. */
+.cinematic-card .social-row > * {
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+.cinematic-card .social-row > *:hover {
+  transform: translateY(-1px);
+  border-color: rgba(165, 242, 243, 0.5);
+  box-shadow: 0 0 16px rgba(9, 122, 163, 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cinematic-card,
+  .cinematic-card::after,
+  .cinematic-card .form-stack > * {
+    animation: none;
+  }
+  .cinematic-card .btn-wide:hover,
+  .cinematic-card .social-row > *:hover {
+    transform: none;
+  }
+}
+
 .page-stack,
 .form-stack {
   display: grid;
