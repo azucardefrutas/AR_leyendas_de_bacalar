@@ -12980,7 +12980,9 @@ body.fullscreen-editorial-open .site-header { display: none; }
 
 .legend-hero__layout {
   display: grid;
-  grid-template-columns: minmax(200px, 300px) minmax(0, 1fr);
+  /* Columna de portada mas ancha para que se vea grande y prominente (antes 300px topaba
+     chico en portadas cuadradas). Se sigue adaptando a la proporcion de cada portada. */
+  grid-template-columns: minmax(320px, 440px) minmax(0, 1fr);
   align-items: center;
   gap: clamp(28px, 5vw, 64px);
   margin-top: clamp(40px, 8vh, 72px);
@@ -13115,7 +13117,7 @@ body.fullscreen-editorial-open .site-header { display: none; }
   }
 
   .legend-hero__cover {
-    width: min(210px, 58%);
+    width: min(360px, 86%);
   }
 
   .legend-hero__location,
