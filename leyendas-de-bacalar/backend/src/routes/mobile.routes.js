@@ -10,6 +10,10 @@ const router = Router();
 router.get('/ar/scenes', async (req, res, next) => {
   try {
     const scenes = await getMobileArScenes();
+    // Contenido publicado, identico para todos -> cacheable brevemente: menos carga en
+    // Render y feed mas rapido. 60s (un marcador nuevo aparece en <=1 min); SWR sirve la
+    // copia mientras revalida.
+    res.set('Cache-Control', 'public, max-age=60, stale-while-revalidate=300');
     res.json({ ok: true, scenes });
   } catch (error) {
     if (error?.status) {

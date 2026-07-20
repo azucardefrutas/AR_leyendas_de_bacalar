@@ -16,6 +16,16 @@ app.disable('x-powered-by');
 // (needed for correct rate limiting). Only 1 hop — never blindly trust the chain.
 app.set('trust proxy', 1);
 
+// Compresion gzip/deflate de las respuestas (best-effort). `compression` esta en
+// package.json y Render lo instala en el deploy; si no estuviera disponible (local sin
+// instalar), se omite sin romper el arranque. Va primero para envolver todas las respuestas.
+try {
+  const { default: compression } = await import('compression');
+  app.use(compression());
+} catch {
+  logger.info('compression no disponible; las respuestas van sin comprimir');
+}
+
 const corsOptions = {
   origin(origin, callback) {
     if (!origin || env.FRONTEND_ORIGINS.includes(origin)) {
