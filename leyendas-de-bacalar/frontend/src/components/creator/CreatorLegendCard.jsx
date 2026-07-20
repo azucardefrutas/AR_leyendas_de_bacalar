@@ -33,8 +33,6 @@ function renderAction(action, {
 }) {
   const icon = <ActionIcon name={actionIcon(action)} />;
 
-  // Secondary actions (duplicate/delete) render as compact, square icon-only
-  // buttons so the row stays tidy; the full label lives in the tooltip / aria-label.
   if (action.type === 'duplicate') {
     return (
       <Button

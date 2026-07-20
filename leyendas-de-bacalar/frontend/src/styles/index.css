@@ -14078,13 +14078,37 @@ body.reading-immersive .reader-stage { padding-top: clamp(4px, 1vh, 10px); }
   padding: 5px 8px;
   border-radius: 999px;
   color: var(--reader-text);
-  background: var(--reader-control-bg);
-  border: 1px solid var(--reader-control-border);
+  /* Liquid glass: refraccion (blur + saturacion), borde de luz y reflejo especular.
+     Todos los tonos derivan del tema activo, asi que nunca rompe el contraste. */
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--reader-control-bg) 80%, transparent),
+    color-mix(in srgb, var(--reader-control-bg) 97%, transparent)
+  );
+  border: 1px solid color-mix(in srgb, var(--reader-text) 18%, var(--reader-control-border));
   box-shadow:
-    0 18px 45px rgba(15, 23, 42, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(14px);
-  transition: opacity 180ms ease, transform 180ms ease;
+    0 18px 45px rgba(15, 23, 42, 0.26),
+    inset 0 1px 0 color-mix(in srgb, #ffffff 42%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, #000000 12%, transparent);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  transition: opacity 220ms ease, transform 220ms cubic-bezier(0.22, 0.8, 0.28, 1);
+}
+
+/* Reflejo especular del vidrio. z-index:-1 lo deja SOBRE el fondo del cristal pero
+   DEBAJO de los botones, para no lavar los iconos. */
+.pdf-flipbook-controls::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, #ffffff 26%, transparent),
+    transparent 58%
+  );
 }
 
 .pdf-flipbook.controls-hidden .pdf-flipbook-controls {
@@ -14093,13 +14117,15 @@ body.reading-immersive .reader-stage { padding-top: clamp(4px, 1vh, 10px); }
   transform: translate(-50%, 10px);
 }
 
+/* Antes tenia background:#ffffff y border:#dbe4ef FIJOS: sobre temas oscuros salia un
+   boton blanco que rompia el contraste. Ahora deriva del tema activo. */
 .pdf-flipbook-controls .btn {
   min-height: 42px;
   padding: 9px 15px;
   border-radius: 999px;
   color: var(--reader-text);
-  background: #ffffff;
-  border: 1px solid #dbe4ef;
+  background: color-mix(in srgb, var(--reader-text) 10%, transparent);
+  border: 1px solid var(--reader-control-border);
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.07);
 }
 
@@ -14148,15 +14174,22 @@ body.reading-immersive .reader-stage { padding-top: clamp(4px, 1vh, 10px); }
   font-weight: 700;
 }
 
+/* Antes: borde cafe fijo + fondo crema fijo -> ilegible en temas oscuros. */
 .pdf-flipbook-goto input {
   width: 52px;
   min-height: 34px;
   padding: 6px 8px;
   border-radius: 8px;
-  border: 1px solid rgba(133, 120, 92, 0.48);
-  background: var(--reader-paper-soft, #fffdf9);
+  border: 1px solid var(--reader-control-border);
+  background: color-mix(in srgb, var(--reader-text) 12%, transparent);
   color: var(--reader-text);
   text-align: center;
+}
+
+.pdf-flipbook-goto input:focus-visible {
+  outline: none;
+  border-color: color-mix(in srgb, var(--reader-accent) 55%, var(--reader-control-border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--reader-accent) 26%, transparent);
 }
 
 .pdf-flipbook-nav-button {
@@ -14167,10 +14200,12 @@ body.reading-immersive .reader-stage { padding-top: clamp(4px, 1vh, 10px); }
   height: 44px;
   display: grid;
   place-items: center;
-  border: 1px solid rgba(205, 199, 185, 0.86);
+  /* Antes: borde fijo + mezcla con `white` -> sesgo claro que se perdia en temas
+     oscuros. Ahora sale del tema activo. */
+  border: 1px solid var(--reader-control-border);
   border-radius: 999px;
-  color: var(--reader-accent);
-  background: color-mix(in srgb, var(--reader-control-bg) 82%, white);
+  color: var(--reader-text);
+  background: var(--reader-control-bg);
   box-shadow: 0 16px 28px rgba(37, 34, 27, 0.1);
   cursor: pointer;
   transform: translateY(-50%);

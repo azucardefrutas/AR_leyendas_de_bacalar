@@ -23,10 +23,6 @@ function getInitials(title = '') {
   return title.trim().slice(0, 2).toUpperCase() || 'LB';
 }
 
-/**
- * Streaming-style poster card: cover-first, minimal text. Clicking opens the
- * legend detail page (not the reader directly).
- */
 function LegendCard({ legend }) {
   const coverUrl = legend.coverUrl || legend.cover_url || legend.poster_url || null;
   const author = legend.authorName || legend.author_name || '';

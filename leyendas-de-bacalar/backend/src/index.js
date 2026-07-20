@@ -45,6 +45,13 @@ app.use(routes);
 app.use(notFound);
 app.use(errorHandler);
 
-app.listen(env.PORT, () => {
-  logger.info(`leyendas-backend listening on port ${env.PORT}`);
-});
+// Exportada para las pruebas de integración, que la levantan en un puerto efímero.
+export default app;
+
+// Solo escucha cuando corre como proceso principal (npm start / npm run dev).
+// Al importarla en pruebas (NODE_ENV=test) no abre el puerto.
+if (process.env.NODE_ENV !== 'test') {
+  app.listen(env.PORT, () => {
+    logger.info(`leyendas-backend listening on port ${env.PORT}`);
+  });
+}

@@ -430,6 +430,18 @@ function ConalitegStyleReader({
     setControlsVisible(true);
   }, []);
 
+  // La barra inferior aparece solo cuando el cursor entra en SU zona (la franja de
+  // abajo) y se oculta al salir. En tactil o en modo "siempre visible" no aplicamos
+  // cercania: ahi cualquier interaccion la muestra (no hay hover en tactil).
+  const handlePointerMove = useCallback((event) => {
+    if (readerSettings.controlsMode !== 'auto' || event.pointerType === 'touch') {
+      setControlsVisible(true);
+      return;
+    }
+    const zone = Math.max(90, Math.round(window.innerHeight * 0.16));
+    setControlsVisible(event.clientY >= window.innerHeight - zone);
+  }, [readerSettings.controlsMode]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
@@ -574,7 +586,7 @@ function ConalitegStyleReader({
     <div
       className={`pdf-flipbook reader-theme-${readerSettings.theme} reader-size-${readerSettings.bookSize} controls-${readerSettings.controlsMode} ${controlsVisible || settingsOpen ? 'controls-visible' : 'controls-hidden'} ${isFullscreen ? 'fullscreen' : ''} ${isSinglePage ? 'is-single' : 'is-spread'} ${isCoverView ? 'is-cover' : 'is-open'}`}
       ref={containerRef}
-      onPointerMove={showReaderControls}
+      onPointerMove={handlePointerMove}
       onPointerDown={showReaderControls}
       onTouchStart={showReaderControls}
     >

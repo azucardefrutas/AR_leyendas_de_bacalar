@@ -219,6 +219,7 @@ function ReadingPage() {
   return (
     <motion.section
       className="reader-stage"
+      aria-label={`Lectura: ${title}`}
       initial={reduce ? false : { opacity: 0, scale: 0.98 }}
       animate={reduce ? false : { opacity: 1, scale: 1 }}
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
@@ -232,8 +233,8 @@ function ReadingPage() {
         >
           <AppIcon name="arrow_back" size={22} />
         </Link>
-        <h1>{title}</h1>
-        <span className="reader-stage-spacer" aria-hidden="true" />
+        {/* Sin titulo visible: libera el espacio para el libro y el color de fondo.
+            El nombre de la obra se sigue anunciando via aria-label de la seccion. */}
       </div>
 
       <div className="reader-stage-body">

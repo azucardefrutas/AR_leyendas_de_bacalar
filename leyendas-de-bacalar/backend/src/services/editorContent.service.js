@@ -20,7 +20,7 @@ class EditorContentError extends Error {
   }
 }
 
-// Block types the editorial editor is allowed to store/render. Anything else is dropped.
+
 const ALLOWED_BLOCKS = new Set([
   'paragraph', 'header', 'list', 'checklist', 'quote', 'delimiter',
   'table', 'image', 'code', 'warning', 'model3d', 'marker', 'leyendaMarker',
