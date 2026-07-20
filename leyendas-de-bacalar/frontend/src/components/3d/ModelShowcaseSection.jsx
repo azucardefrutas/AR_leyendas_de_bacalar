@@ -3,6 +3,7 @@ import {
   getShowcaseModels,
   mapScenesToShowcaseItems,
 } from '../../services/modelShowcaseService.js';
+import ParticleField from '../ui/ParticleField.jsx';
 
 const Model3DViewer = lazy(() => import('./Model3DViewer.jsx'));
 
@@ -241,6 +242,10 @@ function ModelShowcaseSection({
       aria-label={ariaLabel}
     >
       <div className="model-showcase-sticky" ref={stickyRef}>
+        {/* Motas de luz de fondo (mismo canvas que /descargar): rompe el color plano.
+            Va detras de las tarjetas y no intercepta clics (pointer-events: none). */}
+        <ParticleField className="model-showcase-particles" />
+
         <div className="model-showcase-a11y">
           <h2>Galeria de piezas 3D</h2>
         </div>

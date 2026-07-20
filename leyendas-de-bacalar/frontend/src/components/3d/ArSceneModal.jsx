@@ -2,8 +2,6 @@ import React, { Suspense, lazy, useState } from 'react';
 import Modal from '../ui/Modal.jsx';
 import Button from '../ui/Button.jsx';
 
-// Lazy-loaded so the heavy three.js / react-three bundle is only fetched when the
-// user actually opens the 3D viewer.
 const Model3DViewer = lazy(() => import('./Model3DViewer.jsx'));
 
 function getModelAsset(scene = {}) {

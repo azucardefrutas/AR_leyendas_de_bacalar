@@ -62,6 +62,7 @@ function SiteNavbar() {
       <nav className="nav-left" aria-label="Navegacion principal">
         <NavLink to="/">Inicio</NavLink>
         <NavLink to="/reader/library">Estanteria</NavLink>
+        <NavLink to="/catalog">Biblioteca</NavLink>
       </nav>
 
       <Link className="brand-center" to="/" aria-label="Leyendas de Bacalar - Inicio">
@@ -70,26 +71,19 @@ function SiteNavbar() {
 
       <div className="nav-right">
         <nav className="nav-right-links" aria-label="Mas navegacion">
-          <NavLink to="/catalog">Biblioteca</NavLink>
           <NavLink to={creatorPath}>Creador</NavLink>
           {isAuthenticated && <NavLink to="/reader/redeem">Canjear codigo</NavLink>}
           {isAdmin && <NavLink to="/admin">Admin</NavLink>}
         </nav>
 
         <div className="header-extras">
-          <div className="site-social" aria-label="Recursos y redes">
+          {/* Solo el icono de DESCARGA en el navbar. Las redes (UPB / Facebook / TikTok)
+              siguen en el footer y en el menu movil: asi el lado derecho deja de pesar
+              3.5x mas que el izquierdo y el logo puede quedar centrado de verdad. */}
+          <div className="site-social" aria-label="Descargar la app movil">
             <NavLink to="/descargar" className="site-download-link" aria-label="Descargar la app móvil" title="Descargar la app móvil">
               <span className="material-symbols-rounded" aria-hidden="true">download_for_offline</span>
             </NavLink>
-            <a href="https://www.upb.edu.mx/" target="_blank" rel="noreferrer noopener" aria-label="Sitio web UPB" title="Sitio web UPB">
-              <span className="material-symbols-rounded" aria-hidden="true">language</span>
-            </a>
-            <a href="https://www.facebook.com/Upbacalar/" target="_blank" rel="noreferrer noopener" aria-label="Facebook UPB Bacalar" title="Facebook">
-              {FacebookGlyph}
-            </a>
-            <a href="https://www.tiktok.com/@upbacalar" target="_blank" rel="noreferrer noopener" aria-label="TikTok UPB Bacalar" title="TikTok">
-              {TiktokGlyph}
-            </a>
           </div>
 
           {isAuthenticated ? (

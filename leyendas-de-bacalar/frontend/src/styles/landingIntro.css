@@ -36,20 +36,36 @@ body.landing-intro-active .site-header {
   inset: 0;
   z-index: 2;
   opacity: 0;
-  clip-path: inset(28% 50% 28% 50% round 8px);
+  /* Cerrada: rendija vertical con la MISMA altura que la ventana abierta, para que la
+     banda se abra solo hacia los lados (como la referencia Humbe). */
+  clip-path: inset(32% 50% 32% 50% round 8px);
   transition: clip-path 1.15s cubic-bezier(0.76, 0, 0.24, 1), opacity 0.6s ease;
   will-change: clip-path, opacity;
 }
 
+/* Abierta: banda compacta MAS ANCHA QUE ALTA (~38% x 36% del viewport), en vez de la
+   ventana grande anterior (50% x 56%). */
 .lbi-overlay.phase-split .lbi-media {
   opacity: 1;
-  clip-path: inset(22% 25% 22% 25% round 8px);
+  clip-path: inset(32% 31% 32% 31% round 8px);
 }
 
 .lbi-overlay.phase-expand .lbi-media,
 .lbi-overlay.phase-outro .lbi-media {
   opacity: 1;
   clip-path: inset(0% 0% 0% 0% round 0);
+}
+
+/* Responsive: en pantallas angostas la banda debe ENSANCHARSE. Con los mismos
+   porcentajes en vertical quedaria una ventana alta y flaca (lo contrario a una banda). */
+@media (max-width: 1024px) {
+  .lbi-media { clip-path: inset(34% 50% 34% 50% round 8px); }
+  .lbi-overlay.phase-split .lbi-media { clip-path: inset(34% 18% 34% 18% round 8px); }
+}
+
+@media (max-width: 640px) {
+  .lbi-media { clip-path: inset(37% 50% 37% 50% round 8px); }
+  .lbi-overlay.phase-split .lbi-media { clip-path: inset(37% 8% 37% 8% round 8px); }
 }
 
 .lbi-media-img {

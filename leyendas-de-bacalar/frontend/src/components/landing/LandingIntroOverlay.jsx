@@ -146,16 +146,8 @@ function LandingIntroOverlay({ onFinish }) {
         </div>
       </div>
 
-      <button
-        type="button"
-        className="lbi-skip"
-        onClick={(event) => {
-          event.stopPropagation();
-          skip();
-        }}
-      >
-        Saltar intro
-      </button>
+      {/* Sin boton de "saltar": se salta con un click en cualquier parte de la capa
+          (onClick del <section>) o con la tecla Escape. */}
     </section>
   );
 }
