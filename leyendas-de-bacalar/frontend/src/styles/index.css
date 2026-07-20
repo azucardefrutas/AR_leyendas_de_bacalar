@@ -12987,6 +12987,7 @@ body.fullscreen-editorial-open .site-header { display: none; }
 }
 
 .legend-hero__cover {
+  position: relative;
   aspect-ratio: 2 / 3;
   border-radius: 22px;
   overflow: hidden;
@@ -12996,11 +12997,23 @@ body.fullscreen-editorial-open .site-header { display: none; }
     0 0 0 1px rgba(255, 255, 255, 0.06);
 }
 
-.legend-hero__cover img {
+/* Portada COMPLETA (contain) sobre un fondo desenfocado de si misma. En orden DOM
+   (bg -> img), ambas absolute; nunca recorta ni se desborda, cualquier proporcion. */
+.legend-hero__cover-bg,
+.legend-hero__cover-img {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
   display: block;
+}
+.legend-hero__cover-bg {
+  object-fit: cover;
+  filter: blur(24px) saturate(1.12) brightness(0.5);
+  transform: scale(1.2);
+}
+.legend-hero__cover-img {
+  object-fit: contain;
 }
 
 .legend-hero__cover-fallback {

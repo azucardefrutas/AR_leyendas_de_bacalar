@@ -65,7 +65,12 @@ export default function LegendHero({
         <div className="legend-hero__layout">
           <motion.div className="legend-hero__cover" style={coverStyle} {...coverProps}>
             {coverImage ? (
-              <Picture src={coverImage} alt={`Portada de ${title}`} loading="lazy" decoding="async" />
+              <>
+                {/* Fondo desenfocado de la misma portada: rellena sin recortar cuando la
+                    proporcion no coincide con el recuadro 2/3. */}
+                <Picture className="legend-hero__cover-bg" src={coverImage} alt="" aria-hidden="true" loading="lazy" decoding="async" />
+                <Picture className="legend-hero__cover-img" src={coverImage} alt={`Portada de ${title}`} loading="lazy" decoding="async" />
+              </>
             ) : (
               <div className="legend-hero__cover-fallback">
                 <span>{title?.slice(0, 2).toUpperCase()}</span>
