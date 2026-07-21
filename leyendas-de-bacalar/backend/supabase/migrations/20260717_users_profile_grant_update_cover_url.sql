@@ -1,0 +1,13 @@
+-- Fix: "permission denied for table users_profile" al guardar el perfil.
+--
+-- La migracion de endurecimiento (restrict_users_profile_self_status_update) reemplazo
+-- el UPDATE amplio por un UPDATE por-columna: full_name, username, avatar_url, bio,
+-- active_role, updated_at. Se omitio cover_url (la portada del perfil), asi que cualquier
+-- guardado que incluya cover_url (la modal de perfil tiene "Cambiar portada") es rechazado
+-- por Postgres a nivel de privilegio ANTES de RLS -> "permission denied for table".
+--
+-- Se agrega cover_url al conjunto editable por el propio usuario. Sigue SIN poder tocar
+-- id / status / created_at (fuera del grant, como el resto del blindaje).
+--
+-- Aplicada en vivo el 2026-07-17 (migracion: users_profile_grant_update_cover_url).
+grant update (cover_url) on public.users_profile to authenticated;
