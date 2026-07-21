@@ -40,82 +40,54 @@ body.landing-intro-active .site-header {
 }
 
 /* Ventana central — se abre desde una rendija hacia los lados y luego a pantalla
-   completa. Se anima su TAMANO (no un scale), de modo que la foto se recompone con
-   object-fit en cada frame y nunca se deforma. Al ser la caja real de la foto, el
-   object-fit: contain hace que la imagen se vea COMPLETA dentro de la franja. */
+   completa. El COMPONENTE calcula su ancho y alto (inline) segun la proporcion de la
+   foto actual, de modo que el marco SIEMPRE calza la imagen: object-fit: cover la
+   llena de borde a borde sin barras y sin recorte real. */
 .lbi-window {
   position: relative;
-  width: 0;                 /* cerrada: rendija con la altura de la banda */
-  height: 36vh;
   overflow: hidden;
   border-radius: 8px;
-  opacity: 0;
+  opacity: 0;                /* cerrada; el tamano lo fija JS segun la foto */
   background: #04121a;
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
-  transition: width 1.15s cubic-bezier(0.76, 0, 0.24, 1),
-              height 1.15s cubic-bezier(0.76, 0, 0.24, 1),
+  /* Apertura lenta y solemne (1.6s); el mismo transition suaviza el "respirar" del
+     marco cuando se adapta a cada foto durante el montaje. */
+  transition: width 1.6s cubic-bezier(0.76, 0, 0.24, 1),
+              height 1.6s cubic-bezier(0.76, 0, 0.24, 1),
               border-radius 0.9s ease,
               box-shadow 0.9s ease,
-              opacity 0.6s ease;
+              opacity 0.7s ease;
   will-change: width, height;
 }
 
-/* Abierta: banda compacta MAS ANCHA QUE ALTA (~38vw x 36vh). */
+/* Abierta: el tamano exacto lo pone el componente (alto proporcional al viewport,
+   ancho segun la proporcion de la foto, tope 92vw). Aqui solo la hacemos visible. */
 .lbi-overlay.phase-split .lbi-window {
   opacity: 1;
-  width: 38vw;
-  height: 36vh;
 }
 
 .lbi-overlay.phase-expand .lbi-window,
 .lbi-overlay.phase-outro .lbi-window {
   opacity: 1;
-  width: 100vw;
-  height: 100vh;
   border-radius: 0;
   box-shadow: none;
 }
 
-/* Responsive: en pantallas angostas la banda debe ENSANCHARSE. */
-@media (max-width: 1024px) {
-  .lbi-window { height: 32vh; }
-  .lbi-overlay.phase-split .lbi-window { width: 64vw; height: 32vh; }
-}
+/* El tamano responsivo lo calcula el componente (alto = factor del viewport segun el
+   ancho de pantalla, ancho = alto x proporcion de la foto, con tope de 92vw). */
 
-@media (max-width: 640px) {
-  .lbi-window { height: 26vh; }
-  .lbi-overlay.phase-split .lbi-window { width: 86vw; height: 26vh; }
-}
-
-/* Cada foto se apila en dos capas del MISMO cuadro:
-   - .lbi-media-fill: copia borrosa y ampliada (cover) que rellena la banda para que
-     nunca se vean barras vacias, sin importar la proporcion de la imagen.
-   - .lbi-media-photo: la foto NITIDA y COMPLETA (contain), sin recorte ni deformacion.
-   El cruce entre fotos se anima con opacidad en el contenedor .lbi-media-slide. */
+/* Cada foto llena el marco (que ya calza su proporcion) de borde a borde con
+   object-fit: cover: sin barras vacias y sin recorte real. El cruce entre fotos se
+   anima con opacidad en el contenedor .lbi-media-slide. */
 .lbi-media-slide {
   position: absolute;
   inset: 0;
   opacity: 0;
-  transition: opacity 0.9s ease;
+  transition: opacity 1s ease;
 }
 
 .lbi-media-slide.active {
   opacity: 1;
-}
-
-.lbi-media-fill {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transform: scale(1.22);
-  filter: blur(22px) brightness(0.62) saturate(1.05);
-}
-
-/* Ken Burns solo sobre el fondo borroso: asi la foto nitida jamas se recorta. */
-.lbi-media-slide.active .lbi-media-fill {
-  animation: lbi-kenburns 6.5s ease-out forwards;
 }
 
 .lbi-media-photo {
@@ -123,13 +95,7 @@ body.landing-intro-active .site-header {
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain; /* imagen completa: sin recorte ni deformacion */
-  transform: scale(1);
-}
-
-@keyframes lbi-kenburns {
-  from { transform: scale(1.28); }
-  to { transform: scale(1.12); }
+  object-fit: cover; /* llena el marco que ya calza la proporcion: sin barras */
 }
 
 /* Sutil vineta cinematografica SOLO sobre la ventana (no toda la pantalla). */
@@ -164,7 +130,7 @@ body.landing-intro-active .site-header {
   letter-spacing: 0.01em;
   text-transform: uppercase;
   color: #ffffff;
-  transition: transform 1.15s cubic-bezier(0.76, 0, 0.24, 1), opacity 0.9s ease;
+  transition: transform 1.6s cubic-bezier(0.76, 0, 0.24, 1), opacity 0.9s ease;
   will-change: transform;
 }
 
@@ -234,7 +200,6 @@ body.landing-intro-active .site-header {
 
 /* Accessibility: no aggressive motion */
 @media (prefers-reduced-motion: reduce) {
-  .lbi-media-slide.active .lbi-media-fill { animation: none; transform: scale(1.18); }
   .lbi-title span { animation: none; opacity: 1; transform: none; }
   .lbi-title,
   .lbi-window,

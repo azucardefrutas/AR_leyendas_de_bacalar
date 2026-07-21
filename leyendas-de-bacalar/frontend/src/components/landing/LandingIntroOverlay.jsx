@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import '../../styles/landingIntro.css';
 
-// No project video exists; a montage of real Bacalar/UPB photos plays inside the
-// masked window (blurred fill + Ken-Burns + crossfade) to recreate the "moving
-// footage" feel. Each photo is shown COMPLETE (object-fit: contain) over a blurred
-// cover of itself, so nothing is cropped or distorted whatever its aspect ratio.
+// No project video exists; a montage of real Bacalar/UPB photos plays inside a central
+// window. The window ADAPTS its size to each photo's aspect ratio, so every image fills
+// it edge-to-edge (object-fit: cover) with NO empty/blurred side bars and WITHOUT being
+// cropped: when the frame matches the photo, "cover" shows it whole. The frame eases
+// between sizes as photos cross-fade (a subtle cinematic "breathing").
 // Order builds an arc: lagoon -> Day of the Dead -> UPB -> Fuerte -> legends collage (climax).
 const MEDIA = [
   '/landing-intro/display-motion/1.jpg', // Laguna de Bacalar
@@ -14,13 +15,17 @@ const MEDIA = [
   '/landing-intro/display-motion/collage_final.png', // Collage de leyendas (climax)
 ];
 
-// Timeline (ms). The window opens with the curtain, the photos cycle, then the
-// last image DWELLS in the window for a moment before everything expands.
-const SPLIT_AT = 1300;        // curtain opens, window + first photo appear
-const MEDIA_STEP_MS = 950;    // montage across the 5 photos (~5100ms reaches the collage)
-const EXPAND_AT = 6600;       // ~1.5s dwell on the collage before it expands
-const OUTRO_AT = 7800;        // fade the layer out
-const FINISH_AT = 8550;       // unmount, revealing the home
+// Aspect ratio (w/h) of each photo above — fallback used until the real image loads and
+// we measure it (onLoad). The window sizes itself to the current photo's aspect.
+const ASPECTS = [1.667, 1.777, 1.469, 1.333, 1.5];
+
+// Timeline (ms). The window opens SLOWLY (grand, ~1.6s), the photos cycle while the
+// frame eases to each one's shape, then the last image DWELLS before expanding.
+const SPLIT_AT = 1400;        // curtain parts and the window opens (slow: 1.6s)
+const MEDIA_STEP_MS = 1300;   // calmer montage; the frame breathes to each photo
+const EXPAND_AT = 7600;       // reach the collage (~6600), dwell ~1s, then expand
+const OUTRO_AT = 9000;        // window has filled the screen; fade the layer out
+const FINISH_AT = 9700;       // unmount, revealing the home
 
 function prefersReducedMotion() {
   return Boolean(
@@ -40,6 +45,11 @@ function prefersReducedMotion() {
 function LandingIntroOverlay({ onFinish }) {
   const [phase, setPhase] = useState('enter');
   const [mediaIndex, setMediaIndex] = useState(0);
+  const [aspects, setAspects] = useState(ASPECTS);
+  const [viewport, setViewport] = useState(() => ({
+    w: typeof window !== 'undefined' ? window.innerWidth : 1280,
+    h: typeof window !== 'undefined' ? window.innerHeight : 720,
+  }));
   const timers = useRef([]);
   const montageRef = useRef(null);
   const finishedRef = useRef(false);
@@ -84,6 +94,19 @@ function LandingIntroOverlay({ onFinish }) {
     }, MEDIA_STEP_MS);
   }
 
+  // When a photo loads, measure its TRUE aspect so the window fits it exactly (this
+  // corrects the ASPECTS fallback if an image is ever swapped for another shape).
+  function handlePhotoLoad(index, img) {
+    const a = img.naturalWidth / img.naturalHeight;
+    if (!a || !Number.isFinite(a)) return;
+    setAspects((prev) => {
+      if (Math.abs((prev[index] || 0) - a) < 0.005) return prev;
+      const next = prev.slice();
+      next[index] = a;
+      return next;
+    });
+  }
+
   useEffect(() => {
     if (reducedRef.current) {
       setMediaIndex(MEDIA.length - 1);
@@ -117,6 +140,34 @@ function LandingIntroOverlay({ onFinish }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Keep the adaptive window sized correctly when the viewport changes.
+  useEffect(() => {
+    function onResize() {
+      setViewport({ w: window.innerWidth, h: window.innerHeight });
+    }
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // Size the window to the CURRENT photo's aspect: fill the height budget, unless that
+  // would exceed 92vw (then fit the width instead). Closed = 0 width; expanded = full
+  // screen. Because the frame matches the photo, object-fit: cover fills it with no
+  // empty bars and no real crop.
+  const aspect = aspects[mediaIndex] || 1.6;
+  const hFactor = viewport.w <= 640 ? 0.42 : viewport.w <= 1024 ? 0.5 : 0.6;
+  let boxH = viewport.h * hFactor;
+  let boxW = boxH * aspect;
+  const maxW = viewport.w * 0.92;
+  if (boxW > maxW) {
+    boxW = maxW;
+    boxH = boxW / aspect;
+  }
+  const windowStyle = phase === 'enter'
+    ? { width: 0, height: Math.round(boxH) }
+    : phase === 'split'
+      ? { width: Math.round(boxW), height: Math.round(boxH) }
+      : { width: '100vw', height: '100vh' };
+
   return (
     <section
       className={`lbi-overlay phase-${phase}`}
@@ -127,16 +178,21 @@ function LandingIntroOverlay({ onFinish }) {
       <div className="lbi-bg" aria-hidden="true" />
 
       <div className="lbi-media" aria-hidden="true">
-        <div className="lbi-window">
+        <div className="lbi-window" style={windowStyle}>
           {MEDIA.map((src, index) => (
             <div
               key={src}
               className={`lbi-media-slide ${index === mediaIndex ? 'active' : ''}`}
             >
-              {/* Fondo borroso (cover) para rellenar la ventana sin barras vacias */}
-              <img className="lbi-media-fill" src={src} alt="" draggable={false} />
-              {/* Foto nitida completa (contain): sin recorte ni deformacion */}
-              <img className="lbi-media-photo" src={src} alt="" draggable={false} />
+              {/* Foto completa: el marco ya calza su proporcion, asi que cover la
+                  llena de borde a borde sin barras ni recorte. */}
+              <img
+                className="lbi-media-photo"
+                src={src}
+                alt=""
+                draggable={false}
+                onLoad={(e) => handlePhotoLoad(index, e.currentTarget)}
+              />
             </div>
           ))}
         </div>
