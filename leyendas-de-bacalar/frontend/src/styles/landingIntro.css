@@ -30,69 +30,114 @@ body.landing-intro-active .site-header {
   background: #00626f;
 }
 
-/* Central media window — revealed as the curtain parts, then expands full. */
+/* Zona centrada que aloja la ventana. */
 .lbi-media {
   position: absolute;
   inset: 0;
   z-index: 2;
+  display: grid;
+  place-items: center;
+}
+
+/* Ventana central — se abre desde una rendija hacia los lados y luego a pantalla
+   completa. Se anima su TAMANO (no un scale), de modo que la foto se recompone con
+   object-fit en cada frame y nunca se deforma. Al ser la caja real de la foto, el
+   object-fit: contain hace que la imagen se vea COMPLETA dentro de la franja. */
+.lbi-window {
+  position: relative;
+  width: 0;                 /* cerrada: rendija con la altura de la banda */
+  height: 36vh;
+  overflow: hidden;
+  border-radius: 8px;
   opacity: 0;
-  /* Cerrada: rendija vertical con la MISMA altura que la ventana abierta, para que la
-     banda se abra solo hacia los lados (como la referencia Humbe). */
-  clip-path: inset(32% 50% 32% 50% round 8px);
-  transition: clip-path 1.15s cubic-bezier(0.76, 0, 0.24, 1), opacity 0.6s ease;
-  will-change: clip-path, opacity;
+  background: #04121a;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+  transition: width 1.15s cubic-bezier(0.76, 0, 0.24, 1),
+              height 1.15s cubic-bezier(0.76, 0, 0.24, 1),
+              border-radius 0.9s ease,
+              box-shadow 0.9s ease,
+              opacity 0.6s ease;
+  will-change: width, height;
 }
 
-/* Abierta: banda compacta MAS ANCHA QUE ALTA (~38% x 36% del viewport), en vez de la
-   ventana grande anterior (50% x 56%). */
-.lbi-overlay.phase-split .lbi-media {
+/* Abierta: banda compacta MAS ANCHA QUE ALTA (~38vw x 36vh). */
+.lbi-overlay.phase-split .lbi-window {
   opacity: 1;
-  clip-path: inset(32% 31% 32% 31% round 8px);
+  width: 38vw;
+  height: 36vh;
 }
 
-.lbi-overlay.phase-expand .lbi-media,
-.lbi-overlay.phase-outro .lbi-media {
+.lbi-overlay.phase-expand .lbi-window,
+.lbi-overlay.phase-outro .lbi-window {
   opacity: 1;
-  clip-path: inset(0% 0% 0% 0% round 0);
+  width: 100vw;
+  height: 100vh;
+  border-radius: 0;
+  box-shadow: none;
 }
 
-/* Responsive: en pantallas angostas la banda debe ENSANCHARSE. Con los mismos
-   porcentajes en vertical quedaria una ventana alta y flaca (lo contrario a una banda). */
+/* Responsive: en pantallas angostas la banda debe ENSANCHARSE. */
 @media (max-width: 1024px) {
-  .lbi-media { clip-path: inset(34% 50% 34% 50% round 8px); }
-  .lbi-overlay.phase-split .lbi-media { clip-path: inset(34% 18% 34% 18% round 8px); }
+  .lbi-window { height: 32vh; }
+  .lbi-overlay.phase-split .lbi-window { width: 64vw; height: 32vh; }
 }
 
 @media (max-width: 640px) {
-  .lbi-media { clip-path: inset(37% 50% 37% 50% round 8px); }
-  .lbi-overlay.phase-split .lbi-media { clip-path: inset(37% 8% 37% 8% round 8px); }
+  .lbi-window { height: 26vh; }
+  .lbi-overlay.phase-split .lbi-window { width: 86vw; height: 26vh; }
 }
 
-.lbi-media-img {
+/* Cada foto se apila en dos capas del MISMO cuadro:
+   - .lbi-media-fill: copia borrosa y ampliada (cover) que rellena la banda para que
+     nunca se vean barras vacias, sin importar la proporcion de la imagen.
+   - .lbi-media-photo: la foto NITIDA y COMPLETA (contain), sin recorte ni deformacion.
+   El cruce entre fotos se anima con opacidad en el contenedor .lbi-media-slide. */
+.lbi-media-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 0.9s ease;
+}
+
+.lbi-media-slide.active {
+  opacity: 1;
+}
+
+.lbi-media-fill {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0;
-  transform: scale(1.12);
-  transition: opacity 0.9s ease;
+  transform: scale(1.22);
+  filter: blur(22px) brightness(0.62) saturate(1.05);
 }
 
-.lbi-media-img.active {
-  opacity: 1;
-  animation: lbi-kenburns 6s ease-out forwards;
+/* Ken Burns solo sobre el fondo borroso: asi la foto nitida jamas se recorta. */
+.lbi-media-slide.active .lbi-media-fill {
+  animation: lbi-kenburns 6.5s ease-out forwards;
+}
+
+.lbi-media-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* imagen completa: sin recorte ni deformacion */
+  transform: scale(1);
 }
 
 @keyframes lbi-kenburns {
-  to { transform: scale(1); }
+  from { transform: scale(1.28); }
+  to { transform: scale(1.12); }
 }
 
-.lbi-media::after {
+/* Sutil vineta cinematografica SOLO sobre la ventana (no toda la pantalla). */
+.lbi-window::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(0, 98, 111, 0.1), rgba(4, 18, 26, 0.28));
+  background: linear-gradient(180deg, rgba(0, 98, 111, 0.06), rgba(4, 18, 26, 0.22));
   pointer-events: none;
 }
 
@@ -189,9 +234,9 @@ body.landing-intro-active .site-header {
 
 /* Accessibility: no aggressive motion */
 @media (prefers-reduced-motion: reduce) {
-  .lbi-media-img.active { animation: none; transform: scale(1); }
+  .lbi-media-slide.active .lbi-media-fill { animation: none; transform: scale(1.18); }
   .lbi-title span { animation: none; opacity: 1; transform: none; }
   .lbi-title,
-  .lbi-media,
+  .lbi-window,
   .lbi-overlay { transition-duration: 0.3s; }
 }

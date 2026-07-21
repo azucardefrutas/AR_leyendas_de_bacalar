@@ -2,22 +2,25 @@ import React, { useEffect, useRef, useState } from 'react';
 import '../../styles/landingIntro.css';
 
 // No project video exists; a montage of real Bacalar/UPB photos plays inside the
-// masked window (Ken-Burns + crossfade) to recreate the "moving footage" feel.
-// Order builds an arc: lagoon -> Day of the Dead -> UPB -> legends collage (climax).
+// masked window (blurred fill + Ken-Burns + crossfade) to recreate the "moving
+// footage" feel. Each photo is shown COMPLETE (object-fit: contain) over a blurred
+// cover of itself, so nothing is cropped or distorted whatever its aspect ratio.
+// Order builds an arc: lagoon -> Day of the Dead -> UPB -> Fuerte -> legends collage (climax).
 const MEDIA = [
   '/landing-intro/display-motion/1.jpg', // Laguna de Bacalar
-  '/landing-intro/display-motion/2.jpg', // Dia de Muertos
-  '/landing-intro/display-motion/3.png', // Universidad Politecnica de Bacalar
-  '/landing-intro/display-motion/collage_final.png', // Collage de leyendas
+  '/landing-intro/display-motion/2_nuevo_.webp', // Dia de Muertos (nuevo)
+  '/landing-intro/display-motion/Universidad-politecnica.webp', // Universidad Politecnica de Bacalar
+  '/landing-intro/display-motion/fuerte-san-felipe.webp', // Fuerte de San Felipe (Bacalar)
+  '/landing-intro/display-motion/collage_final.png', // Collage de leyendas (climax)
 ];
 
 // Timeline (ms). The window opens with the curtain, the photos cycle, then the
 // last image DWELLS in the window for a moment before everything expands.
 const SPLIT_AT = 1300;        // curtain opens, window + first photo appear
-const MEDIA_STEP_MS = 950;    // montage: lagoon -> muertos -> UPB -> collage (~4150ms)
-const EXPAND_AT = 5850;       // ~1.7s dwell on the open window before it expands
-const OUTRO_AT = 7050;        // fade the layer out
-const FINISH_AT = 7800;       // unmount, revealing the home
+const MEDIA_STEP_MS = 950;    // montage across the 5 photos (~5100ms reaches the collage)
+const EXPAND_AT = 6600;       // ~1.5s dwell on the collage before it expands
+const OUTRO_AT = 7800;        // fade the layer out
+const FINISH_AT = 8550;       // unmount, revealing the home
 
 function prefersReducedMotion() {
   return Boolean(
@@ -124,15 +127,19 @@ function LandingIntroOverlay({ onFinish }) {
       <div className="lbi-bg" aria-hidden="true" />
 
       <div className="lbi-media" aria-hidden="true">
-        {MEDIA.map((src, index) => (
-          <img
-            key={src}
-            className={`lbi-media-img ${index === mediaIndex ? 'active' : ''}`}
-            src={src}
-            alt=""
-            draggable={false}
-          />
-        ))}
+        <div className="lbi-window">
+          {MEDIA.map((src, index) => (
+            <div
+              key={src}
+              className={`lbi-media-slide ${index === mediaIndex ? 'active' : ''}`}
+            >
+              {/* Fondo borroso (cover) para rellenar la ventana sin barras vacias */}
+              <img className="lbi-media-fill" src={src} alt="" draggable={false} />
+              {/* Foto nitida completa (contain): sin recorte ni deformacion */}
+              <img className="lbi-media-photo" src={src} alt="" draggable={false} />
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="lbi-title-wrap" aria-hidden="true">
