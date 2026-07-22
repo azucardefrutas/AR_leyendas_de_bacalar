@@ -322,6 +322,13 @@ const FlipPage = React.forwardRef(({
     );
   }
 
+  // Blank filler sheet added (in buildReaderPagesFromBundle) to keep the page count even
+  // so the back cover closes like a real book. Just a paper page: no content, no number,
+  // no hotspots.
+  if (page.type === 'template-blank') {
+    return <div className="pdf-flip-page pdf-flip-page-blank" ref={ref} aria-hidden="true" />;
+  }
+
   const modelHotspots = hotspots.filter((hotspot) => hotspot?.scene?.assets?.url);
   const primaryModelHotspot = modelHotspots[0] ?? null;
   const markerHotspots = hotspots.filter((hotspot) => !hotspot?.scene?.assets?.url);

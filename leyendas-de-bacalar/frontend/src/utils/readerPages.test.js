@@ -50,7 +50,27 @@ describe('readerPages (normalización del bundle del lector)', () => {
       });
       expect(pages[0].type).toBe('template-cover');
       expect(pages.at(-1).type).toBe('template-back');
-      expect(pages).toHaveLength(3);
+      // 1 página de contenido (impar) → se inserta una hoja en blanco antes de la
+      // contraportada para que el total sea PAR y la contraportada cierre como un libro.
+      expect(pages).toHaveLength(4);
+      expect(pages.at(-2).type).toBe('template-blank');
+    });
+
+    it('mantiene el total PAR para que la contraportada cierre (relleno por paridad)', () => {
+      const build = (n) =>
+        buildReaderPagesFromBundle({
+          legend: { coverTemplateId: 'tmpl-1' },
+          legendPages: Array.from({ length: n }, (_, i) => ({ id: `pg-${i}`, pageNumber: i + 1 })),
+        });
+      // Contenido impar (1, 3) → agrega 1 hoja en blanco; par (2) → no agrega ninguna.
+      expect(build(1)).toHaveLength(4);
+      expect(build(2)).toHaveLength(4);
+      expect(build(3)).toHaveLength(6);
+      // El total siempre queda PAR y la contraportada es la última página.
+      [build(1), build(2), build(3), build(4)].forEach((pages) => {
+        expect(pages.length % 2).toBe(0);
+        expect(pages.at(-1).type).toBe('template-back');
+      });
     });
 
     it('no agrega portada si no hay contenido', () => {

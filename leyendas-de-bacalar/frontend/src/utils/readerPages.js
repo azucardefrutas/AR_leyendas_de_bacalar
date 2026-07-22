@@ -77,7 +77,25 @@ export function buildReaderPagesFromBundle(bundle) {
     sourceDocumentId: null,
     pageId: null,
   };
-  return [cover, ...content, back];
+
+  // react-pageflip (showCover) only makes the back cover "close" like a real book when it
+  // lands ALONE on its own spread, and that requires an EVEN total page count. The book is
+  // [cover, ...content, back] = content.length + 2, so an ODD number of content pages
+  // leaves the back cover paired with the last page and it never closes (only the front
+  // cover opens). Insert a blank sheet before the back cover to keep the total even.
+  const inner = [...content];
+  if (inner.length % 2 === 1) {
+    inner.push({
+      pageNumber: '',
+      type: 'template-blank',
+      hideNumber: true,
+      width: null,
+      height: null,
+      sourceDocumentId: null,
+      pageId: null,
+    });
+  }
+  return [cover, ...inner, back];
 }
 
 // Build the SAME reader page list from the editor's LIVE local state (unsaved),
