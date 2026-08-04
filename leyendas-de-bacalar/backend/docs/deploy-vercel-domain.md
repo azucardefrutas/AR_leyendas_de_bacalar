@@ -43,6 +43,7 @@ dist
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
 VITE_SITE_URL=https://bacalarlegends-ar.com
+VITE_ADMIN_URL=https://admin.bacalarlegends-ar.com
 ```
 
 No usar `service_role` en Vercel ni en el frontend.
@@ -69,7 +70,11 @@ Agregar en Vercel, seccion Domains:
 ```text
 bacalarlegends-ar.com
 www.bacalarlegends-ar.com
+admin.bacalarlegends-ar.com
 ```
+
+El subdominio administrativo correcto es `admin.bacalarlegends-ar.com`. No usar
+`bacalarlegends-ar/admin.com`, porque eso seria una ruta y un dominio distintos.
 
 Vercel mostrara los registros DNS exactos que deben configurarse en Cloudflare. Usar siempre los valores exactos que muestre Vercel.
 
@@ -80,6 +85,7 @@ Configurar los registros DNS que indique Vercel. Normalmente son:
 ```text
 A      @      76.76.21.21
 CNAME  www    cname.vercel-dns.com
+CNAME  admin  cname.vercel-dns.com
 ```
 
 Pero la regla principal es:
@@ -110,6 +116,8 @@ Agregar Redirect URLs:
 ```text
 https://bacalarlegends-ar.com/auth/callback
 https://bacalarlegends-ar.com/**
+https://admin.bacalarlegends-ar.com/auth/callback
+https://admin.bacalarlegends-ar.com/**
 http://localhost:5173/**
 ```
 
@@ -121,7 +129,30 @@ https://bacalarlegends-ar.com/auth/callback
 
 en `emailRedirectTo`.
 
-## 6. Desarrollo local
+## 6. Acceso administrativo de emergencia
+
+El dominio publico y el subdominio administrativo sirven el mismo despliegue de Vercel.
+En Render, `FRONTEND_ORIGIN` debe aceptar los tres origenes separados por coma:
+
+```text
+https://bacalarlegends-ar.com,https://www.bacalarlegends-ar.com,https://admin.bacalarlegends-ar.com
+```
+
+Despues de cambiar la variable, desplegar nuevamente el backend y comprobar que el
+preflight desde `https://admin.bacalarlegends-ar.com` devuelve ese mismo valor en
+`Access-Control-Allow-Origin`.
+
+Entradas de recuperacion:
+
+```text
+https://admin.bacalarlegends-ar.com/admin/settings
+https://bacalarlegends-ar.com/admin/settings
+```
+
+La segunda ruta es el respaldo mientras DNS se propaga o si el subdominio falla. No
+activar el modo cerrado hasta probar inicio de sesion y guardado desde ambas direcciones.
+
+## 7. Desarrollo local
 
 Para trabajar en local, usar:
 
@@ -131,7 +162,7 @@ VITE_SITE_URL=http://localhost:5173
 
 El archivo `frontend/.env.example` no debe contener claves reales. Cada entorno debe tener sus variables privadas configuradas fuera del repositorio.
 
-## 7. SMTP
+## 8. SMTP
 
 Pendiente para una fase posterior.
 
@@ -143,7 +174,7 @@ no-reply@bacalarlegends-ar.com
 
 No activar SMTP ni confirmacion obligatoria de correo desde este documento. Ese paso se hara despues, cuando el dominio y los registros de correo esten listos.
 
-## 8. Validacion
+## 9. Validacion
 
 Antes de desplegar:
 

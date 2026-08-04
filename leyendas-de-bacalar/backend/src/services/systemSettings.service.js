@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../config/supabaseAdmin.js';
+import { SITE_ACCESS_MODES, normalizeSiteAccess } from './siteAccessPolicy.js';
 
 class SystemSettingsError extends Error {
   constructor(message, statusCode = 500, details = {}) {
@@ -15,6 +16,7 @@ class SystemSettingsError extends Error {
 const SETTINGS = {
   announcement: { isPublic: true, default: { enabled: false, message: '', type: 'info' } },
   maintenance: { isPublic: true, default: { enabled: false, message: '' } },
+  site_access: { isPublic: true, default: { mode: SITE_ACCESS_MODES.OPEN, message: '' } },
   creator_registration: { isPublic: true, default: { open: true } },
   upload_limit_mb: { isPublic: false, default: { value: 50 } },
 };
@@ -65,6 +67,8 @@ const sanitizeValue = (key, value) => {
       };
     case 'maintenance':
       return { enabled: Boolean(v.enabled), message: String(v.message ?? '').slice(0, 500) };
+    case 'site_access':
+      return normalizeSiteAccess(v);
     case 'creator_registration':
       return { open: Boolean(v.open) };
     case 'upload_limit_mb': {
@@ -134,5 +138,21 @@ export const isCreatorRegistrationOpen = async () => {
     return settings?.creator_registration?.open !== false;
   } catch {
     return true; // Best-effort: default to open.
+  }
+};
+
+export const getSiteAccessState = async () => {
+  if (process.env.NODE_ENV === 'test') {
+    return { mode: SITE_ACCESS_MODES.OPEN, message: '' };
+  }
+
+  try {
+    const settings = await getCachedSettings();
+    return normalizeSiteAccess(settings?.site_access);
+  } catch {
+    return {
+      mode: SITE_ACCESS_MODES.CLOSED,
+      message: 'No se pudo verificar la disponibilidad de la plataforma.',
+    };
   }
 };

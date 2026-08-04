@@ -7564,6 +7564,186 @@ pre {
   margin-top: 18px;
 }
 
+.admin-setting-card--access {
+  grid-column: 1 / -1;
+  border-radius: 8px;
+}
+
+.admin-setting-card--catalog_only { border-color: #f59e0b; }
+.admin-setting-card--closed { border-color: #dc2626; }
+
+.admin-setting-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.admin-setting-card-heading p { color: #475569; margin: 0; font-size: 0.9rem; }
+
+.admin-access-status {
+  flex: 0 0 auto;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: #334155;
+  background: #f8fafc;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.admin-setting-card--catalog_only .admin-access-status {
+  border-color: #f59e0b;
+  color: #92400e;
+  background: #fffbeb;
+}
+
+.admin-setting-card--closed .admin-access-status {
+  border-color: #fca5a5;
+  color: #991b1b;
+  background: #fef2f2;
+}
+
+.admin-access-modes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 18px 0 4px;
+  padding: 0;
+  border: 0;
+}
+
+.admin-access-modes legend {
+  grid-column: 1 / -1;
+  margin-bottom: 8px;
+  color: #334155;
+  font-weight: 800;
+}
+
+.admin-access-modes label {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-height: 84px;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.admin-access-modes label.is-selected {
+  border-color: #0891b2;
+  box-shadow: 0 0 0 2px rgba(8, 145, 178, 0.14);
+}
+
+.admin-access-modes input { margin-top: 3px; }
+.admin-access-modes span { display: grid; gap: 4px; }
+.admin-access-modes strong { color: #0f172a; }
+.admin-access-modes small { color: #64748b; line-height: 1.35; }
+
+.admin-recovery-access {
+  display: grid;
+  gap: 5px;
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  color: #1e3a8a;
+  background: #eff6ff;
+  overflow-wrap: anywhere;
+}
+
+.admin-recovery-access a { color: #075985; font-weight: 800; }
+.admin-recovery-access span { color: #475569; font-size: 0.82rem; }
+
+.admin-access-confirmation {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  color: #991b1b;
+  background: #fef2f2;
+  font-weight: 750;
+}
+
+.admin-access-confirmation input { margin-top: 3px; }
+
+.site-access-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: #f4f7f8;
+  color: #102a43;
+}
+
+.site-access-panel {
+  width: min(100%, 620px);
+  padding: 34px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  text-align: center;
+  box-shadow: 0 18px 50px rgba(15, 23, 42, 0.1);
+}
+
+.site-access-icon {
+  width: 64px;
+  height: 64px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: #0e7490;
+}
+
+.site-access-kicker {
+  margin: 18px 0 4px;
+  color: #0e7490;
+  font-size: 0.78rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.site-access-panel h1 { margin: 0; color: #0f172a; font-size: clamp(1.8rem, 4vw, 2.6rem); }
+.site-access-panel > p:last-of-type { margin: 14px auto 0; max-width: 52ch; color: #52667a; line-height: 1.65; }
+
+.site-access-actions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.site-access-actions a,
+.site-access-actions button {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 15px;
+  border: 1px solid #0e7490;
+  border-radius: 6px;
+  color: #fff;
+  background: #0e7490;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+@media (max-width: 720px) {
+  .admin-setting-card-heading { align-items: stretch; flex-direction: column; }
+  .admin-access-status { align-self: flex-start; }
+  .admin-access-modes { grid-template-columns: 1fr; }
+  .admin-access-modes label { min-height: 0; }
+  .site-access-panel { padding: 26px 20px; }
+}
+
 /* Global system banner (announcement / maintenance) rendered above the router. */
 .system-banner-stack {
   position: relative;

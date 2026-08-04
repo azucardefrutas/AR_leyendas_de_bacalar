@@ -1,4 +1,4 @@
-import React, { lazy } from "react";
+import { lazy } from "react";
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 // Guards + layouts stay static: they are tiny and form the persistent shell that
 // must render instantly (and a Suspense boundary inside each layout shell handles
@@ -8,6 +8,7 @@ import ProtectedRoute from '../components/auth/ProtectedRoute.jsx';
 import RedirectAuthenticatedRoute from '../components/auth/RedirectAuthenticatedRoute.jsx';
 import RoleGuard from '../components/auth/RoleGuard.jsx';
 import RoleAwareHomeRoute from '../components/auth/RoleAwareHomeRoute.jsx';
+import SiteAccessGuard from '../components/auth/SiteAccessGuard.jsx';
 import AdminLayout from '../layouts/AdminLayout.jsx';
 import AuthLayout from '../layouts/AuthLayout.jsx';
 import CreatorLayout from '../layouts/CreatorLayout.jsx';
@@ -68,89 +69,100 @@ const SettingsPage = lazy(() => import('../pages/reader/SettingsPage.jsx'));
 
 export const router = createBrowserRouter([
   {
-    element: <PublicLayout />,
+    element: <SiteAccessGuard />,
     children: [
-      { path: '/', element: <RoleAwareHomeRoute /> },
-      { path: '/catalog', element: <CatalogPage /> },
-      { path: '/descargar', element: <DownloadAppPage /> },
-      { path: '/app', element: <Navigate to="/descargar" replace /> },
-      { path: '/library', element: <LibraryPage /> },
-      { path: '/reader/library', element: <LibraryPage /> },
-      { path: '/legend/:slug', element: <LegendDetailPage /> },
-      { path: '/legend/:slug/read', element: <ReadingPage /> },
-      { path: '/ar/scene/:sceneId', element: <ArExperiencePage /> },
-      { path: '/ar/:legendSlug', element: <ArExperiencePage /> },
-      { path: '/about', element: <Navigate to="/#acerca" replace /> },
-      { path: '/terms', element: <Navigate to="/terms/readers" replace /> },
-      { path: '/privacy', element: <Navigate to="/privacy/readers" replace /> },
-      { path: '/creator-terms', element: <Navigate to="/terms/creators" replace /> },
-      { path: '/terms/readers', element: <TermsPage /> },
-      { path: '/privacy/readers', element: <PrivacyPage /> },
-      { path: '/terms/creators', element: <CreatorTermsPage /> },
-      { path: '/privacy/creators', element: <CreatorPrivacyPage /> },
-      { path: '/creator/apply', element: <CreatorApplyPage /> },
-      { path: '/creator/confirm', element: <CreatorConfirmPage /> },
-      { path: '/access-denied', element: <AccessDeniedPage /> },
-    ],
-  },
-  {
-    element: <RedirectAuthenticatedRoute />,
-    children: [
+      {
+        element: <PublicLayout />,
+        children: [
+          { path: '/', element: <RoleAwareHomeRoute /> },
+          { path: '/catalog', element: <CatalogPage /> },
+          { path: '/descargar', element: <DownloadAppPage /> },
+          { path: '/app', element: <Navigate to="/descargar" replace /> },
+          { path: '/library', element: <LibraryPage /> },
+          { path: '/reader/library', element: <LibraryPage /> },
+          { path: '/legend/:slug', element: <LegendDetailPage /> },
+          { path: '/legend/:slug/read', element: <ReadingPage /> },
+          { path: '/ar/scene/:sceneId', element: <ArExperiencePage /> },
+          { path: '/ar/:legendSlug', element: <ArExperiencePage /> },
+          { path: '/about', element: <Navigate to="/#acerca" replace /> },
+          { path: '/terms', element: <Navigate to="/terms/readers" replace /> },
+          { path: '/privacy', element: <Navigate to="/privacy/readers" replace /> },
+          { path: '/creator-terms', element: <Navigate to="/terms/creators" replace /> },
+          { path: '/terms/readers', element: <TermsPage /> },
+          { path: '/privacy/readers', element: <PrivacyPage /> },
+          { path: '/terms/creators', element: <CreatorTermsPage /> },
+          { path: '/privacy/creators', element: <CreatorPrivacyPage /> },
+          { path: '/creator/apply', element: <CreatorApplyPage /> },
+          { path: '/creator/confirm', element: <CreatorConfirmPage /> },
+          { path: '/access-denied', element: <AccessDeniedPage /> },
+        ],
+      },
+      {
+        element: <RedirectAuthenticatedRoute />,
+        children: [
+          {
+            element: <AuthLayout />,
+            children: [
+              { path: '/login', element: <LoginPage /> },
+              { path: '/register', element: <RegisterPage /> },
+            ],
+          },
+        ],
+      },
       {
         element: <AuthLayout />,
         children: [
-          { path: '/login', element: <LoginPage /> },
-          { path: '/register', element: <RegisterPage /> },
+          { path: '/auth/check-email', element: <CheckEmailPage /> },
+          { path: '/auth/callback', element: <AuthCallbackPage /> },
         ],
       },
-    ],
-  },
-  {
-    element: <AuthLayout />,
-    children: [
-      { path: '/auth/check-email', element: <CheckEmailPage /> },
-      { path: '/auth/callback', element: <AuthCallbackPage /> },
+      {
+        element: <ProtectedRoute />,
+        children: [
+          {
+            path: '/reader',
+            element: <ReaderLayout />,
+            children: [
+              { index: true, element: <Navigate to="/reader/library" replace /> },
+              { path: 'redeem', element: <RedeemCodePage /> },
+              { path: 'purchases', element: <PurchasesPage /> },
+              { path: 'subscription', element: <SubscriptionPage /> },
+              { path: 'profile', element: <ProfilePage /> },
+              { path: 'settings', element: <SettingsPage /> },
+              { path: 'read/:slug', element: <ReadingPage /> },
+            ],
+          },
+          {
+            element: <CreatorAccessGuard />,
+            children: [
+              { path: '/creator/legends/:legendId/write', element: <FullscreenEditorialEditorPage /> },
+              {
+                path: '/creator',
+                element: <CreatorLayout />,
+                children: [
+                  { index: true, element: <CreatorDashboardPage /> },
+                  { path: 'legends', element: <CreatorLegendsPage /> },
+                  { path: 'drafts', element: <CreatorLegendsPage /> },
+                  { path: 'legends/new', element: <CreateLegendPage /> },
+                  { path: 'legends/:id/edit', element: <EditLegendPage /> },
+                  { path: 'assets', element: <UploadAssetsPage /> },
+                  { path: 'legends/:legendId/assets', element: <UploadAssetsPage /> },
+                  { path: 'reviews', element: <CreatorReviewsPage /> },
+                  { path: 'code-requests', element: <CodeRequestsPage /> },
+                  { path: 'physical-markers', element: <PhysicalMarkersPage /> },
+                  { path: 'profile', element: <CreatorProfilePage /> },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      { path: '*', element: <NotFoundPage /> },
     ],
   },
   {
     element: <ProtectedRoute />,
     children: [
-      {
-        path: '/reader',
-        element: <ReaderLayout />,
-        children: [
-          { index: true, element: <Navigate to="/reader/library" replace /> },
-          { path: 'redeem', element: <RedeemCodePage /> },
-          { path: 'purchases', element: <PurchasesPage /> },
-          { path: 'subscription', element: <SubscriptionPage /> },
-          { path: 'profile', element: <ProfilePage /> },
-          { path: 'settings', element: <SettingsPage /> },
-          { path: 'read/:slug', element: <ReadingPage /> },
-        ],
-      },
-      {
-        element: <CreatorAccessGuard />,
-        children: [
-          { path: '/creator/legends/:legendId/write', element: <FullscreenEditorialEditorPage /> },
-          {
-            path: '/creator',
-            element: <CreatorLayout />,
-            children: [
-              { index: true, element: <CreatorDashboardPage /> },
-              { path: 'legends', element: <CreatorLegendsPage /> },
-              { path: 'drafts', element: <CreatorLegendsPage /> },
-              { path: 'legends/new', element: <CreateLegendPage /> },
-              { path: 'legends/:id/edit', element: <EditLegendPage /> },
-              { path: 'assets', element: <UploadAssetsPage /> },
-              { path: 'legends/:legendId/assets', element: <UploadAssetsPage /> },
-              { path: 'reviews', element: <CreatorReviewsPage /> },
-              { path: 'code-requests', element: <CodeRequestsPage /> },
-              { path: 'physical-markers', element: <PhysicalMarkersPage /> },
-              { path: 'profile', element: <CreatorProfilePage /> },
-            ],
-          },
-        ],
-      },
       {
         element: <RoleGuard allowedRoles={['admin']} />,
         children: [
@@ -180,5 +192,4 @@ export const router = createBrowserRouter([
       },
     ],
   },
-  { path: '*', element: <NotFoundPage /> },
 ]);
