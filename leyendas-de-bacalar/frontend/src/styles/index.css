@@ -9556,7 +9556,8 @@ pre {
 }
 
 /* Hide the fixed navbar while the 3D modal is open so nothing collides. */
-body.model3d-open .site-header {
+body.model3d-open .site-header,
+body.ar-viewer-open .site-header {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;

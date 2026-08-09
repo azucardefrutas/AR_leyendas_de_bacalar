@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import ArCameraExperience from '../../components/ar/ArCameraExperience.jsx';
 import ArPermissionHelp from '../../components/ar/ArPermissionHelp.jsx';
@@ -14,6 +14,14 @@ function ArExperiencePage() {
   const [experience, setExperience] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    document.body.classList.add('ar-viewer-open');
+    return () => {
+      document.body.classList.remove('ar-viewer-open');
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

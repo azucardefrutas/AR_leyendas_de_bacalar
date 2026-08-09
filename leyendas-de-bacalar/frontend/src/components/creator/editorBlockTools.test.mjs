@@ -66,6 +66,11 @@ test('normalizes model and marker data without replacing visible names with UUID
     displayMode: 'inline-model',
     modelUrl: '',
     imageUrl: '',
+    modelAssetId: '',
+    modelTitle: '',
+    markerAssetId: '',
+    markerImageUrl: '',
+    markerTitle: '',
     layout: {
       mode: 'inline',
       align: 'center',

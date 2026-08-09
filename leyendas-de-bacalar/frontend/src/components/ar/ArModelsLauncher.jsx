@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import AppIcon from '../ui/AppIcon.jsx';
 import { supportsWebcamGestures } from '../../utils/deviceType.js';
 
@@ -33,6 +33,17 @@ function ArModelsLauncher({ models = [], variant = 'floating' }) {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [active, setActive] = useState(null);
   const [mode, setMode] = useState('floor'); // 'gesture' (webcam PC) | 'floor' (model-viewer)
+
+  useEffect(() => {
+    if (!active || typeof document === 'undefined') return undefined;
+    const previousOverflow = document.body.style.overflow;
+    document.body.classList.add('ar-viewer-open');
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.classList.remove('ar-viewer-open');
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [active]);
 
   if (!models.length) return null;
 

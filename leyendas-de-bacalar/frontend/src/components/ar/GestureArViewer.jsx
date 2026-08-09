@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { Bounds, Center, useGLTF } from '@react-three/drei';
 import { ACESFilmicToneMapping } from 'three';
@@ -7,7 +7,7 @@ import AppIcon from '../ui/AppIcon.jsx';
 
 // Hand tracking runs 100% in the browser (WASM + GPU). No server, no Python: the
 // webcam frames never leave the device. We keep the frontend light on purpose —
-// downscaled 480p input, GPU delegate, throttled to ~24fps, paused when the tab is
+// downscaled input, GPU delegate, throttled to ~24fps, paused when the tab is
 // hidden, and everything torn down when the viewer closes.
 // The WASM runtime and the hand model are SELF-HOSTED from our own origin
 // (frontend/public/mediapipe/…). BASE_URL keeps it correct under any deploy base.
@@ -27,15 +27,6 @@ const POS_LIMIT = 3; // keep the model reachable on screen
 const CALIB_KEY = 'leyendas.gestureAr.calibration';
 const ONBOARD_KEY = 'leyendas.gestureAr.onboarded';
 const DEFAULT_CALIB = { rot: 1, move: 1, zoom: 1, pinch: 0.07, smooth: 0.22 };
-// Sliders the reader can tune; the values persist in localStorage. Ranges are chosen so
-// even the extremes stay usable.
-const CALIB_FIELDS = [
-  { key: 'rot', label: 'Giro', hint: 'lento → rápido', min: 0.4, max: 2, step: 0.05 },
-  { key: 'move', label: 'Desplazamiento', hint: 'lento → rápido', min: 0.4, max: 2, step: 0.05 },
-  { key: 'zoom', label: 'Zoom', hint: 'suave → marcado', min: 0.4, max: 2, step: 0.05 },
-  { key: 'pinch', label: 'Pellizco', hint: 'preciso → fácil', min: 0.04, max: 0.12, step: 0.005 },
-  { key: 'smooth', label: 'Respuesta', hint: 'suave → inmediata', min: 0.1, max: 0.4, step: 0.02 },
-];
 const GESTURE_GUIDE = [
   { key: 'rotate', emoji: '🤏', title: 'Girar', desc: 'Pellizca (pulgar + índice) y mueve la mano.' },
   { key: 'move', emoji: '✊', title: 'Mover', desc: 'Cierra el puño y arrástralo por la pantalla.' },
@@ -88,11 +79,12 @@ function GltfModel({ url }) {
 // tracking loop updates targets 24×/s without re-rendering React.
 function GestureModel({ url, gestureRef }) {
   const groupRef = useRef(null);
-  useFrame(() => {
+  useFrame((_, delta) => {
     const group = groupRef.current;
     if (!group) return;
     const t = gestureRef.current;
-    const k = t.smooth || 0.22;
+    const baseSmooth = t.smooth || 0.22;
+    const k = 1 - Math.pow(1 - baseSmooth, Math.min(delta, 0.05) * 60);
     group.position.x += (t.posX - group.position.x) * k;
     group.position.y += (t.posY - group.position.y) * k;
     group.rotation.y += (t.rotY - group.rotation.y) * k;
@@ -138,29 +130,11 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
   });
   const [status, setStatus] = useState('loading');
   const [hud, setHud] = useState({ hands: 0, gesture: 'idle' });
-  const [calib, setCalib] = useState(calibRef.current);
-  const [panelOpen, setPanelOpen] = useState(false);
   const [showGuide, setShowGuide] = useState(() => {
     if (typeof window === 'undefined') return false;
     return !window.localStorage.getItem(ONBOARD_KEY);
   });
 
-  // Keep the tracking loop (which reads a ref, not state) in sync with the sliders, and
-  // remember the calibration between sessions.
-  useEffect(() => {
-    calibRef.current = calib;
-    gestureRef.current.smooth = calib.smooth;
-    try { window.localStorage.setItem(CALIB_KEY, JSON.stringify(calib)); } catch { /* private mode */ }
-  }, [calib]);
-
-  const updateCalib = useCallback((key, value) => {
-    setCalib((current) => ({ ...current, [key]: value }));
-  }, []);
-  const resetCalib = useCallback(() => setCalib({ ...DEFAULT_CALIB }), []);
-  const resetModel = useCallback(() => {
-    const g = gestureRef.current;
-    g.rotX = 0; g.rotY = 0; g.scale = 1; g.posX = 0; g.posY = 0; g.active = null;
-  }, []);
   const dismissGuide = useCallback(() => {
     setShowGuide(false);
     try { window.localStorage.setItem(ONBOARD_KEY, '1'); } catch { /* private mode */ }
@@ -214,6 +188,7 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
 
   useEffect(() => {
     let cancelled = false;
+    const videoEl = videoRef.current;
 
     const stopLoop = () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); rafRef.current = 0; };
     const loop = (now) => {
@@ -221,7 +196,7 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
       if (now - lastFrameRef.current < FRAME_INTERVAL) return; // throttle to TARGET_FPS
       if (typeof document !== 'undefined' && document.hidden) return; // pause when tab is hidden
       lastFrameRef.current = now;
-      const video = videoRef.current;
+      const video = videoEl;
       const landmarker = landmarkerRef.current;
       if (!video || !landmarker || video.readyState < 2) return;
       try {
@@ -240,7 +215,12 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
       let stream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' },
+          video: {
+            width: { ideal: 480 },
+            height: { ideal: 360 },
+            frameRate: { ideal: TARGET_FPS, max: 30 },
+            facingMode: 'user',
+          },
           audio: false,
         });
       } catch (mediaError) {
@@ -249,7 +229,7 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
       }
       if (cancelled) { stream.getTracks().forEach((track) => track.stop()); return; }
       streamRef.current = stream;
-      const video = videoRef.current;
+      const video = videoEl;
       if (video) {
         video.srcObject = stream;
         try { await video.play(); } catch { /* autoplay policies: muted+playsinline covers it */ }
@@ -262,6 +242,9 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
           baseOptions: { modelAssetPath: MODEL_PATH, delegate },
           runningMode: 'VIDEO',
           numHands: 2,
+          minHandDetectionConfidence: 0.55,
+          minHandPresenceConfidence: 0.55,
+          minTrackingConfidence: 0.55,
         });
         landmarkerRef.current = await build('GPU').catch(() => build('CPU'));
       } catch {
@@ -280,7 +263,7 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
       stopLoop();
       if (landmarkerRef.current) { try { landmarkerRef.current.close(); } catch { /* ignore */ } landmarkerRef.current = null; }
       if (streamRef.current) { streamRef.current.getTracks().forEach((track) => track.stop()); streamRef.current = null; }
-      if (videoRef.current) videoRef.current.srcObject = null;
+      if (videoEl) videoEl.srcObject = null;
     };
   }, [processResult]);
 
@@ -296,10 +279,12 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
       {tracking && (
         <Canvas
           className="gesture-ar__canvas"
-          dpr={[1, 2]}
+          dpr={[1, 1.35]}
           gl={{
             alpha: true,
-            antialias: true,
+            antialias: false,
+            stencil: false,
+            preserveDrawingBuffer: false,
             powerPreference: 'high-performance',
             toneMapping: ACESFilmicToneMapping,
             toneMappingExposure: 1.05,
@@ -331,52 +316,11 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
             : 'Preparando…'}
         </span>
         <div className="gesture-ar__actions">
-          <button type="button" onClick={() => setShowGuide(true)} title="Cómo se usa" aria-label="Cómo se usa">
-            <AppIcon name="help" size={20} />
-          </button>
-          <button
-            type="button"
-            className={panelOpen ? 'is-active' : ''}
-            onClick={() => setPanelOpen((open) => !open)}
-            title="Calibrar sensibilidad"
-            aria-label="Calibrar sensibilidad"
-            aria-pressed={panelOpen}
-          >
-            <AppIcon name="tune" size={20} />
-          </button>
-          <button type="button" onClick={resetModel} title="Centrar el modelo" aria-label="Centrar el modelo">
-            <AppIcon name="restart_alt" size={20} />
-          </button>
           <button type="button" onClick={onClose} title="Cerrar" aria-label="Cerrar">
             <AppIcon name="close" size={20} />
           </button>
         </div>
       </header>
-
-      {panelOpen && (
-        <aside className="gesture-ar__panel" aria-label="Calibración de gestos">
-          <div className="gesture-ar__panel-head">
-            <strong>Calibra tus gestos</strong>
-            <button type="button" onClick={resetCalib} className="gesture-ar__panel-reset">Restablecer</button>
-          </div>
-          {CALIB_FIELDS.map((field) => (
-            <label key={field.key} className="gesture-ar__slider">
-              <span className="gesture-ar__slider-label">
-                {field.label}
-                <em>{field.hint}</em>
-              </span>
-              <input
-                type="range"
-                min={field.min}
-                max={field.max}
-                step={field.step}
-                value={calib[field.key]}
-                onChange={(event) => updateCalib(field.key, Number(event.target.value))}
-              />
-            </label>
-          ))}
-        </aside>
-      )}
 
       {tracking && !showGuide && (
         <ul className="gesture-ar__tips" aria-label="Guía de señas">
