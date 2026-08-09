@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import EditorModal from './EditorModal.jsx';
 
 function formatBytes(value) {
@@ -11,8 +11,6 @@ function formatBytes(value) {
 export default function InsertModel3DModal({ assets = [], onInsert, onClose, onUploadAsset }) {
   const [assetId, setAssetId] = useState('');
   const [uploadedAsset, setUploadedAsset] = useState(null);
-  const [title, setTitle] = useState('');
-  const [caption, setCaption] = useState('');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
 
@@ -38,7 +36,6 @@ export default function InsertModel3DModal({ assets = [], onInsert, onClose, onU
       if (!uploaded?.id) throw new Error('El modelo se subió, pero no devolvió un asset válido.');
       setUploadedAsset(uploaded);
       setAssetId(String(uploaded.id));
-      if (!title.trim()) setTitle(uploaded.name || file.name);
     } catch (uploadError) {
       setError(uploadError?.message || 'No se pudo subir el modelo 3D.');
     } finally {
@@ -55,8 +52,8 @@ export default function InsertModel3DModal({ assets = [], onInsert, onClose, onU
     }
     onInsert({
       assetId: selectedModel.id,
-      title: title.trim() || selectedModel.name || 'Modelo 3D',
-      caption: caption.trim(),
+      title: selectedModel.name || 'Modelo 3D',
+      caption: '',
       displayMode: 'inline-model',
       modelUrl: selectedModel.previewUrl || '',
       layout: { width: 520, height: 360, align: 'center' },
@@ -93,15 +90,6 @@ export default function InsertModel3DModal({ assets = [], onInsert, onClose, onU
             <small>El asset se guarda en la leyenda y queda seleccionado automáticamente.</small>
           </label>
         )}
-
-        <label className="field">
-          <span>Título</span>
-          <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Modelo 3D" disabled={uploading} />
-        </label>
-        <label className="field">
-          <span>Caption <em>opcional</em></span>
-          <input value={caption} onChange={(event) => setCaption(event.target.value)} placeholder="Descripción breve" disabled={uploading} />
-        </label>
 
         {error && <p className="editor-modal-error" role="alert">{error}</p>}
         <div className="editor-modal-actions">

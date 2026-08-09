@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   FONT_OPTIONS,
   normalizeFontFamily,
@@ -56,10 +56,11 @@ export function EditorIcon({ name, size = 18, strokeWidth = 1.8, className = '' 
   return <svg {...iconProps}>{paths[name]}</svg>;
 }
 
-function ToolbarButton({ label, icon, text, onClick, onMouseDown, className = '' }) {
+function ToolbarButton({ label, icon, text, showLabel = false, onClick, onMouseDown, className = '' }) {
   return (
     <button className={className} type="button" aria-label={label} title={label} onClick={onClick} onMouseDown={onMouseDown}>
       {icon ? <EditorIcon name={icon} /> : <span className="editor-toolbar-text-icon">{text}</span>}
+      {showLabel && <span className="editor-toolbar-action-label">{label}</span>}
     </button>
   );
 }
@@ -261,10 +262,10 @@ export default function EditorJsToolbar({
       <div className="editorial-editor__toolbar-row editorial-editor__toolbar-row--insert">
         <span className="editorial-editor__toolbar-label">Insertar</span>
         <div className="editorial-editor__toolbar-group" aria-label="Recursos">
-        <ToolbarButton label="Tabla" icon="table" onClick={() => onOpenModal('table')} />
-        <ToolbarButton label="Imagen" icon="image" onClick={() => onOpenModal('image')} />
-        {showModel3d && <ToolbarButton label="Modelo 3D" icon="box" onClick={() => onOpenModal('model3d')} />}
-        {showMarker && <ToolbarButton label="Marcador" icon="bookmark" onClick={() => onOpenModal('marker')} />}
+        <ToolbarButton className="editorial-editor__insert-action" label="Tabla" icon="table" showLabel onClick={() => onOpenModal('table')} />
+        <ToolbarButton className="editorial-editor__insert-action" label="Imagen" icon="image" showLabel onClick={() => onOpenModal('image')} />
+        {showModel3d && <ToolbarButton className="editorial-editor__insert-action" label="Modelo 3D" icon="box" showLabel onClick={() => onOpenModal('model3d')} />}
+        {showMarker && <ToolbarButton className="editorial-editor__insert-action" label="Marcador" icon="bookmark" showLabel onClick={() => onOpenModal('marker')} />}
         </div>
       </div>
     </div>

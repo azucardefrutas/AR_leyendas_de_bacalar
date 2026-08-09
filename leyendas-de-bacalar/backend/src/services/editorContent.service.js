@@ -1,4 +1,5 @@
 import sanitizeHtml from 'sanitize-html';
+import { randomUUID } from 'node:crypto';
 import { supabaseAdmin } from '../config/supabaseAdmin.js';
 import { getLegendAccessContext } from './legendAccess.service.js';
 import {
@@ -235,21 +236,40 @@ export async function saveEditorPages({ legendId, versionId, userId, roles, page
 
   const deletedIds = pages.filter((page) => page._delete && page.id).map((page) => page.id);
   if (deletedIds.length) {
-    const { error } = await supabaseAdmin.from('legend_pages').delete().in('id', deletedIds);
+    const { error } = await supabaseAdmin
+      .from('legend_pages')
+      .delete()
+      .eq('version_id', versionId)
+      .in('id', deletedIds);
     if (error) throw new EditorContentError('No se pudieron eliminar páginas.', 500);
   }
 
   const livePages = pages.filter((page) => !page._delete);
-  const saved = [];
-  let index = 0;
-  for (const page of livePages) {
-    index += 1;
+  const existingIds = [...new Set(livePages.filter((page) => page.id).map((page) => String(page.id)))];
+  if (existingIds.length) {
+    const { data: existingPages, error: existingError } = await supabaseAdmin
+      .from('legend_pages')
+      .select('id, version_id')
+      .in('id', existingIds);
+    if (existingError) throw new EditorContentError('No se pudieron validar las páginas.', 500);
+    const validIds = new Set(
+      (existingPages ?? [])
+        .filter((page) => String(page.version_id) === String(versionId))
+        .map((page) => String(page.id)),
+    );
+    if (validIds.size !== existingIds.length) {
+      throw new EditorContentError('Una página no pertenece a la versión activa.', 409);
+    }
+  }
+
+  const payloads = livePages.map((page, index) => {
     const editorData = page.editorData ?? page.editor_data ?? { blocks: [] };
     let rendered = { html: '', text: '', stats: { words: 0, characters: 0, blocks: 0 } };
     try { rendered = renderEditorData(editorData); } catch { /* invalid -> store empty render */ }
-    const payload = {
+    return {
+      id: page.id || randomUUID(),
       version_id: versionId,
-      page_number: Number(page.pageNumber ?? page.page_number ?? index),
+      page_number: Number(page.pageNumber ?? page.page_number ?? index + 1),
       title: (page.title || '').trim() || null,
       text_content: rendered.text,
       editor_data: editorData,
@@ -258,12 +278,15 @@ export async function saveEditorPages({ legendId, versionId, userId, roles, page
       editor_version: page.editorVersion || page.editor_version || editorData?.version || null,
       editor_stats: rendered.stats,
     };
-    const query = page.id
-      ? supabaseAdmin.from('legend_pages').update(payload).eq('id', page.id).select().single()
-      : supabaseAdmin.from('legend_pages').insert(payload).select().single();
-    const { data, error } = await query;
-    if (error) throw new EditorContentError('No se pudo guardar la página.', 500);
-    saved.push(data);
+  });
+
+  if (!payloads.length) return [];
+  const { data: saved, error: saveError } = await supabaseAdmin
+    .from('legend_pages')
+    .upsert(payloads, { onConflict: 'id' })
+    .select();
+  if (saveError) {
+    throw new EditorContentError('No se pudieron guardar las páginas.', 500);
   }
-  return saved.sort((a, b) => a.page_number - b.page_number).map(toApiPage);
+  return (saved ?? []).sort((a, b) => a.page_number - b.page_number).map(toApiPage);
 }

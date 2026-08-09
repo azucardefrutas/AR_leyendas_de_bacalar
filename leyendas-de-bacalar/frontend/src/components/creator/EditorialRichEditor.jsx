@@ -1,4 +1,4 @@
-import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import DOMPurify from 'dompurify';
 import { createRoot } from 'react-dom/client';
 import EditorJS from '@editorjs/editorjs';
@@ -86,7 +86,11 @@ function buildTools({
     quote: { class: Quote, inlineToolbar: true },
     delimiter: { class: Delimiter },
     checklist: { class: Checklist, inlineToolbar: true },
-    table: { class: Table, inlineToolbar: true },
+    table: {
+      class: Table,
+      inlineToolbar: true,
+      config: { rows: 3, cols: 3, maxRows: 20, maxCols: 12 },
+    },
     image: {
       class: ImageEditorBlockTool,
       toolbox: false,
@@ -101,11 +105,12 @@ function buildTools({
 
 const emptyData = () => ({ blocks: [] });
 
-function countStats(text = '') {
+function countStats(text = '', blocks = 0) {
   const trimmed = text.trim();
   return {
     words: trimmed ? trimmed.split(/\s+/).filter(Boolean).length : 0,
     chars: text.length,
+    blocks,
   };
 }
 
@@ -153,7 +158,7 @@ export default function EditorialRichEditor({
   const [activeTab, setActiveTab] = useState('edit');
   const [expanded, setExpanded] = useState(false);
   const [previewData, setPreviewData] = useState(null);
-  const [stats, setStats] = useState({ words: 0, chars: 0 });
+  const [stats, setStats] = useState({ words: 0, chars: 0, blocks: 0 });
   const [openModal, setOpenModal] = useState(null); // 'link' | 'image' | 'table' | 'model3d' | 'marker'
   const [editorError, setEditorError] = useState('');
   const [dirty, setDirty] = useState(false);
@@ -199,31 +204,38 @@ export default function EditorialRichEditor({
     return uploaded;
   }, [uploadEditorAsset]);
 
+  const markDirty = useCallback(() => {
+    if (dirtyRef.current) return;
+    dirtyRef.current = true;
+    setDirty(true);
+  }, []);
+
   pagesRef.current = pages;
   // Keep the latest tool options available to the one-time editor init.
   const toolsOptionsRef = useRef({
     availableModels: modelOptions,
-    onDataChange: () => {
-      dirtyRef.current = true;
-      setDirty(true);
-    },
+    onDataChange: markDirty,
     onOpenModel: (data) => openModelRef.current?.(data),
     mountModel: mountInlineModel,
   });
   const selectedPage = pages.find((page) => page.client_id === selectedPageId) ?? pages[0];
 
   // Save the editor's current content back into its page (returns the saved payload).
-  const persistCurrent = useCallback(async () => {
+  const persistCurrent = useCallback(async ({ renderHtml = true } = {}) => {
+    window.clearTimeout(debounceRef.current);
     const editor = editorRef.current;
     const pageId = currentPageIdRef.current;
     if (!editor || !editor.save || !pageId) return null;
     try {
       const data = await editor.save();
-      const html = DOMPurify.sanitize(editorJsToHtml(data), {
-        ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'strong', 'b', 'em', 'i', 'u', 's', 'a', 'font', 'mark', 'ul', 'ol', 'li', 'blockquote', 'cite', 'hr', 'table', 'tbody', 'tr', 'th', 'td', 'figure', 'figcaption', 'img', 'article', 'section', 'div', 'span', 'br'],
-        ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'src', 'alt', 'style', 'face', 'size', 'color'],
-        ALLOW_DATA_ATTR: false,
-      });
+      const currentPage = pagesRef.current.find((page) => page.client_id === pageId);
+      const html = renderHtml
+        ? DOMPurify.sanitize(editorJsToHtml(data), {
+          ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'strong', 'b', 'em', 'i', 'u', 's', 'a', 'font', 'mark', 'ul', 'ol', 'li', 'blockquote', 'cite', 'hr', 'table', 'tbody', 'tr', 'th', 'td', 'figure', 'figcaption', 'img', 'article', 'section', 'div', 'span', 'br'],
+          ALLOWED_ATTR: ['href', 'target', 'rel', 'class', 'src', 'alt', 'style', 'face', 'size', 'color'],
+          ALLOW_DATA_ATTR: false,
+        })
+        : (currentPage?.rendered_html || '');
       const text = editorJsToPlainText(data);
       const editorStats = {
         words: countStats(text).words,
@@ -258,15 +270,16 @@ export default function EditorialRichEditor({
       autofocus: false,
       placeholder: 'Escribe la historia de esta página…',
       data: startPage?.editor_data?.blocks ? migrateEditorDataMedia(startPage.editor_data) : emptyData(),
+      minHeight: 240,
+      logLevel: 'ERROR',
       tools: buildTools(toolsOptionsRef.current),
       onChange: () => {
-        dirtyRef.current = true;
-        setDirty(true);
+        markDirty();
         window.clearTimeout(debounceRef.current);
         debounceRef.current = window.setTimeout(async () => {
-          const saved = await persistCurrent();
-          if (saved) setStats(countStats(saved.text));
-        }, 500);
+          const saved = await persistCurrent({ renderHtml: false });
+          if (saved) setStats(countStats(saved.text, saved.data.blocks?.length || 0));
+        }, 900);
       },
     });
 
@@ -274,7 +287,7 @@ export default function EditorialRichEditor({
       .then(() => {
         if (destroyed) { try { editor.destroy(); } catch { /* ignore */ } return; }
         editorRef.current = editor;
-        setStats(countStats(startPage?.text_content || ''));
+        setStats(countStats(startPage?.text_content || '', startPage?.editor_data?.blocks?.length || 0));
       })
       .catch((readyError) => {
         if (!destroyed) setEditorError(readyError?.message || 'No se pudo iniciar el editor. Recarga la página.');
@@ -302,7 +315,7 @@ export default function EditorialRichEditor({
       .then(() => editor.render(page?.editor_data?.blocks ? migrateEditorDataMedia(page.editor_data) : emptyData()))
       .then(() => {
         currentPageIdRef.current = selectedPageId;
-        setStats(countStats(page?.text_content || ''));
+        setStats(countStats(page?.text_content || '', page?.editor_data?.blocks?.length || 0));
         if (activeTab === 'preview') setActiveTab('edit');
       })
       .catch((renderError) => {
@@ -333,14 +346,12 @@ export default function EditorialRichEditor({
   const handleAdd = async () => {
     const saved = await persistCurrent();
     if (!saved && editorRef.current) return;
-    dirtyRef.current = true;
-    setDirty(true);
+    markDirty();
     onAddPage?.();
   };
 
   const handleRemove = async () => {
-    dirtyRef.current = true;
-    setDirty(true);
+    markDirty();
     onRemovePage?.(selectedPage);
   };
 
@@ -380,13 +391,11 @@ export default function EditorialRichEditor({
       const index = editor.blocks.getCurrentBlockIndex();
       const at = index >= 0 ? index + 1 : editor.blocks.getBlocksCount();
       editor.blocks.insert(type, data, undefined, at, true);
-      dirtyRef.current = true;
-      setDirty(true);
+      markDirty();
     } catch {
       try {
         editor.blocks.insert(type, data);
-        dirtyRef.current = true;
-        setDirty(true);
+        markDirty();
       } catch (insertError) {
         setEditorError(insertError?.message || 'No se pudo insertar el bloque. Intenta de nuevo.');
       }
@@ -426,8 +435,7 @@ export default function EditorialRichEditor({
       if (command === 'foreColor') commandValue = normalizeHexColor(value);
       if (command === 'hiliteColor') commandValue = normalizeHexColor(value, '#fef08a');
       document.execCommand(command, false, commandValue);
-      dirtyRef.current = true;
-      setDirty(true);
+      markDirty();
     } catch { /* ignore */ }
   };
 
@@ -551,6 +559,7 @@ export default function EditorialRichEditor({
     <div className="editorial-editor__stats" aria-label="Estadísticas de la página">
       <span><strong>{stats.words}</strong> palabras</span>
       <span><strong>{stats.chars}</strong> caracteres</span>
+      <span><strong>{stats.blocks}</strong> bloques</span>
       <span><strong>{pagesWithText}</strong> con texto</span>
     </div>
   );
@@ -588,8 +597,7 @@ export default function EditorialRichEditor({
         className="editorial-editor__title"
         value={selectedPage?.title || ''}
         onChange={(event) => {
-          dirtyRef.current = true;
-          setDirty(true);
+          markDirty();
           onTitleChange?.(selectedPage?.client_id, event.target.value);
         }}
         placeholder={`Título de la página ${selectedPage?.page_number || ''}`.trim()}

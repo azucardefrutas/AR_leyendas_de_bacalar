@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Button from '../../components/ui/Button.jsx';
 import Card from '../../components/ui/Card.jsx';
@@ -604,7 +604,6 @@ function CreateLegendPage() {
   }, [sourceMode]);
 
   const selectedPage = pages.find((page) => page.client_id === selectedPageKey) ?? pages[0];
-  const selectedPageIndex = pages.findIndex((page) => page.client_id === selectedPage?.client_id);
   const declarationsAccepted = Object.values(declarations).every(Boolean);
   const validPageCount = pages.filter((page) => page.text_content?.trim()).length;
   const hasDraft = Boolean(draft.legend?.id && draft.version?.id);
@@ -650,12 +649,6 @@ function CreateLegendPage() {
       if (field === 'title' && !slugTouched) next.slug = slugify(value);
       return next;
     });
-  }
-
-  function updatePage(field, value) {
-    setPages((current) => current.map((page, index) => (
-      index === selectedPageIndex ? { ...page, [field]: value } : page
-    )));
   }
 
   function patchPageById(clientId, patch) {
@@ -724,7 +717,6 @@ function CreateLegendPage() {
     if (!form.title.trim()) return new Error('Agrega el titulo de la leyenda.');
     if (!form.slug.trim()) return new Error('Agrega un slug valido.');
     if (!form.synopsis.trim()) return new Error('Agrega la sinopsis de la leyenda.');
-    if (form.synopsis.trim().length < 30) return new Error('La sinopsis debe tener al menos 30 caracteres.');
     if (!form.origin_place.trim()) return new Error('Agrega el lugar de origen.');
     if (!form.access_type) return new Error('Selecciona el tipo de acceso.');
     return null;
@@ -1132,7 +1124,7 @@ function CreateLegendPage() {
       || creatorSummary?.userLabel
       || 'Autor autenticado';
     const synopsisLength = form.synopsis.trim().length;
-    const canProceed = Boolean(form.title.trim()) && synopsisLength >= 30;
+    const canProceed = Boolean(form.title.trim()) && Boolean(form.synopsis.trim());
 
     return (
       <section className="page-stack creator-panel creator-create-flow">
@@ -1212,10 +1204,12 @@ function CreateLegendPage() {
                 value={form.synopsis}
                 onChange={(event) => updateField('synopsis', event.target.value)}
                 rows={5}
-                placeholder="Un resumen breve de la leyenda (minimo 30 caracteres)."
+                placeholder="Escribe una sinopsis breve de la leyenda."
                 required
               />
-              <small className={synopsisLength >= 30 ? 'is-ready' : ''}>{synopsisLength}/30 caracteres minimos</small>
+              <small className={synopsisLength > 0 ? 'is-ready' : ''}>
+                {synopsisLength > 0 ? `${synopsisLength} caracteres` : 'Sin longitud minima'}
+              </small>
             </label>
           </div>
 

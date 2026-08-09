@@ -1,11 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import EditorModal from './EditorModal.jsx';
 
 export default function InsertMarkerModal({ assets = [], onInsert, onClose, onUploadAsset }) {
   const [assetId, setAssetId] = useState('');
   const [uploadedAsset, setUploadedAsset] = useState(null);
-  const [title, setTitle] = useState('');
-  const [caption, setCaption] = useState('');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
 
@@ -31,7 +29,6 @@ export default function InsertMarkerModal({ assets = [], onInsert, onClose, onUp
       if (!uploaded?.id) throw new Error('El marcador se subió, pero no devolvió un asset válido.');
       setUploadedAsset(uploaded);
       setAssetId(String(uploaded.id));
-      if (!title.trim()) setTitle(uploaded.name || file.name);
     } catch (uploadError) {
       setError(uploadError?.message || 'No se pudo subir el marcador.');
     } finally {
@@ -48,8 +45,8 @@ export default function InsertMarkerModal({ assets = [], onInsert, onClose, onUp
     }
     onInsert({
       assetId: selectedMarker.id,
-      title: title.trim() || selectedMarker.name || 'Marcador',
-      caption: caption.trim(),
+      title: selectedMarker.name || 'Marcador',
+      caption: '',
       imageUrl: selectedMarker.previewUrl || '',
       displayMode: 'inline-card',
       layout: { width: 180, height: 'auto', align: 'center' },
@@ -91,15 +88,6 @@ export default function InsertMarkerModal({ assets = [], onInsert, onClose, onUp
             <small>El asset se guarda en la leyenda y queda seleccionado automáticamente.</small>
           </label>
         )}
-
-        <label className="field">
-          <span>Título</span>
-          <input value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Marcador" disabled={uploading} />
-        </label>
-        <label className="field">
-          <span>Caption <em>opcional</em></span>
-          <input value={caption} onChange={(event) => setCaption(event.target.value)} placeholder="Descripción breve" disabled={uploading} />
-        </label>
 
         {error && <p className="editor-modal-error" role="alert">{error}</p>}
         <div className="editor-modal-actions">

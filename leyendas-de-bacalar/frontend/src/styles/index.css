@@ -3985,11 +3985,11 @@ pre {
 }
 
 .creator-create-flow {
-  max-width: 1280px;
+  max-width: 1440px;
 }
 
 .creator-create-flow:has(.creator-start-card) {
-  max-width: 1180px;
+  max-width: 1440px;
 }
 
 .creator-wizard-flow {
@@ -4195,20 +4195,18 @@ pre {
 .creator-start-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
+  gap: 22px 28px;
 }
 
 /* Fase 1 — pantalla inicial compacta (crear desde cero) */
 .creator-start-card {
-  max-width: 820px;
+  max-width: 1320px;
   margin-inline: auto;
   width: 100%;
   border: 1px solid rgba(148, 163, 184, 0.32);
-  border-radius: 28px;
-  background:
-    radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 34%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.11);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 18px 54px rgba(15, 23, 42, 0.09);
 }
 
 .creator-start-card-head {
@@ -4283,7 +4281,7 @@ pre {
 }
 
 .creator-start-card .textarea {
-  min-height: 116px;
+  min-height: 156px;
   resize: vertical;
 }
 
@@ -10534,6 +10532,10 @@ body.ar-viewer-open .site-header {
   border-top: 1px solid #eef2f7;
 }
 
+.editorial-editor__toolbar-row--insert .editorial-editor__toolbar-group {
+  gap: 6px;
+}
+
 .editorial-editor__toolbar-label {
   margin-right: 4px;
   color: #94a3b8;
@@ -10574,6 +10576,15 @@ body.ar-viewer-open .site-header {
 .editorial-editor__toolbar button:active { transform: scale(0.96); }
 .editorial-editor__toolbar button svg { flex: 0 0 auto; }
 .editor-toolbar-text-icon { font-size: 0.72rem; font-weight: 900; letter-spacing: -0.03em; }
+.editor-toolbar-action-label { font-size: 0.75rem; font-weight: 800; white-space: nowrap; }
+.editorial-editor__toolbar .editorial-editor__insert-action {
+  width: auto;
+  min-width: 92px;
+  gap: 7px;
+  padding-inline: 11px;
+  border-color: #e2e8f0;
+  background: #f8fafc;
+}
 
 .editorial-editor__font-field select,
 .editorial-editor__size-control,
@@ -10726,8 +10737,8 @@ body.ar-viewer-open .site-header {
 
 .editorial-editor__body {
   display: grid;
-  grid-template-columns: 148px minmax(0, 1fr);
-  gap: 14px;
+  grid-template-columns: 176px minmax(0, 1fr);
+  gap: 18px;
   align-items: start;
 }
 
@@ -10798,7 +10809,7 @@ body.ar-viewer-open .site-header {
   border: 1px solid #dbe4ef;
   border-radius: 16px;
   background: #ffffff;
-  padding: 14px;
+  padding: 18px;
 }
 
 .editorial-editor__workspace {
@@ -10812,7 +10823,7 @@ body.ar-viewer-open .site-header {
 }
 
 .editorial-editor__canvas--embedded {
-  width: min(1120px, 100%);
+  width: 100%;
   min-height: 720px;
   margin-inline: auto;
   padding: 22px clamp(18px, 4vw, 44px);
@@ -10858,9 +10869,9 @@ body.ar-viewer-open .site-header {
   top: 46px;
   left: 0;
   display: grid;
-  width: 46px;
-  gap: 3px;
-  padding: 5px;
+  width: 164px;
+  gap: 4px;
+  padding: 6px;
   border: 1px solid #dbe3ec;
   border-radius: 13px;
   background: rgba(255, 255, 255, 0.98);
@@ -10879,14 +10890,15 @@ body.ar-viewer-open .site-header {
 }
 
 .editor-insert-rail__panel button {
-  position: relative;
   display: grid;
-  width: 34px;
-  height: 34px;
-  place-items: center;
-  padding: 0;
+  width: 100%;
+  min-height: 38px;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  gap: 7px;
+  padding: 6px 9px;
   border: 0;
-  border-radius: 9px;
+  border-radius: 8px;
   background: transparent;
   color: #475569;
   cursor: pointer;
@@ -10900,26 +10912,10 @@ body.ar-viewer-open .site-header {
 }
 
 .editor-insert-rail__panel button span {
-  position: absolute;
-  top: 50%;
-  left: calc(100% + 12px);
-  padding: 6px 8px;
-  border-radius: 7px;
-  background: #0f172a;
-  color: #ffffff;
-  font-size: 0.7rem;
-  font-weight: 700;
-  opacity: 0;
-  pointer-events: none;
-  transform: translate(-4px, -50%);
-  transition: opacity 120ms ease, transform 120ms ease;
-  white-space: nowrap;
-}
-
-.editor-insert-rail__panel button:hover span,
-.editor-insert-rail__panel button:focus-visible span {
-  opacity: 1;
-  transform: translate(0, -50%);
+  color: inherit;
+  font-size: 0.74rem;
+  font-weight: 750;
+  text-align: left;
 }
 
 .editorial-editor__title {
@@ -10994,7 +10990,7 @@ body.ar-viewer-open .site-header {
 
 .editorial-editor__holder .ce-toolbar__content,
 .editorial-editor__holder .ce-block__content {
-  max-width: 920px;
+  max-width: 1040px;
 }
 
 .editorial-editor__holder .ce-toolbar__plus {
@@ -11800,6 +11796,26 @@ body.ar-viewer-open .site-header {
 }
 
 .editor-modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.editor-table-preview {
+  display: grid;
+  grid-template-columns: repeat(var(--editor-table-columns), minmax(18px, 1fr));
+  gap: 3px;
+  min-height: 112px;
+  padding: 14px;
+  border: 1px solid #dbe4ef;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+.editor-table-preview span {
+  min-height: 18px;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  background: #ffffff;
+}
+.editor-table-preview span.is-heading {
+  border-color: #67e8f9;
+  background: #cffafe;
+}
 .editor-modal-fieldset { display: grid; gap: 10px; margin: 0; padding: 14px; border: 1px solid #e2e8f0; border-radius: 14px; background: #f8fafc; }
 .editor-modal-fieldset legend { padding: 0 5px; }
 .editor-modal-check-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 12px; }
@@ -12303,6 +12319,13 @@ body.fullscreen-editorial-open .site-header { display: none; }
   background: transparent;
   color: #334155;
 }
+.editorial-editor--fullscreen .editorial-editor__toolbar .editorial-editor__insert-action {
+  width: auto;
+  min-width: 92px;
+  padding-inline: 11px;
+  border-color: #e2e8f0;
+  background: #f8fafc;
+}
 .editorial-editor--fullscreen .editorial-editor__size-control button {
   width: 34px;
   min-width: 34px;
@@ -12382,7 +12405,7 @@ body.fullscreen-editorial-open .site-header { display: none; }
   padding: 0;
 }
 .editorial-editor--fullscreen .editorial-editor__canvas {
-  width: min(1120px, 100%);
+  width: 100%;
   min-height: 800px;
   margin: 0 auto;
   padding: clamp(28px, 4.2vw, 52px);
