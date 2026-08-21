@@ -38,6 +38,7 @@ function mountInlineModel(container, data) {
       <Model3DViewer
         modelUrl={data.modelUrl}
         title={data.title}
+        animationConfig={data.animationConfig}
         embedded
         hideHeading
         compactControls
@@ -785,6 +786,7 @@ export default function EditorialRichEditor({
           <Model3DViewer
             modelUrl={previewModel.modelUrl}
             title={previewModel.title}
+            animationConfig={previewModel.animationConfig}
             onClose={() => setPreviewModel(null)}
           />
         </Suspense>

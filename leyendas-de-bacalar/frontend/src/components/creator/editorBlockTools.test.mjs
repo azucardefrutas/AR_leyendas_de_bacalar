@@ -71,6 +71,14 @@ test('normalizes model and marker data without replacing visible names with UUID
     markerAssetId: '',
     markerImageUrl: '',
     markerTitle: '',
+    animationConfig: {
+      clips: [],
+      defaultClip: '',
+      autoplay: false,
+      loop: 'repeat',
+      speed: 1,
+      trigger: 'load',
+    },
     layout: {
       mode: 'inline',
       align: 'center',

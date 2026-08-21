@@ -134,6 +134,7 @@ function InlineModelPreview({ data, onOpenModel, eager = false }) {
             <InlineModel3DViewer
               modelUrl={data.modelUrl}
               title={data.title}
+              animationConfig={data.animationConfig}
               embedded
               hideHeading
               compactControls

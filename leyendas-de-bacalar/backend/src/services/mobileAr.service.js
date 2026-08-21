@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '../config/supabaseAdmin.js';
+import { normalizeModelAnimationConfig } from './modelAnimationConfig.js';
 
 // Feed de solo lectura para la app movil AR: por cada hotspot publicado devuelve el
 // marcador (imagen) + el modelo 3D (url + transformaciones) + la leyenda. NO duplica
@@ -16,7 +17,7 @@ export async function getMobileArScenes() {
       ar_scene_id,
       legend:legends!inner(id, title, slug, status),
       marker:marker_asset_id(file_url),
-      scene:ar_scene_id(name, scale, position, rotation, model:model_asset_id(file_url))
+      scene:ar_scene_id(name, scale, position, rotation, interaction_config, model:model_asset_id(file_url))
     `)
     .eq('status', 'published')
     .eq('target_type', 'physical_edition')
@@ -61,6 +62,7 @@ export async function getMobileArScenes() {
       scale: row.scene.scale || null,
       position: row.scene.position || null,
       rotation: row.scene.rotation || null,
+      animationConfig: normalizeModelAnimationConfig(row.scene.interaction_config?.animation),
     },
   }));
 }

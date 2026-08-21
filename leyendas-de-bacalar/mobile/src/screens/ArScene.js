@@ -25,6 +25,8 @@ export default function ArScene(props) {
   const appProps = props?.sceneNavigator?.viroAppProps || {};
   const scenes = (appProps.scenes || []).filter((s) => s.markerImageUrl && s.modelUrl);
   const [ready, setReady] = useState(false);
+  const [foundSceneIds, setFoundSceneIds] = useState(() => new Set());
+  const [suppressedPlaybackToken, setSuppressedPlaybackToken] = useState(null);
 
   useEffect(() => {
     if (!scenes.length) { setReady(false); return; }
@@ -40,6 +42,14 @@ export default function ArScene(props) {
     setReady(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scenes.length]);
+
+  useEffect(() => {
+    const token = appProps.playback?.token;
+    if (!token) return undefined;
+    setSuppressedPlaybackToken(token);
+    const frame = requestAnimationFrame(() => setSuppressedPlaybackToken(null));
+    return () => cancelAnimationFrame(frame);
+  }, [appProps.playback?.token]);
 
   return (
     <ViroARScene>
@@ -57,17 +67,44 @@ export default function ArScene(props) {
         <ViroARImageMarker
           key={s.id}
           target={`target_${i}`}
-          onAnchorFound={() => { if (appProps.onFound) appProps.onFound(s); }}
+          onAnchorFound={() => {
+            setFoundSceneIds((current) => new Set(current).add(s.id));
+            if (appProps.onFound) appProps.onFound(s);
+          }}
+          onAnchorRemoved={() => {
+            setFoundSceneIds((current) => {
+              const next = new Set(current);
+              next.delete(s.id);
+              return next;
+            });
+            if (appProps.onLost) appProps.onLost(s);
+          }}
         >
-          <Viro3DObject
-            source={{ uri: s.modelUrl }}
-            type="GLB"
-            position={[0, 0, 0]}
-            rotation={[0, 0, 0]}
-            scale={toScale(s.scale)}
-            dragType="FixedToWorld"
-            onDrag={() => {}}
-          />
+          {foundSceneIds.has(s.id) && (
+            <Viro3DObject
+              source={{ uri: s.modelUrl }}
+              type="GLB"
+              position={[0, 0, 0]}
+              rotation={[0, 0, 0]}
+              scale={toScale(s.scale)}
+              dragType="FixedToWorld"
+              onDrag={() => {}}
+              animation={(() => {
+                const config = s.animationConfig || {};
+                const requested = appProps.playback?.sceneId === s.id ? appProps.playback.clip : null;
+                const name = requested || config.defaultClip || config.clips?.[0];
+                if (!name) return undefined;
+                const requestedRun = requested
+                  ? appProps.playback?.token !== suppressedPlaybackToken
+                  : config.autoplay !== false;
+                return {
+                  name,
+                  run: requestedRun,
+                  loop: requested ? false : config.loop !== 'once',
+                };
+              })()}
+            />
+          )}
         </ViroARImageMarker>
       ))}
     </ViroARScene>

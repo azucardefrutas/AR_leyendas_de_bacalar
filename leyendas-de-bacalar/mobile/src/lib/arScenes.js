@@ -1,5 +1,18 @@
 import { supabase } from './supabase.js';
 
+function normalizeAnimationConfig(value = {}) {
+  const clips = [...new Set((Array.isArray(value.clips) ? value.clips : [])
+    .map((clip) => String(clip || '').trim().slice(0, 160))
+    .filter(Boolean))].slice(0, 32);
+  const requestedDefault = String(value.defaultClip || '').trim();
+  return {
+    clips,
+    defaultClip: clips.includes(requestedDefault) ? requestedDefault : (clips[0] || ''),
+    autoplay: clips.length > 0 && value.autoplay !== false,
+    loop: ['repeat', 'once', 'pingpong'].includes(value.loop) ? value.loop : 'repeat',
+  };
+}
+
 // Trae los modelos 3D + marcadores escaneables de LIBRO FÍSICO. Client-side con el
 // token del usuario (RLS permite a un autenticado leer estas tablas, así que la app no
 // depende del backend). Solo contenido publicado y SOLO `target_type='physical_edition'`:
@@ -12,7 +25,7 @@ export async function fetchArScenes() {
       id, status, ar_scene_id,
       legend:legends!inner(id, title, slug, status),
       marker:marker_asset_id(file_url),
-      scene:ar_scene_id(name, scale, position, rotation, model:model_asset_id(file_url))
+      scene:ar_scene_id(name, scale, position, rotation, interaction_config, model:model_asset_id(file_url))
     `)
     .eq('status', 'published')
     .eq('target_type', 'physical_edition');
@@ -51,6 +64,7 @@ export async function fetchArScenes() {
       scale: row.scene.scale || null,
       position: row.scene.position || null,
       rotation: row.scene.rotation || null,
+      animationConfig: normalizeAnimationConfig(row.scene.interaction_config?.animation),
     });
   }
   return scenes;

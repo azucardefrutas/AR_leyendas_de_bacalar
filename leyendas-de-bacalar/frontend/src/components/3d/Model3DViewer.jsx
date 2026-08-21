@@ -1,10 +1,13 @@
-import React, { Suspense, useEffect, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { Bounds, Center, Html, OrbitControls, useGLTF } from '@react-three/drei';
+import { Bounds, Center, Html, OrbitControls, useAnimations, useGLTF } from '@react-three/drei';
+import * as THREE from 'three';
+import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import Button from '../ui/Button.jsx';
 import WebGLErrorBoundary from './WebGLErrorBoundary.jsx';
 import { isWebGLAvailable } from '../../utils/webglSupport.js';
 import { getOrbitControlOptions } from './model3dViewerOptions.js';
+import { getSceneAnimationConfig, normalizeAnimationConfig } from './modelAnimationConfig.js';
 
 const WEBGL_UNAVAILABLE_MESSAGE =
   'No se pudo mostrar el modelo 3D. Tu dispositivo o navegador podria no soportar 3D (WebGL), o el archivo (GLB/GLTF) fallo.';
@@ -39,9 +42,59 @@ class ModelErrorBoundary extends React.Component {
   }
 }
 
-function GltfModel({ url }) {
-  const { scene } = useGLTF(url);
-  return <primitive object={scene} />;
+function GltfModel({ url, animationConfig, animationActive, onAnimationsDetected }) {
+  const groupRef = useRef(null);
+  const { scene, animations = [] } = useGLTF(url);
+  const clonedScene = useMemo(() => cloneSkeleton(scene), [scene]);
+  const namedAnimations = useMemo(() => {
+    const counts = new Map();
+    return animations.map((clip, index) => {
+      const baseName = String(clip.name || '').trim() || `Animacion ${index + 1}`;
+      const count = counts.get(baseName) || 0;
+      counts.set(baseName, count + 1);
+      const uniqueName = count ? `${baseName} ${count + 1}` : baseName;
+      if (clip.name === uniqueName) return clip;
+      const copy = clip.clone();
+      copy.name = uniqueName;
+      return copy;
+    });
+  }, [animations]);
+  const { actions, names, mixer } = useAnimations(namedAnimations, groupRef);
+  const config = normalizeAnimationConfig(animationConfig);
+  const actionName = config.defaultClip && names.includes(config.defaultClip)
+    ? config.defaultClip
+    : names[0];
+
+  useEffect(() => {
+    onAnimationsDetected?.(names);
+  }, [names, onAnimationsDetected]);
+
+  const play = useCallback(() => {
+    const action = actions[actionName];
+    if (!action) return;
+    mixer.stopAllAction();
+    action.reset();
+    action.enabled = true;
+    action.clampWhenFinished = config.loop === 'once';
+    action.timeScale = config.speed;
+    action.setLoop(
+      config.loop === 'once' ? THREE.LoopOnce : config.loop === 'pingpong' ? THREE.LoopPingPong : THREE.LoopRepeat,
+      config.loop === 'once' ? 1 : Infinity,
+    );
+    action.play();
+  }, [actionName, actions, config.loop, config.speed, mixer]);
+
+  useEffect(() => {
+    if (animationActive && config.autoplay && config.trigger !== 'tap') play();
+    else mixer.stopAllAction();
+    return () => mixer.stopAllAction();
+  }, [animationActive, config.autoplay, config.trigger, mixer, play]);
+
+  return (
+    <group ref={groupRef} onClick={config.trigger === 'tap' ? (event) => { event.stopPropagation(); play(); } : undefined}>
+      <primitive object={clonedScene} />
+    </group>
+  );
 }
 
 // A large invisible plane behind the model. It raycatches the EMPTY canvas so the
@@ -65,8 +118,14 @@ function ModelCanvas({
   fullControls = false,
   onHoverModel,
   onResetReady,
+  animationConfig,
+  animationActive,
+  onAnimationsDetected,
 }) {
   const orbitOptions = getOrbitControlOptions({ embedded, compactControls, interactionEnabled, fullControls });
+  const normalizedAnimation = normalizeAnimationConfig(animationConfig);
+  const needsContinuousFrames = orbitOptions.autoRotate
+    || (animationActive && normalizedAnimation.clips.length > 0 && normalizedAnimation.autoplay);
   const controlsRef = useRef(null);
   // Rotate/pan only while the cursor is over the model; over the empty canvas they are
   // off so the reader's frame-drag can take over. Set imperatively (not via props) so a
@@ -87,7 +146,12 @@ function ModelCanvas({
     return () => onResetReady(null);
   }, [onResetReady]);
   return (
-    <Canvas gl={{ alpha: true }} camera={{ position: [0, 0, embedded ? 4.2 : 4], fov: embedded ? 35 : 45 }} dpr={[1, 1.75]}>
+    <Canvas
+      gl={{ alpha: true }}
+      camera={{ position: [0, 0, embedded ? 4.2 : 4], fov: embedded ? 35 : 45 }}
+      dpr={[1, 1.75]}
+      frameloop={needsContinuousFrames ? 'always' : 'demand'}
+    >
       <ambientLight intensity={embedded ? 1.1 : 0.7} />
       <directionalLight position={[5, 5, 5]} intensity={embedded ? 1.45 : 1} />
       <directionalLight position={[-5, -3, -5]} intensity={embedded ? 0.55 : 0.4} />
@@ -100,10 +164,10 @@ function ModelCanvas({
             <Center>
               {fullControls ? (
                 <group onPointerOver={(event) => { event.stopPropagation(); setOverModel(true); }}>
-                  <GltfModel url={url} />
+                  <GltfModel url={url} animationConfig={normalizedAnimation} animationActive={animationActive} onAnimationsDetected={onAnimationsDetected} />
                 </group>
               ) : (
-                <GltfModel url={url} />
+                <GltfModel url={url} animationConfig={normalizedAnimation} animationActive={animationActive} onAnimationsDetected={onAnimationsDetected} />
               )}
             </Center>
           </Bounds>
@@ -136,11 +200,16 @@ function Model3DViewer({
   fullControls = false,
   onHoverModel,
   onResetReady,
+  animationConfig,
+  animationActive = true,
+  onAnimationsDetected,
 }) {
   const [expanded, setExpanded] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [documentVisible, setDocumentVisible] = useState(() => document.visibilityState !== 'hidden');
   const url = modelUrl || getModelUrl(scene);
   const name = title || scene?.name || 'Modelo 3D';
+  const resolvedAnimationConfig = animationConfig || getSceneAnimationConfig(scene || {});
   // Gate on real WebGL support so we never mount a canvas that would throw and
   // crash the page; the boundary below is the runtime safety net.
   const canRender3D = Boolean(url) && !failed && isWebGLAvailable();
@@ -152,6 +221,12 @@ function Model3DViewer({
     document.body.classList.add('model3d-open');
     return () => document.body.classList.remove('model3d-open');
   }, [embedded]);
+
+  useEffect(() => {
+    const handleVisibility = () => setDocumentVisible(document.visibilityState !== 'hidden');
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
 
   if (embedded) {
     return (
@@ -176,6 +251,9 @@ function Model3DViewer({
                 fullControls={fullControls}
                 onHoverModel={onHoverModel}
                 onResetReady={onResetReady}
+                animationConfig={resolvedAnimationConfig}
+                animationActive={animationActive && documentVisible}
+                onAnimationsDetected={onAnimationsDetected}
               />
             </WebGLErrorBoundary>
           )}
@@ -214,7 +292,13 @@ function Model3DViewer({
             <div className="model3d-message error">{WEBGL_UNAVAILABLE_MESSAGE}</div>
           ) : (
             <WebGLErrorBoundary onError={() => setFailed(true)}>
-              <ModelCanvas url={url} onError={() => setFailed(true)} />
+              <ModelCanvas
+                url={url}
+                onError={() => setFailed(true)}
+                animationConfig={resolvedAnimationConfig}
+                animationActive={animationActive && documentVisible}
+                onAnimationsDetected={onAnimationsDetected}
+              />
             </WebGLErrorBoundary>
           )}
         </div>

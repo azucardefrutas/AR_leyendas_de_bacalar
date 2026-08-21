@@ -31,6 +31,7 @@ export async function recordScan(uid, scene) {
       modelUrl: scene.modelUrl || '',
       markerImageUrl: scene.markerImageUrl || '',
       legendTitle: scene.legend?.title || '',
+      animationConfig: scene.animationConfig || null,
       scannedAt: Date.now(),
     },
     ...rest,

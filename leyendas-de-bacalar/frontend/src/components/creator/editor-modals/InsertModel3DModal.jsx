@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import EditorModal from './EditorModal.jsx';
+import ModelAnimationSettings from '../../3d/ModelAnimationSettings.jsx';
+import { normalizeAnimationConfig } from '../../3d/modelAnimationConfig.js';
 
 function formatBytes(value) {
   const bytes = Number(value) || 0;
@@ -13,6 +15,7 @@ export default function InsertModel3DModal({ assets = [], onInsert, onClose, onU
   const [uploadedAsset, setUploadedAsset] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+  const [animationConfig, setAnimationConfig] = useState(() => normalizeAnimationConfig({}));
 
   const options = useMemo(() => {
     if (!uploadedAsset) return assets;
@@ -36,6 +39,7 @@ export default function InsertModel3DModal({ assets = [], onInsert, onClose, onU
       if (!uploaded?.id) throw new Error('El modelo se subió, pero no devolvió un asset válido.');
       setUploadedAsset(uploaded);
       setAssetId(String(uploaded.id));
+      setAnimationConfig(normalizeAnimationConfig({}));
     } catch (uploadError) {
       setError(uploadError?.message || 'No se pudo subir el modelo 3D.');
     } finally {
@@ -56,6 +60,7 @@ export default function InsertModel3DModal({ assets = [], onInsert, onClose, onU
       caption: '',
       displayMode: 'inline-model',
       modelUrl: selectedModel.previewUrl || '',
+      animationConfig,
       layout: { width: 520, height: 360, align: 'center' },
     });
   };
@@ -63,14 +68,14 @@ export default function InsertModel3DModal({ assets = [], onInsert, onClose, onU
   return (
     <EditorModal
       title="Insertar modelo 3D"
-      description="Selecciona un asset existente o sube un GLB/GLTF sin cargarlo en el modal."
+      description="Usa una sola carga. El sistema detecta si el GLB/GLTF incluye animaciones."
       onClose={onClose}
       busy={uploading}
     >
       <form className="editor-modal-form" onSubmit={submit}>
         <label className="field">
           <span>Modelo disponible</span>
-          <select data-autofocus value={assetId} onChange={(event) => { setAssetId(event.target.value); setError(''); }} disabled={uploading}>
+          <select data-autofocus value={assetId} onChange={(event) => { setAssetId(event.target.value); setAnimationConfig(normalizeAnimationConfig({})); setError(''); }} disabled={uploading}>
             <option value="">Selecciona un modelo…</option>
             {options.map((asset) => <option key={asset.id} value={asset.id}>{asset.name || asset.id}</option>)}
           </select>
@@ -81,6 +86,15 @@ export default function InsertModel3DModal({ assets = [], onInsert, onClose, onU
             <strong>{selectedModel.name || 'Modelo 3D'}</strong>
             <span>{formatBytes(selectedModel.fileSize)} · {selectedModel.status || 'guardado'}</span>
           </div>
+        )}
+
+        {selectedModel?.previewUrl && (
+          <ModelAnimationSettings
+            modelUrl={selectedModel.previewUrl}
+            value={animationConfig}
+            onChange={setAnimationConfig}
+            context="story"
+          />
         )}
 
         {onUploadAsset && (

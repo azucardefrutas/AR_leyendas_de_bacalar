@@ -91,7 +91,11 @@ function getInlineModelHotspot(page) {
     if (block.type === 'model3d' || block.type === 'marker' || block.type === 'leyendaMarker') {
       return {
         id: `inline-model-${page.pageId || page.pageNumber || ''}-${block.id || url.slice(-12)}`,
-        scene: { assets: { url }, name: data.modelTitle || data.title || 'Modelo 3D' },
+        scene: {
+          assets: { url },
+          name: data.modelTitle || data.title || 'Modelo 3D',
+          animationConfig: data.animationConfig,
+        },
         label: data.title || data.modelTitle || 'Modelo 3D',
         x: 0.5,
         y: 0.42,
@@ -179,7 +183,7 @@ function HotspotMarker({ hotspot, index, onClick }) {
 // The flip-book library attaches NATIVE listeners on an ancestor and React's synthetic
 // events can't stop them reliably, so both the flip-guard and the frame-drag are wired
 // as native listeners (same pattern as HotspotMarker).
-function InlineModelLayer({ hotspot, hideBackdrop = false }) {
+function InlineModelLayer({ hotspot, hideBackdrop = false, animationActive = true }) {
   const panelRef = useRef(null);
   const overModelRef = useRef(false);
   const dragRef = useRef({ active: false, startX: 0, startY: 0, x: 0, y: 0, pointerId: null });
@@ -295,6 +299,7 @@ function InlineModelLayer({ hotspot, hideBackdrop = false }) {
             title={title}
             embedded
             fullControls
+            animationActive={animationActive}
             onHoverModel={handleHoverModel}
             onResetReady={(fn) => { resetViewRef.current = fn; }}
           />
@@ -309,6 +314,7 @@ const FlipPage = React.forwardRef(({
   hotspots,
   onHotspotClick,
   hideBackdrop = false,
+  animationActive = true,
 }, ref) => {
   // Editorial template cover / back cover — rendered by the template engine
   // (not Editor.js). No hotspots or page number on these sheets.
@@ -364,6 +370,7 @@ const FlipPage = React.forwardRef(({
             key={`inline-model-${primaryModelHotspot.id}`}
             hotspot={primaryModelHotspot}
             hideBackdrop={hideBackdrop}
+            animationActive={animationActive}
           />
         )}
       </div>
@@ -642,6 +649,7 @@ function ConalitegStyleReader({
                 hotspots={hotspotsByPageIndex[index] ?? []}
                 onHotspotClick={openHotspotModel}
                 hideBackdrop={hideModelBackdrop}
+                animationActive={Math.abs((index + 1) - currentPage) <= 1}
               />
             ))}
           </HTMLFlipBook>

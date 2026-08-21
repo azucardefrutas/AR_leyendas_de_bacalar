@@ -2,6 +2,7 @@
 // layout in editor_data; resources remain in the normal Editor.js document flow.
 import MediaObjectView from './editor-media/MediaObjectView.js';
 import { normalizeCrop, normalizeMediaLayout } from './editor-media/mediaLayoutState.js';
+import { normalizeAnimationConfig } from '../3d/modelAnimationConfig.js';
 
 const ICONS = {
   image: '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/></svg>',
@@ -51,6 +52,7 @@ export function normalizeAssetBlockData(data = {}, { kind, toolTitle }) {
     markerAssetId: data.markerAssetId || '',
     markerImageUrl: data.markerImageUrl || '',
     markerTitle: data.markerTitle || '',
+    animationConfig: isModel ? normalizeAnimationConfig(data.animationConfig) : null,
     layout: normalizeMediaLayout(data.layout, {
       defaultWidth: isModel ? 520 : 180,
       defaultHeight: isModel ? 360 : 'auto',
@@ -436,6 +438,9 @@ class AssetBlockTool {
       assetId: false, title: false, caption: false, displayMode: false,
       modelUrl: false, imageUrl: false, modelAssetId: false, modelTitle: false,
       markerAssetId: false, markerImageUrl: false, markerTitle: false,
+      animationConfig: {
+        clips: false, defaultClip: false, autoplay: false, loop: false, speed: false, trigger: false,
+      },
       crop: { x: false, y: false, width: false, height: false, zoom: false },
       layout: {
         mode: false, align: false, layer: false, x: false, y: false,

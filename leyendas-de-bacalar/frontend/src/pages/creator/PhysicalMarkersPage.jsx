@@ -4,6 +4,8 @@ import Card from '../../components/ui/Card.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
 import AppIcon from '../../components/ui/AppIcon.jsx';
 import MarkerModelPreview from '../../components/3d/MarkerModelPreview.jsx';
+import ModelAnimationSettings from '../../components/3d/ModelAnimationSettings.jsx';
+import { normalizeAnimationConfig } from '../../components/3d/modelAnimationConfig.js';
 import { getMyLegends } from '../../services/creatorService.js';
 import { uploadLegendAsset } from '../../services/assetService.js';
 import { pickUploadedAsset } from '../../utils/uploadedAsset.js';
@@ -14,7 +16,12 @@ import {
   deleteLegendPhysicalMarker,
 } from '../../services/backendApiService.js';
 
-const EMPTY_FORM = { markerFile: null, modelFile: null, label: '' };
+const emptyForm = () => ({
+  markerFile: null,
+  modelFile: null,
+  label: '',
+  animationConfig: normalizeAnimationConfig({}, 'marker-found'),
+});
 
 // Miniatura 3D perezosa: monta el <canvas> WebGL solo cuando la fila entra en el
 // viewport, para no agotar contextos WebGL en listas con muchos modelos. La lista
@@ -87,7 +94,7 @@ function PhysicalMarkersPage() {
   const [markers, setMarkers] = useState([]);
   const [loadingLegends, setLoadingLegends] = useState(true);
   const [loadingMarkers, setLoadingMarkers] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [replacingId, setReplacingId] = useState(null);
   const [error, setError] = useState(null);
@@ -105,6 +112,11 @@ function PhysicalMarkersPage() {
     [form.markerFile],
   );
   useEffect(() => () => { if (markerPreview) URL.revokeObjectURL(markerPreview); }, [markerPreview]);
+  const modelPreview = useMemo(
+    () => (form.modelFile ? URL.createObjectURL(form.modelFile) : ''),
+    [form.modelFile],
+  );
+  useEffect(() => () => { if (modelPreview) URL.revokeObjectURL(modelPreview); }, [modelPreview]);
 
   useEffect(() => {
     let active = true;
@@ -170,9 +182,10 @@ function PhysicalMarkersPage() {
         marker_asset_id: markerAsset.id,
         model_asset_id: modelAsset.id,
         label: form.label.trim() || null,
+        animation_config: form.animationConfig,
       });
       setMarkers((prev) => [...prev, resp.marker]);
-      setForm(EMPTY_FORM);
+      setForm(emptyForm());
       event.target.reset();
       setNotice('Par marcador-modelo guardado.');
     } catch (err) {
@@ -312,7 +325,11 @@ function PhysicalMarkersPage() {
                   <input
                     type="file"
                     accept=".glb,model/gltf-binary"
-                    onChange={(event) => setForm((prev) => ({ ...prev, modelFile: event.target.files?.[0] || null }))}
+                    onChange={(event) => setForm((prev) => ({
+                      ...prev,
+                      modelFile: event.target.files?.[0] || null,
+                      animationConfig: normalizeAnimationConfig({}, 'marker-found'),
+                    }))}
                   />
                   <span className={`pm-drop-icon${form.modelFile ? ' is-model' : ''}`}>
                     <AppIcon name={form.modelFile ? 'deployed_code' : 'view_in_ar'} size={30} />
@@ -323,6 +340,15 @@ function PhysicalMarkersPage() {
                   </span>
                 </label>
               </div>
+
+              {modelPreview && (
+                <ModelAnimationSettings
+                  modelUrl={modelPreview}
+                  value={form.animationConfig}
+                  onChange={(animationConfig) => setForm((prev) => ({ ...prev, animationConfig }))}
+                  context="marker"
+                />
+              )}
 
               <label className="field pm-name-field" htmlFor="pm-label">
                 <span>Nombre (opcional)</span>
@@ -397,7 +423,15 @@ function PhysicalMarkersPage() {
                           <td>
                             <div className="pm-cell">
                               <ModelThumb url={marker.model.url} />
-                              <span className="pm-cell-name">{marker.label || marker.model.name || 'Modelo 3D'}</span>
+                              <span className="pm-cell-model-info">
+                                <span className="pm-cell-name">{marker.label || marker.model.name || 'Modelo 3D'}</span>
+                                {marker.animationConfig?.clips?.length > 0 && (
+                                  <span className="pm-emote-count">
+                                    <AppIcon name="animation" size={13} />
+                                    {marker.animationConfig.clips.length} {marker.animationConfig.clips.length === 1 ? 'emote' : 'emotes'}
+                                  </span>
+                                )}
+                              </span>
                             </div>
                           </td>
                           <td>

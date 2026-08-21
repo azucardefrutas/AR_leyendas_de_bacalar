@@ -28,6 +28,8 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
   const [recording, setRecording] = useState(false);
   const [offline, setOffline] = useState(false);
   const [scanned, setScanned] = useState([]); // colección local del lector (por cuenta)
+  const [activeScene, setActiveScene] = useState(null);
+  const [playback, setPlayback] = useState(null);
   const toastTimer = useRef(null);
 
   useEffect(() => {
@@ -87,10 +89,26 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     // Guarda el modelo en la colección de ESTA cuenta y refresca la lista al vuelo.
     recordScan(uid, scene).then(setScanned).catch(() => {});
+    setActiveScene(scene);
+    setPlayback(null);
     showToast(`Escaneado: ${scene.name || 'modelo'}`);
   }, [uid, showToast]);
 
-  const viroAppProps = useMemo(() => ({ scenes, onFound }), [scenes, onFound]);
+  const onLost = useCallback((scene) => {
+    setActiveScene((current) => (current?.id === scene.id ? null : current));
+    setPlayback((current) => (current?.sceneId === scene.id ? null : current));
+  }, []);
+
+  const playEmote = useCallback((clip) => {
+    if (!activeScene) return;
+    setPlayback({ sceneId: activeScene.id, clip, token: `${Date.now()}-${clip}` });
+    Haptics.selectionAsync().catch(() => {});
+  }, [activeScene]);
+
+  const viroAppProps = useMemo(
+    () => ({ scenes, onFound, onLost, playback }),
+    [onFound, onLost, playback, scenes],
+  );
 
   async function capture() {
     try {
@@ -175,6 +193,31 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
 
       {recording && (
         <View style={styles.recBadge}><View style={styles.recDot} /><Text style={styles.recTxt}>REC</Text></View>
+      )}
+
+      {activeScene?.animationConfig?.clips?.length > 0 && (
+        <View style={styles.emoteTray}>
+          <Text style={styles.emoteTitle}>EMOTES</Text>
+          <FlatList
+            horizontal
+            data={activeScene.animationConfig.clips}
+            keyExtractor={(clip) => clip}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.emoteList}
+            renderItem={({ item }) => {
+              const selected = playback?.sceneId === activeScene.id && playback?.clip === item;
+              return (
+                <Pressable
+                  style={[styles.emoteButton, selected && styles.emoteButtonActive]}
+                  onPress={() => playEmote(item)}
+                >
+                  <MaterialIcons name="play-arrow" size={17} color="#fff" />
+                  <Text style={styles.emoteButtonText} numberOfLines={1}>{item}</Text>
+                </Pressable>
+              );
+            }}
+          />
+        </View>
       )}
 
       <View style={styles.dock} pointerEvents="box-none">
@@ -277,6 +320,12 @@ const styles = StyleSheet.create({
   recBadge: { position: 'absolute', top: 96, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,52,59,0.6)', paddingVertical: 5, paddingHorizontal: 12, borderRadius: 999 },
   recDot: { width: 9, height: 9, borderRadius: 999, backgroundColor: '#E24B4A' },
   recTxt: { color: '#fff', fontWeight: '700', fontSize: 12, letterSpacing: 1 },
+  emoteTray: { position: 'absolute', left: 14, right: 14, bottom: 126, gap: 7 },
+  emoteTitle: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 1, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 },
+  emoteList: { gap: 8, paddingRight: 10 },
+  emoteButton: { maxWidth: 150, minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, borderRadius: 12, backgroundColor: 'rgba(0,52,59,0.72)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.24)' },
+  emoteButtonActive: { backgroundColor: '#078C96', borderColor: '#70E4E7' },
+  emoteButtonText: { maxWidth: 110, color: '#fff', fontSize: 12.5, fontWeight: '700' },
   dock: { position: 'absolute', left: 0, right: 0, bottom: 30, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 26 },
   act: { alignItems: 'center', gap: 5, width: 78 },
   actIc: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,52,59,0.55)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' },

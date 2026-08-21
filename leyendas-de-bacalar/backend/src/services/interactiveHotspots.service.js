@@ -3,6 +3,7 @@ import { supabaseAdmin } from '../config/supabaseAdmin.js';
 import { purgeOrphanAssets } from './assetCleanup.service.js';
 import { getLegendAccessContext } from './legendAccess.service.js';
 import { getPublicUrlForAsset } from './storage.service.js';
+import { normalizeModelAnimationConfig } from './modelAnimationConfig.js';
 
 // Resolve a directly-loadable URL for a 3D model asset so the creator editor can render
 // the real model (tray thumbnail + placed marker). Models live in the public
@@ -275,6 +276,11 @@ export const createHotspot = async ({ legendId, userId, roles, payload }) => {
 
 const SCENE_COLUMNS = 'id, page_id, name, description, status, model_asset_id, interaction_config, created_by, created_at';
 
+const withAnimationConfig = (interactionConfig, animationConfig) => ({
+  ...(interactionConfig && typeof interactionConfig === 'object' ? interactionConfig : {}),
+  animation: normalizeModelAnimationConfig(animationConfig),
+});
+
 // Create (or reuse) the AR scene that links a 3D model to a legend. Runs with the
 // service role so it bypasses the ar_scenes RLS INSERT policy, which requires
 // is_page_creator(page_id) and therefore rejects scenes tied to a rendered PDF page
@@ -294,7 +300,19 @@ export const createScene = async ({ legendId, userId, roles, payload = {} }) => 
     .eq('model_asset_id', modelAssetId)
     .limit(1);
   if (existingError) throw new HotspotError('Could not load AR scene.', 500, { reason: existingError.message });
-  if (existingRows && existingRows.length > 0) return existingRows[0];
+  if (existingRows && existingRows.length > 0) {
+    const existing = existingRows[0];
+    if (payload.animation_config === undefined) return existing;
+    const interactionConfig = withAnimationConfig(existing.interaction_config, payload.animation_config);
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from('ar_scenes')
+      .update({ interaction_config: interactionConfig })
+      .eq('id', existing.id)
+      .select(SCENE_COLUMNS)
+      .single();
+    if (updateError || !updated) throw new HotspotError('Could not update AR scene animation.', 500, { reason: updateError?.message });
+    return updated;
+  }
 
   const record = {
     page_id: payload.page_id || null,
@@ -303,6 +321,9 @@ export const createScene = async ({ legendId, userId, roles, payload = {} }) => 
     model_asset_id: modelAssetId,
     status: 'draft',
     created_by: userId,
+    interaction_config: payload.animation_config === undefined
+      ? {}
+      : withAnimationConfig({}, payload.animation_config),
   };
 
   const { data, error } = await supabaseAdmin
@@ -535,7 +556,7 @@ const PHYSICAL_TARGET = 'physical_edition';
 const PHYSICAL_MARKER_SELECT =
   'id, legend_id, marker_asset_id, ar_scene_id, label, status, created_at, ' +
   'marker:marker_asset_id(id, file_url, metadata), ' +
-  'scene:ar_scene_id(id, name, model:model_asset_id(id, file_url, metadata))';
+  'scene:ar_scene_id(id, name, interaction_config, model:model_asset_id(id, file_url, metadata))';
 
 const modelName = (asset, sceneName) =>
   asset?.metadata?.original_name || asset?.metadata?.filename || sceneName || 'Modelo 3D';
@@ -559,6 +580,7 @@ const serializePhysicalMarker = (row) => {
       url: modelAsset?.file_url || null,
       name: modelName(modelAsset, row.scene?.name),
     },
+    animationConfig: normalizeModelAnimationConfig(row.scene?.interaction_config?.animation),
   };
 };
 
@@ -682,7 +704,11 @@ export const createPhysicalMarker = async ({ legendId, userId, roles, payload = 
     legendId,
     userId,
     roles,
-    payload: { model_asset_id: modelAssetId, name: payload.label || 'Modelo (libro fisico)' },
+    payload: {
+      model_asset_id: modelAssetId,
+      name: payload.label || 'Modelo (libro fisico)',
+      animation_config: payload.animation_config,
+    },
   });
 
   const label = payload.label ? String(payload.label).slice(0, 200) : null;
@@ -736,13 +762,29 @@ export const updatePhysicalMarker = async ({ legendId, hotspotId, userId, roles,
 
   const patch = {};
 
-  if (payload.model_asset_id) {
-    await assertAssetInLegend(legendId, payload.model_asset_id, 'model_3d');
+  if (payload.model_asset_id || payload.animation_config !== undefined) {
+    let modelAssetId = payload.model_asset_id;
+    if (!modelAssetId) {
+      const { data: currentScene, error: sceneError } = await supabaseAdmin
+        .from('ar_scenes')
+        .select('model_asset_id')
+        .eq('id', existing.ar_scene_id)
+        .single();
+      if (sceneError || !currentScene?.model_asset_id) {
+        throw new HotspotError('Could not load the current model animation.', 500, { reason: sceneError?.message });
+      }
+      modelAssetId = currentScene.model_asset_id;
+    }
+    await assertAssetInLegend(legendId, modelAssetId, 'model_3d');
     const scene = await createScene({
       legendId,
       userId,
       roles,
-      payload: { model_asset_id: payload.model_asset_id, name: payload.label || 'Modelo (libro fisico)' },
+      payload: {
+        model_asset_id: modelAssetId,
+        name: payload.label || 'Modelo (libro fisico)',
+        animation_config: payload.animation_config,
+      },
     });
     patch.ar_scene_id = scene.id;
   }
