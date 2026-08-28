@@ -9,6 +9,8 @@ import ArModelsLauncher from '../ar/ArModelsLauncher.jsx';
 import { READER_THEMES, READER_THEME_IDS, getContrastText, buildReaderThemeVars } from './readerTheme.js';
 import TemplateSurface from '../../features/templates/components/TemplateSurface.jsx';
 import { getTemplateById } from '../../features/templates/templateRegistry.js';
+import { getSceneAnimationConfig } from '../3d/modelAnimationConfig.js';
+import { getModelUrl } from '../3d/modelScene.js';
 
 // Live-content renderer (real inline 3D models + marker images). Lazy so the public
 // reader — which renders pre-rendered HTML — never pays for three.js up front.
@@ -190,6 +192,7 @@ function InlineModelLayer({ hotspot, hideBackdrop = false, animationActive = tru
   const resetViewRef = useRef(null);
   const [overModel, setOverModel] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [detectedClips, setDetectedClips] = useState(null);
 
   const handleHoverModel = useCallback((over) => {
     overModelRef.current = over;
@@ -285,6 +288,12 @@ function InlineModelLayer({ hotspot, hideBackdrop = false, animationActive = tru
   }, []);
 
   const title = hotspot.scene?.name || hotspot.label || 'Modelo 3D';
+  const savedAnimation = getSceneAnimationConfig(hotspot.scene || {});
+  const clips = detectedClips ?? savedAnimation.clips;
+  const inspected = detectedClips !== null || savedAnimation.inspected;
+  const animationLabel = clips.length
+    ? `Animado · ${clips.length} ${clips.length === 1 ? 'clip' : 'clips'}`
+    : (inspected ? 'Modelo estatico' : 'Analizando animaciones');
 
   return (
     <section
@@ -292,6 +301,10 @@ function InlineModelLayer({ hotspot, hideBackdrop = false, animationActive = tru
       className={`reader-inline-model${hideBackdrop ? ' is-bare' : ''}${overModel ? '' : ' is-movable'}${dragging ? ' is-moving' : ''}`}
       aria-label={`Modelo 3D ${hotspot.label || ''}`.trim()}
     >
+      <span className={`reader-inline-model-animation${clips.length ? ' is-animated' : ''}`}>
+        <AppIcon name={clips.length ? 'animation' : 'deployed_code'} size={14} />
+        {animationLabel}
+      </span>
       <div className="reader-inline-model-stage">
         <Suspense fallback={<div className="reader-inline-model-loading">Cargando modelo...</div>}>
           <InlineModel3DViewer
@@ -300,6 +313,7 @@ function InlineModelLayer({ hotspot, hideBackdrop = false, animationActive = tru
             embedded
             fullControls
             animationActive={animationActive}
+            onAnimationsDetected={setDetectedClips}
             onHoverModel={handleHoverModel}
             onResetReady={(fn) => { resetViewRef.current = fn; }}
           />
@@ -335,9 +349,9 @@ const FlipPage = React.forwardRef(({
     return <div className="pdf-flip-page pdf-flip-page-blank" ref={ref} aria-hidden="true" />;
   }
 
-  const modelHotspots = hotspots.filter((hotspot) => hotspot?.scene?.assets?.url);
+  const modelHotspots = hotspots.filter((hotspot) => getModelUrl(hotspot?.scene));
   const primaryModelHotspot = modelHotspots[0] ?? null;
-  const markerHotspots = hotspots.filter((hotspot) => !hotspot?.scene?.assets?.url);
+  const markerHotspots = hotspots.filter((hotspot) => !getModelUrl(hotspot?.scene));
 
   return (
     <div className={`pdf-flip-page ${page.type === 'manual' ? 'pdf-flip-page-manual' : ''}`} ref={ref}>
@@ -432,7 +446,7 @@ function ConalitegStyleReader({
 
   // Whether any page carries an inline 3D model — gates the bottom-bar backdrop toggle.
   const hasInlineModel = useMemo(
-    () => hotspotsByPageIndex.some((list) => list.some((hotspot) => hotspot?.scene?.assets?.url)),
+    () => hotspotsByPageIndex.some((list) => list.some((hotspot) => getModelUrl(hotspot?.scene))),
     [hotspotsByPageIndex],
   );
 
@@ -620,7 +634,9 @@ function ConalitegStyleReader({
           style={{ '--reader-page-width': `${pageWidth}px`, '--reader-page-height': `${pageHeight}px` }}
         >
           <HTMLFlipBook
-            key={`${pageWidth}x${pageHeight}`}
+            // PageFlip moves page nodes outside React's original parent. Rebuild the
+            // book when page identities change, rather than deleting moved children.
+            key={`${pageWidth}x${pageHeight}:${pages.map((page, index) => `${page.type}-${page.pageNumber}-${index}`).join('|')}`}
             ref={bookRef}
             width={pageWidth}
             height={pageHeight}

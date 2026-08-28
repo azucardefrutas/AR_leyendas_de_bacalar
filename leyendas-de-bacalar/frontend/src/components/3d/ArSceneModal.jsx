@@ -1,19 +1,13 @@
 import React, { Suspense, lazy, useState } from 'react';
 import Modal from '../ui/Modal.jsx';
 import Button from '../ui/Button.jsx';
+import { getSceneAnimationConfig } from './modelAnimationConfig.js';
+import { getModelAsset, getModelUrl } from './modelScene.js';
 
 const Model3DViewer = lazy(() => import('./Model3DViewer.jsx'));
 
-function getModelAsset(scene = {}) {
-  return scene.assets || scene.asset || scene.model_asset || null;
-}
-
-function getModelUrl(asset = {}) {
-  return asset?.url || asset?.public_url || asset?.file_url || asset?.external_url || '';
-}
-
 function getMarkerAsset(marker = {}) {
-  return marker?.assets || marker?.asset || null;
+  return marker?.assets || marker?.asset || marker?.marker || marker?.markerAsset || marker?.marker_asset || null;
 }
 
 const sceneStatusLabels = {
@@ -34,21 +28,22 @@ function formatFileSize(size) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/**
- * Minimal AR scene viewer placeholder. The real WebGL/3D viewer is not ready yet,
- * so this shows the scene metadata, the linked 3D model and a clear status.
- * No new dependencies are introduced.
- */
 function ArSceneModal({ scene, marker = null, pageNumber = null, onClose }) {
   const [showViewer, setShowViewer] = useState(false);
+  const [detectedClips, setDetectedClips] = useState(null);
 
   if (!scene) return null;
 
   const modelAsset = getModelAsset(scene);
-  const modelUrl = getModelUrl(modelAsset);
+  const modelUrl = getModelUrl(scene);
   const markerAsset = getMarkerAsset(marker);
   const statusLabel = sceneStatusLabels[String(scene.status || '').toLowerCase()] || scene.status || 'No disponible';
   const modelName = modelAsset?.metadata?.original_name || modelAsset?.name || 'Modelo 3D';
+  const savedAnimation = getSceneAnimationConfig(scene);
+  const clips = detectedClips ?? savedAnimation.clips;
+  const animationLabel = clips.length
+    ? `Animado · ${clips.length} ${clips.length === 1 ? 'clip' : 'clips'}`
+    : (detectedClips || savedAnimation.inspected ? 'Modelo estatico' : 'Animacion sin analizar');
 
   return (
     <Modal title={scene.name || 'Escena 3D'} onClose={onClose}>
@@ -56,6 +51,7 @@ function ArSceneModal({ scene, marker = null, pageNumber = null, onClose }) {
         <div className="ar-scene-modal-status">
           <span className="ar-scene-badge">3D / AR</span>
           <span className="ar-scene-badge">{statusLabel}</span>
+          {modelUrl && <span className={`ar-scene-badge ${clips.length ? 'is-animated' : ''}`}>{animationLabel}</span>}
           {pageNumber != null && <span className="ar-scene-badge">Pagina {pageNumber}</span>}
         </div>
 
@@ -120,6 +116,8 @@ function ArSceneModal({ scene, marker = null, pageNumber = null, onClose }) {
             scene={scene}
             modelUrl={modelUrl}
             title={scene.name}
+            animationConfig={savedAnimation}
+            onAnimationsDetected={setDetectedClips}
             onClose={() => setShowViewer(false)}
           />
         </Suspense>

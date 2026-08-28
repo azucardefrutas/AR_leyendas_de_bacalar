@@ -1,17 +1,5 @@
 import { supabase } from './supabase.js';
-
-function normalizeAnimationConfig(value = {}) {
-  const clips = [...new Set((Array.isArray(value.clips) ? value.clips : [])
-    .map((clip) => String(clip || '').trim().slice(0, 160))
-    .filter(Boolean))].slice(0, 32);
-  const requestedDefault = String(value.defaultClip || '').trim();
-  return {
-    clips,
-    defaultClip: clips.includes(requestedDefault) ? requestedDefault : (clips[0] || ''),
-    autoplay: clips.length > 0 && value.autoplay !== false,
-    loop: ['repeat', 'once', 'pingpong'].includes(value.loop) ? value.loop : 'repeat',
-  };
-}
+import { mapPhysicalArScenes } from './arSceneData.js';
 
 // Trae los modelos 3D + marcadores escaneables de LIBRO FÍSICO. Client-side con el
 // token del usuario (RLS permite a un autenticado leer estas tablas, así que la app no
@@ -22,10 +10,10 @@ export async function fetchArScenes() {
   const { data, error } = await supabase
     .from('interactive_hotspots')
     .select(`
-      id, status, ar_scene_id,
+      id, status, label, target_type, ar_scene_id, marker_asset_id,
       legend:legends!inner(id, title, slug, status),
       marker:marker_asset_id(file_url),
-      scene:ar_scene_id(name, scale, position, rotation, interaction_config, model:model_asset_id(file_url))
+      scene:ar_scene_id(name, scale, position, rotation, interaction_config, model:model_asset_id(file_url, metadata))
     `)
     .eq('status', 'published')
     .eq('target_type', 'physical_edition');
@@ -38,34 +26,13 @@ export async function fetchArScenes() {
 
   // marker_code vive en ar_markers, ligado por ar_scene_id.
   const sceneIds = [...new Set(rows.map((row) => row.ar_scene_id).filter(Boolean))];
-  let codeByScene = {};
+  let markerRows = [];
   if (sceneIds.length) {
     const { data: markers } = await supabase
       .from('ar_markers')
-      .select('ar_scene_id, marker_code')
+      .select('ar_scene_id, marker_asset_id, marker_code')
       .in('ar_scene_id', sceneIds);
-    codeByScene = Object.fromEntries((markers ?? []).map((m) => [m.ar_scene_id, m.marker_code]));
+    markerRows = markers || [];
   }
-
-  // Dedupe por modelo (varios hotspots pueden apuntar al mismo GLB).
-  const seen = new Set();
-  const scenes = [];
-  for (const row of rows) {
-    const modelUrl = row.scene.model.file_url;
-    if (seen.has(modelUrl)) continue;
-    seen.add(modelUrl);
-    scenes.push({
-      id: row.id,
-      markerCode: codeByScene[row.ar_scene_id] || null,
-      legend: { id: row.legend.id, title: row.legend.title, slug: row.legend.slug },
-      name: row.scene.name || row.legend.title,
-      markerImageUrl: row.marker?.file_url || null,
-      modelUrl,
-      scale: row.scene.scale || null,
-      position: row.scene.position || null,
-      rotation: row.scene.rotation || null,
-      animationConfig: normalizeAnimationConfig(row.scene.interaction_config?.animation),
-    });
-  }
-  return scenes;
+  return mapPhysicalArScenes(rows, markerRows);
 }

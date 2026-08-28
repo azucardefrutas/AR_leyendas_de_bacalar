@@ -30,3 +30,7 @@ yarn-error.log*
 
 # Local isolated worktrees used by Codex/Superpowers.
 .worktrees/
+
+# Local animation verification assets and generated Android export.
+/leyendas-de-bacalar/frontend/output/playwright/
+/leyendas-de-bacalar/mobile/output/animation-smoke/

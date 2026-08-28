@@ -74,6 +74,7 @@ test('normalizes model and marker data without replacing visible names with UUID
     animationConfig: {
       clips: [],
       defaultClip: '',
+      inspected: false,
       autoplay: false,
       loop: 'repeat',
       speed: 1,

@@ -14,6 +14,7 @@ import { BrandText } from '../components/Brand.js';
 import { fetchArScenes } from '../lib/arScenes.js';
 import { recordScan, getScanHistory } from '../lib/scanHistory.js';
 import { openFloorAr } from '../lib/sceneViewer.js';
+import EmoteWheel from '../components/EmoteWheel.js';
 
 export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
   const { colors } = useTheme();
@@ -30,6 +31,7 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
   const [scanned, setScanned] = useState([]); // colección local del lector (por cuenta)
   const [activeScene, setActiveScene] = useState(null);
   const [playback, setPlayback] = useState(null);
+  const [emoteOpen, setEmoteOpen] = useState(false);
   const toastTimer = useRef(null);
 
   useEffect(() => {
@@ -91,6 +93,7 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
     recordScan(uid, scene).then(setScanned).catch(() => {});
     setActiveScene(scene);
     setPlayback(null);
+    setEmoteOpen(false);
     showToast(`Escaneado: ${scene.name || 'modelo'}`);
   }, [uid, showToast]);
 
@@ -100,14 +103,20 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
   }, []);
 
   const playEmote = useCallback((clip) => {
-    if (!activeScene) return;
+    if (!activeScene?.animationConfig?.clips?.includes(clip)) return;
     setPlayback({ sceneId: activeScene.id, clip, token: `${Date.now()}-${clip}` });
     Haptics.selectionAsync().catch(() => {});
   }, [activeScene]);
 
+  const onEmoteEnd = useCallback((sceneId, token) => {
+    setPlayback((current) => current?.sceneId === sceneId && current?.token === token ? null : current);
+  }, []);
+
+  const onModelError = useCallback(() => showToast('No se pudo cargar el modelo 3D.'), [showToast]);
+
   const viroAppProps = useMemo(
-    () => ({ scenes, onFound, onLost, playback }),
-    [onFound, onLost, playback, scenes],
+    () => ({ scenes, onFound, onLost, playback, onEmoteEnd, onModelError }),
+    [onFound, onLost, playback, scenes, onEmoteEnd, onModelError],
   );
 
   async function capture() {
@@ -195,29 +204,21 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
         <View style={styles.recBadge}><View style={styles.recDot} /><Text style={styles.recTxt}>REC</Text></View>
       )}
 
-      {activeScene?.animationConfig?.clips?.length > 0 && (
+      {activeScene && (
         <View style={styles.emoteTray}>
-          <Text style={styles.emoteTitle}>EMOTES</Text>
-          <FlatList
-            horizontal
-            data={activeScene.animationConfig.clips}
-            keyExtractor={(clip) => clip}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.emoteList}
-            renderItem={({ item }) => {
-              const selected = playback?.sceneId === activeScene.id && playback?.clip === item;
-              return (
-                <Pressable
-                  style={[styles.emoteButton, selected && styles.emoteButtonActive]}
-                  onPress={() => playEmote(item)}
-                >
-                  <MaterialIcons name="play-arrow" size={17} color="#fff" />
-                  <Text style={styles.emoteButtonText} numberOfLines={1}>{item}</Text>
-                </Pressable>
-              );
-            }}
-          />
+          {activeScene.animationConfig?.clips?.length > 0 ? (
+            <Pressable style={styles.emoteButton} onPress={() => setEmoteOpen(true)} accessibilityRole="button" accessibilityLabel="Abrir rueda de emotes">
+              <MaterialIcons name="animation" size={22} color="#fff" />
+              <Text style={styles.emoteButtonText}>Emotes · {activeScene.animationConfig.clips.length}</Text>
+            </Pressable>
+          ) : <Text style={styles.modelStatus}>{activeScene.animationConfig?.inspected ? 'Modelo estatico' : 'Animaciones sin analizar'}</Text>}
         </View>
+      )}
+
+      {activeScene?.animationConfig?.clips?.length > 0 && (
+        <EmoteWheel key={activeScene.id} visible={emoteOpen} title={activeScene.name}
+          clips={activeScene.animationConfig.clips} selectedClip={playback?.clip}
+          onSelect={playEmote} onClose={() => setEmoteOpen(false)} />
       )}
 
       <View style={styles.dock} pointerEvents="box-none">
@@ -320,12 +321,10 @@ const styles = StyleSheet.create({
   recBadge: { position: 'absolute', top: 96, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,52,59,0.6)', paddingVertical: 5, paddingHorizontal: 12, borderRadius: 999 },
   recDot: { width: 9, height: 9, borderRadius: 999, backgroundColor: '#E24B4A' },
   recTxt: { color: '#fff', fontWeight: '700', fontSize: 12, letterSpacing: 1 },
-  emoteTray: { position: 'absolute', left: 14, right: 14, bottom: 126, gap: 7 },
-  emoteTitle: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 1, textShadowColor: 'rgba(0,0,0,0.5)', textShadowRadius: 4 },
-  emoteList: { gap: 8, paddingRight: 10 },
-  emoteButton: { maxWidth: 150, minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, borderRadius: 12, backgroundColor: 'rgba(0,52,59,0.72)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.24)' },
-  emoteButtonActive: { backgroundColor: '#078C96', borderColor: '#70E4E7' },
-  emoteButtonText: { maxWidth: 110, color: '#fff', fontSize: 12.5, fontWeight: '700' },
+  emoteTray: { position: 'absolute', right: 14, bottom: 126 },
+  emoteButton: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, borderRadius: 8, backgroundColor: '#076f7d', borderWidth: 1, borderColor: '#83dfe3' },
+  emoteButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  modelStatus: { color: '#fff', backgroundColor: 'rgba(0,30,39,0.8)', padding: 10, borderRadius: 6, fontSize: 12 },
   dock: { position: 'absolute', left: 0, right: 0, bottom: 30, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 26 },
   act: { alignItems: 'center', gap: 5, width: 78 },
   actIc: { width: 52, height: 52, borderRadius: 16, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,52,59,0.55)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' },

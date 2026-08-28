@@ -546,8 +546,9 @@ export function createLegendMarker(legendId, payload) {
 // Lists the legend's 3D scenes (service-role on the backend) so the creator selector
 // can see scenes whose page_id is null, which the ar_scenes RLS SELECT policy hides
 // from the anon client. Returns { ok, scenes }.
-export function listLegendScenes(legendId) {
-  return requestBackend(`/api/v1/legends/${encodeURIComponent(legendId)}/scenes`, {
+export function listLegendScenes(legendId, { scope = 'story' } = {}) {
+  const query = scope === 'physical' ? '?scope=physical' : '';
+  return requestBackend(`/api/v1/legends/${encodeURIComponent(legendId)}/scenes${query}`, {
     method: 'GET',
     operation: 'list-scenes',
   });

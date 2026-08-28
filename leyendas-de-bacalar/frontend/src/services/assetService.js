@@ -706,7 +706,7 @@ export async function linkLegendSourceDocument({ legendId, assetId, documentType
 // because the ar_scenes RLS INSERT policy requires is_page_creator(page_id) and rejects
 // scenes for rendered-PDF models (page_id null). The backend enforces ownership via the
 // model asset's legend, so this stays secure without touching RLS.
-export async function createArScene({ legendId, pageId = null, modelAssetId, title = 'Escena 3D' }) {
+export async function createArScene({ legendId, pageId = null, modelAssetId, title = 'Escena 3D', animationConfig }) {
   if (isInvalidId(modelAssetId)) return { data: null, error: friendlyAssetError('No pudimos preparar la escena AR.') };
   if (isInvalidId(legendId)) return { data: null, error: friendlyAssetError('No pudimos preparar la escena AR.') };
 
@@ -715,6 +715,7 @@ export async function createArScene({ legendId, pageId = null, modelAssetId, tit
       model_asset_id: modelAssetId,
       page_id: isInvalidId(pageId) ? null : pageId,
       name: title || 'Escena 3D',
+      ...(animationConfig !== undefined ? { animation_config: animationConfig } : {}),
     });
     return { data: response?.scene ?? null, error: null };
   } catch (error) {
@@ -895,6 +896,7 @@ export async function saveLegendResource({ legendId, pageId, resource }) {
       pageId,
       modelAssetId: uploadedAsset.id,
       title: uploadedAsset.metadata?.original_name || resource.file?.name || 'Modelo 3D',
+      animationConfig: resource.animationConfig,
     });
     if (sceneResult.error) return sceneResult;
     return { data: { asset: uploadedAsset, scene: sceneResult.data }, error: null };

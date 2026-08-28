@@ -30,6 +30,9 @@ import {
   startDocumentExtraction,
 } from '../../services/backendApiService.js';
 import ArSceneModal from '../3d/ArSceneModal.jsx';
+import ModelAnimationSettings from '../3d/ModelAnimationSettings.jsx';
+import { getSceneAnimationConfig, normalizeAnimationConfig } from '../3d/modelAnimationConfig.js';
+import { inspectModelFile } from '../3d/modelFileInspection.js';
 import { CoverStudio } from '../../features/templates/index.js';
 import BookPreviewOverlay from './BookPreviewOverlay.jsx';
 
@@ -112,7 +115,14 @@ function createPage(pageNumber = 1) {
 function defaultResources() {
   return resourceDefinitions.reduce((acc, resource) => ({
     ...acc,
-    [resource.key]: { url: '', file: null, saved: false, message: '', error: '' },
+    [resource.key]: {
+      url: '',
+      file: null,
+      saved: false,
+      message: '',
+      error: '',
+      ...(resource.kind === 'ar_model' ? { animationConfig: normalizeAnimationConfig({}) } : {}),
+    },
   }), {});
 }
 
@@ -424,6 +434,42 @@ function LegendEditor({ legendId }) {
   const [submitting, setSubmitting] = useState(false);
   const [processingDocument, setProcessingDocument] = useState(false);
   const [documentProcessingMessage, setDocumentProcessingMessage] = useState('');
+  const pendingModelPreview = useMemo(
+    () => (resources.model3d?.file ? URL.createObjectURL(resources.model3d.file) : ''),
+    [resources.model3d?.file],
+  );
+
+  useEffect(() => () => {
+    if (pendingModelPreview) URL.revokeObjectURL(pendingModelPreview);
+  }, [pendingModelPreview]);
+
+  useEffect(() => {
+    const file = resources.model3d?.file;
+    if (!file) return undefined;
+    let active = true;
+    inspectModelFile(file, 'load')
+      .then((animationConfig) => {
+        if (!active) return;
+        setResources((current) => {
+          if (current.model3d?.file !== file) return current;
+          return {
+            ...current,
+            model3d: { ...current.model3d, animationConfig, error: '' },
+          };
+        });
+      })
+      .catch((inspectionError) => {
+        if (!active) return;
+        setResources((current) => {
+          if (current.model3d?.file !== file) return current;
+          return {
+            ...current,
+            model3d: { ...current.model3d, error: inspectionError.message || 'No se pudo analizar el modelo.' },
+          };
+        });
+      });
+    return () => { active = false; };
+  }, [resources.model3d?.file]);
   const [sourceUpload, setSourceUpload] = useState({ file: null, saving: false, error: '' });
   const [sourceDocumentView, setSourceDocumentView] = useState({
     sourceDocumentId: null,
@@ -786,7 +832,20 @@ function LegendEditor({ legendId }) {
     setError(null);
     setMessage(null);
 
-    const value = resources[definition.key];
+    let value = resources[definition.key];
+    if (definition.kind === 'ar_model' && value.error) {
+      setSavingResourceKey(null);
+      return;
+    }
+    if (definition.kind === 'ar_model' && value.file && !value.animationConfig?.inspected) {
+      try {
+        value = { ...value, animationConfig: await inspectModelFile(value.file, 'load') };
+      } catch (inspectionError) {
+        updateResource(definition.key, { ...value, error: inspectionError.message || 'No se pudo analizar el modelo.' });
+        setSavingResourceKey(null);
+        return;
+      }
+    }
     const arPage = visiblePages.find((page) => Number(page.page_number) === Number(arPageNumber));
     const result = await saveLegendResource({
       legendId: legend.id,
@@ -817,6 +876,7 @@ function LegendEditor({ legendId }) {
       error: '',
       record: result.data,
       previewUrl: getResourceUrl(asset),
+      ...(definition.kind === 'ar_model' ? { animationConfig: value.animationConfig } : {}),
     });
     await loadEditor();
   }
@@ -1247,6 +1307,14 @@ function LegendEditor({ legendId }) {
               onChange={(value) => updateResource('model3d', value)}
               onSave={handleSaveResource}
             />
+            {pendingModelPreview && !resources.model3d.error && (
+              <ModelAnimationSettings
+                modelUrl={pendingModelPreview}
+                value={resources.model3d.animationConfig}
+                onChange={(animationConfig) => updateResource('model3d', { ...resources.model3d, animationConfig })}
+                context="story"
+              />
+            )}
           </section>
 
           <section className="creator-resource-group">
@@ -1267,8 +1335,8 @@ function LegendEditor({ legendId }) {
 
           <section className="creator-resource-group">
             <div className="creator-resource-group-heading">
-              <h3>Asociaciones disponibles</h3>
-              <p>Prueba modelos existentes o editalos colocando un marcador en Documento / libro.</p>
+              <h3>Modelos y asociaciones disponibles</h3>
+              <p>Una leyenda puede tener varios modelos y marcadores. Pruebalos o colocalos desde Documento / libro.</p>
             </div>
             {hotspotAssociationItems.length ? (
               <div className="creator-scene-list creator-association-list">
@@ -1282,6 +1350,11 @@ function LegendEditor({ legendId }) {
                       <div>
                         <strong>Pagina {item.pageNumber} - marcador colocado</strong>
                         <span>Modelo: {getSceneLabel(scene)}{marker ? ` - Marcador: ${getMarkerLabel(marker)}` : ' - sin imagen de marcador'}</span>
+                        {scene && (
+                          <span>{getSceneAnimationConfig(scene).clips.length
+                            ? `Animado: ${getSceneAnimationConfig(scene).clips.length} clip(s)`
+                            : getSceneAnimationConfig(scene).inspected ? 'Modelo estatico' : 'Animacion sin analizar'}</span>
+                        )}
                       </div>
                       <div className="creator-association-actions">
                         <Button type="button" variant="ghost" onClick={() => setActiveTab('content')}>
@@ -1308,6 +1381,9 @@ function LegendEditor({ legendId }) {
                         <div>
                           <strong>{getSceneLabel(scene)}</strong>
                           <span>{marker ? `Marcador visual: ${getMarkerLabel(marker)}` : 'Disponible para asociar desde Documento / libro'}</span>
+                          <span>{getSceneAnimationConfig(scene).clips.length
+                            ? `Animado: ${getSceneAnimationConfig(scene).clips.length} clip(s)`
+                            : getSceneAnimationConfig(scene).inspected ? 'Modelo estatico' : 'Animacion sin analizar'}</span>
                         </div>
                         <Button type="button" variant="ghost" onClick={() => setActiveScene(scene)}>
                           Probar modelo

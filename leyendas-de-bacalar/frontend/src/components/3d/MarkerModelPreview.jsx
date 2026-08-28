@@ -1,8 +1,9 @@
-import React, { Suspense, useState } from 'react';
+import React, { Suspense, useEffect, useMemo, useState } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { Bounds, Center, Html, OrbitControls, useGLTF } from '@react-three/drei';
 import WebGLErrorBoundary from './WebGLErrorBoundary.jsx';
 import { isWebGLAvailable } from '../../utils/webglSupport.js';
+import { cloneModelScene } from './cloneModelScene.js';
 
 // Catches GLTF load failures (404, CORS, invalid file) thrown during render/suspense
 // so the marker shows a clear error state instead of crashing the whole canvas tree.
@@ -27,7 +28,8 @@ class ModelErrorBoundary extends React.Component {
 
 function GltfModel({ url }) {
   const { scene } = useGLTF(url);
-  return <primitive object={scene} />;
+  const instance = useMemo(() => cloneModelScene(scene), [scene]);
+  return <primitive object={instance} dispose={null} />;
 }
 
 /**
@@ -44,6 +46,7 @@ function MarkerModelPreview({ modelUrl, selected = false, autoRotate = true, cla
   const [failed, setFailed] = useState(false);
   // Bumping the key remounts the error boundary + suspense subtree to retry a failed load.
   const [reloadKey, setReloadKey] = useState(0);
+  useEffect(() => setFailed(false), [modelUrl]);
 
   const handleRetry = (event) => {
     event.stopPropagation();
@@ -86,11 +89,11 @@ function MarkerModelPreview({ modelUrl, selected = false, autoRotate = true, cla
       ) : (
         <WebGLErrorBoundary onError={() => setFailed(true)}>
         <Canvas
-          key={reloadKey}
+          key={`${modelUrl}-${reloadKey}`}
           gl={{ alpha: true, antialias: true }}
           camera={{ position: [0, 0, 5], fov: 35 }}
-          dpr={[1, 2]}
-          frameloop="always"
+          dpr={[1, 1.5]}
+          frameloop={autoRotate ? 'always' : 'demand'}
         >
           <ambientLight intensity={1.2} />
           <directionalLight position={[3, 4, 5]} intensity={1.5} />

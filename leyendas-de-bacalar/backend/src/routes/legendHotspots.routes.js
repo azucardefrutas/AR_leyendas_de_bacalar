@@ -62,6 +62,7 @@ router.get('/:legendId/scenes', requireCreatorOrAdmin, async (req, res, next) =>
       legendId: req.params.legendId,
       userId: req.user.id,
       roles: req.user.roles,
+      scope: req.query.scope || 'story',
     });
 
     res.json({ ok: true, scenes });

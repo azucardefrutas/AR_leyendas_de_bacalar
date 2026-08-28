@@ -12,8 +12,9 @@ test('normalizes and deduplicates embedded model clips', () => {
     speed: 1.5,
     trigger: 'tap',
   }), {
-    clips: ['Idle', 'Wave', 'Dance'],
+    clips: [' Idle ', 'Wave', 'Dance'],
     defaultClip: 'Wave',
+    inspected: true,
     autoplay: true,
     loop: 'once',
     speed: 1.5,
@@ -30,9 +31,15 @@ test('keeps static models inactive and clamps unsafe values', () => {
   }, 'marker-found'), {
     clips: [],
     defaultClip: '',
+    inspected: false,
     autoplay: false,
     loop: 'repeat',
     speed: 2,
     trigger: 'marker-found',
   });
+});
+
+test('distinguishes an inspected static file from missing legacy metadata', () => {
+  assert.equal(normalizeAnimationConfig({ inspected: true }).inspected, true);
+  assert.equal(normalizeAnimationConfig(null).inspected, false);
 });

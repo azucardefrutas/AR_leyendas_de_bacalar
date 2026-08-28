@@ -61,6 +61,7 @@ function normalizeEditorAsset(asset = {}, fallbackName) {
     fileSize: nestedAsset.file_size || asset.fileSize || null,
     status: asset.status || nestedAsset.status || 'guardado',
     previewUrl: getAssetUrl(nestedAsset),
+    animationConfig: nestedAsset.metadata?.animation || asset.animationConfig || asset.interaction_config?.animation || null,
   };
 }
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ViroARScene,
   ViroARImageMarker,
@@ -23,13 +23,13 @@ function toScale(scale) {
  */
 export default function ArScene(props) {
   const appProps = props?.sceneNavigator?.viroAppProps || {};
-  const scenes = (appProps.scenes || []).filter((s) => s.markerImageUrl && s.modelUrl);
+  const scenes = useMemo(() => (appProps.scenes || []).filter((s) => s.markerImageUrl && s.modelUrl), [appProps.scenes]);
   const [ready, setReady] = useState(false);
   const [foundSceneIds, setFoundSceneIds] = useState(() => new Set());
   const [suppressedPlaybackToken, setSuppressedPlaybackToken] = useState(null);
 
   useEffect(() => {
-    if (!scenes.length) { setReady(false); return; }
+    if (!scenes.length) { setReady(false); return undefined; }
     const targets = {};
     scenes.forEach((s, i) => {
       targets[`target_${i}`] = {
@@ -40,8 +40,8 @@ export default function ArScene(props) {
     });
     ViroARTrackingTargets.createTargets(targets);
     setReady(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scenes.length]);
+    return () => Object.keys(targets).forEach((name) => ViroARTrackingTargets.deleteTarget(name));
+  }, [scenes]);
 
   useEffect(() => {
     const token = appProps.playback?.token;
@@ -89,6 +89,7 @@ export default function ArScene(props) {
               scale={toScale(s.scale)}
               dragType="FixedToWorld"
               onDrag={() => {}}
+              onError={() => appProps.onModelError?.(s)}
               animation={(() => {
                 const config = s.animationConfig || {};
                 const requested = appProps.playback?.sceneId === s.id ? appProps.playback.clip : null;
@@ -101,6 +102,8 @@ export default function ArScene(props) {
                   name,
                   run: requestedRun,
                   loop: requested ? false : config.loop !== 'once',
+                  interruptible: true,
+                  onFinish: requested ? () => appProps.onEmoteEnd?.(s.id, appProps.playback?.token) : undefined,
                 };
               })()}
             />

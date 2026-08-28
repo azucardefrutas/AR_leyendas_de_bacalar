@@ -1,25 +1,17 @@
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Bounds, Center, Html, OrbitControls, useAnimations, useGLTF } from '@react-three/drei';
 import * as THREE from 'three';
-import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { cloneModelScene } from './cloneModelScene.js';
 import Button from '../ui/Button.jsx';
 import WebGLErrorBoundary from './WebGLErrorBoundary.jsx';
 import { isWebGLAvailable } from '../../utils/webglSupport.js';
 import { getOrbitControlOptions } from './model3dViewerOptions.js';
 import { getSceneAnimationConfig, normalizeAnimationConfig } from './modelAnimationConfig.js';
+import { getModelUrl } from './modelScene.js';
 
 const WEBGL_UNAVAILABLE_MESSAGE =
   'No se pudo mostrar el modelo 3D. Tu dispositivo o navegador podria no soportar 3D (WebGL), o el archivo (GLB/GLTF) fallo.';
-
-function getModelAsset(scene = {}) {
-  return scene?.assets || scene?.asset || scene?.model_asset || null;
-}
-
-function getModelUrl(scene) {
-  const asset = getModelAsset(scene);
-  return asset?.url || asset?.public_url || asset?.file_url || asset?.external_url || '';
-}
 
 // Catches GLTF load failures (404, CORS, invalid file) thrown during render/suspense
 // and lets the parent show a clear error state instead of crashing the canvas.
@@ -45,22 +37,20 @@ class ModelErrorBoundary extends React.Component {
 function GltfModel({ url, animationConfig, animationActive, onAnimationsDetected }) {
   const groupRef = useRef(null);
   const { scene, animations = [] } = useGLTF(url);
-  const clonedScene = useMemo(() => cloneSkeleton(scene), [scene]);
+  const clonedScene = useMemo(() => cloneModelScene(scene), [scene]);
   const namedAnimations = useMemo(() => {
-    const counts = new Map();
-    return animations.map((clip, index) => {
-      const baseName = String(clip.name || '').trim() || `Animacion ${index + 1}`;
-      const count = counts.get(baseName) || 0;
-      counts.set(baseName, count + 1);
-      const uniqueName = count ? `${baseName} ${count + 1}` : baseName;
-      if (clip.name === uniqueName) return clip;
-      const copy = clip.clone();
-      copy.name = uniqueName;
-      return copy;
+    const seen = new Set();
+    return animations.filter((clip) => {
+      if (seen.has(clip.name)) return false;
+      seen.add(clip.name);
+      return true;
     });
   }, [animations]);
   const { actions, names, mixer } = useAnimations(namedAnimations, groupRef);
+  const invalidate = useThree((state) => state.invalidate);
   const config = normalizeAnimationConfig(animationConfig);
+  const effectiveAutoplay = names.length > 0 && (!config.inspected || config.autoplay);
+  const effectiveTrigger = animationConfig?.trigger || config.trigger || 'load';
   const actionName = config.defaultClip && names.includes(config.defaultClip)
     ? config.defaultClip
     : names[0];
@@ -69,11 +59,14 @@ function GltfModel({ url, animationConfig, animationActive, onAnimationsDetected
     onAnimationsDetected?.(names);
   }, [names, onAnimationsDetected]);
 
-  const play = useCallback(() => {
+  const play = useCallback((restart = true) => {
     const action = actions[actionName];
     if (!action) return;
-    mixer.stopAllAction();
-    action.reset();
+    if (restart || !action.isScheduled()) {
+      mixer.stopAllAction();
+      action.reset();
+    }
+    action.paused = false;
     action.enabled = true;
     action.clampWhenFinished = config.loop === 'once';
     action.timeScale = config.speed;
@@ -82,17 +75,22 @@ function GltfModel({ url, animationConfig, animationActive, onAnimationsDetected
       config.loop === 'once' ? 1 : Infinity,
     );
     action.play();
-  }, [actionName, actions, config.loop, config.speed, mixer]);
+    invalidate();
+  }, [actionName, actions, config.loop, config.speed, invalidate, mixer]);
+
+  useFrame(() => {
+    if (animationActive && actions[actionName]?.isRunning()) invalidate();
+  });
 
   useEffect(() => {
-    if (animationActive && config.autoplay && config.trigger !== 'tap') play();
-    else mixer.stopAllAction();
-    return () => mixer.stopAllAction();
-  }, [animationActive, config.autoplay, config.trigger, mixer, play]);
+    if (animationActive && effectiveAutoplay && effectiveTrigger !== 'tap') play(false);
+    else if (actions[actionName]) actions[actionName].paused = true;
+    invalidate();
+  }, [actionName, actions, animationActive, effectiveAutoplay, effectiveTrigger, invalidate, play]);
 
   return (
-    <group ref={groupRef} onClick={config.trigger === 'tap' ? (event) => { event.stopPropagation(); play(); } : undefined}>
-      <primitive object={clonedScene} />
+    <group ref={groupRef} onClick={effectiveTrigger === 'tap' ? (event) => { event.stopPropagation(); play(); } : undefined}>
+      <primitive object={clonedScene} dispose={null} />
     </group>
   );
 }
@@ -123,9 +121,7 @@ function ModelCanvas({
   onAnimationsDetected,
 }) {
   const orbitOptions = getOrbitControlOptions({ embedded, compactControls, interactionEnabled, fullControls });
-  const normalizedAnimation = normalizeAnimationConfig(animationConfig);
-  const needsContinuousFrames = orbitOptions.autoRotate
-    || (animationActive && normalizedAnimation.clips.length > 0 && normalizedAnimation.autoplay);
+  const needsContinuousFrames = orbitOptions.autoRotate;
   const controlsRef = useRef(null);
   // Rotate/pan only while the cursor is over the model; over the empty canvas they are
   // off so the reader's frame-drag can take over. Set imperatively (not via props) so a
@@ -164,10 +160,10 @@ function ModelCanvas({
             <Center>
               {fullControls ? (
                 <group onPointerOver={(event) => { event.stopPropagation(); setOverModel(true); }}>
-                  <GltfModel url={url} animationConfig={normalizedAnimation} animationActive={animationActive} onAnimationsDetected={onAnimationsDetected} />
+                  <GltfModel url={url} animationConfig={animationConfig} animationActive={animationActive} onAnimationsDetected={onAnimationsDetected} />
                 </group>
               ) : (
-                <GltfModel url={url} animationConfig={normalizedAnimation} animationActive={animationActive} onAnimationsDetected={onAnimationsDetected} />
+                <GltfModel url={url} animationConfig={animationConfig} animationActive={animationActive} onAnimationsDetected={onAnimationsDetected} />
               )}
             </Center>
           </Bounds>
@@ -203,6 +199,7 @@ function Model3DViewer({
   animationConfig,
   animationActive = true,
   onAnimationsDetected,
+  onModelError,
 }) {
   const [expanded, setExpanded] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -213,6 +210,12 @@ function Model3DViewer({
   // Gate on real WebGL support so we never mount a canvas that would throw and
   // crash the page; the boundary below is the runtime safety net.
   const canRender3D = Boolean(url) && !failed && isWebGLAvailable();
+  const handleModelError = useCallback((error) => {
+    setFailed(true);
+    onModelError?.(error);
+  }, [onModelError]);
+
+  useEffect(() => setFailed(false), [url]);
 
   // Hide the fixed navbar (and any fixed chrome) while the viewer is open so it
   // never collides with the modal. The CSS targets `body.model3d-open`.
@@ -241,10 +244,10 @@ function Model3DViewer({
           ) : !canRender3D ? (
             <div className="model3d-message error">{WEBGL_UNAVAILABLE_MESSAGE}</div>
           ) : (
-            <WebGLErrorBoundary onError={() => setFailed(true)}>
+            <WebGLErrorBoundary onError={handleModelError}>
               <ModelCanvas
                 url={url}
-                onError={() => setFailed(true)}
+                onError={handleModelError}
                 embedded
                 compactControls={compactControls}
                 interactionEnabled={interactionEnabled}
@@ -291,10 +294,10 @@ function Model3DViewer({
           ) : !canRender3D ? (
             <div className="model3d-message error">{WEBGL_UNAVAILABLE_MESSAGE}</div>
           ) : (
-            <WebGLErrorBoundary onError={() => setFailed(true)}>
+            <WebGLErrorBoundary onError={handleModelError}>
               <ModelCanvas
                 url={url}
-                onError={() => setFailed(true)}
+                onError={handleModelError}
                 animationConfig={resolvedAnimationConfig}
                 animationActive={animationActive && documentVisible}
                 onAnimationsDetected={onAnimationsDetected}

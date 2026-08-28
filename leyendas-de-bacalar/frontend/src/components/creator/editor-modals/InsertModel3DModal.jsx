@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import EditorModal from './EditorModal.jsx';
 import ModelAnimationSettings from '../../3d/ModelAnimationSettings.jsx';
 import { normalizeAnimationConfig } from '../../3d/modelAnimationConfig.js';
+import { inspectModelFile } from '../../3d/modelFileInspection.js';
 
 function formatBytes(value) {
   const bytes = Number(value) || 0;
@@ -35,11 +36,12 @@ export default function InsertModel3DModal({ assets = [], onInsert, onClose, onU
     setUploading(true);
     setError('');
     try {
+      const inspectedAnimation = await inspectModelFile(file, 'load');
       const uploaded = await onUploadAsset(file);
       if (!uploaded?.id) throw new Error('El modelo se subió, pero no devolvió un asset válido.');
-      setUploadedAsset(uploaded);
+      setUploadedAsset({ ...uploaded, animationConfig: inspectedAnimation });
       setAssetId(String(uploaded.id));
-      setAnimationConfig(normalizeAnimationConfig({}));
+      setAnimationConfig(inspectedAnimation);
     } catch (uploadError) {
       setError(uploadError?.message || 'No se pudo subir el modelo 3D.');
     } finally {
@@ -75,7 +77,18 @@ export default function InsertModel3DModal({ assets = [], onInsert, onClose, onU
       <form className="editor-modal-form" onSubmit={submit}>
         <label className="field">
           <span>Modelo disponible</span>
-          <select data-autofocus value={assetId} onChange={(event) => { setAssetId(event.target.value); setAnimationConfig(normalizeAnimationConfig({})); setError(''); }} disabled={uploading}>
+          <select
+            data-autofocus
+            value={assetId}
+            onChange={(event) => {
+              const nextId = event.target.value;
+              const nextModel = options.find((asset) => String(asset.id) === String(nextId));
+              setAssetId(nextId);
+              setAnimationConfig(normalizeAnimationConfig(nextModel?.animationConfig || {}));
+              setError('');
+            }}
+            disabled={uploading}
+          >
             <option value="">Selecciona un modelo…</option>
             {options.map((asset) => <option key={asset.id} value={asset.id}>{asset.name || asset.id}</option>)}
           </select>

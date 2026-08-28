@@ -12,8 +12,9 @@ test('validates model animation input before persisting it', () => {
     speed: 8,
     trigger: 'marker-found',
   }), {
-    clips: ['Idle', 'Wave'],
+    clips: [' Idle ', 'Wave'],
     defaultClip: 'Wave',
+    inspected: true,
     autoplay: true,
     loop: 'once',
     speed: 2,

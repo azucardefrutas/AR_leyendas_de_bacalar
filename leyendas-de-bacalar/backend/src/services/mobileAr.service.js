@@ -15,9 +15,10 @@ export async function getMobileArScenes() {
       id,
       status,
       ar_scene_id,
+      marker_asset_id,
       legend:legends!inner(id, title, slug, status),
       marker:marker_asset_id(file_url),
-      scene:ar_scene_id(name, scale, position, rotation, interaction_config, model:model_asset_id(file_url))
+      scene:ar_scene_id(name, scale, position, rotation, interaction_config, model:model_asset_id(file_url, metadata))
     `)
     .eq('status', 'published')
     .eq('target_type', 'physical_edition')
@@ -32,23 +33,23 @@ export async function getMobileArScenes() {
 
   // Solo leyendas publicadas y hotspots con un modelo real.
   const rows = (data ?? []).filter(
-    (row) => row.legend?.status === 'published' && row.scene?.model?.file_url,
+    (row) => row.legend?.status === 'published' && row.scene?.model?.file_url && row.marker?.file_url,
   );
 
   // marker_code vive en ar_markers (ligado por ar_scene_id); lo adjuntamos por escena.
   const sceneIds = [...new Set(rows.map((row) => row.ar_scene_id).filter(Boolean))];
-  let codeByScene = {};
+  let codeByPair = {};
   if (sceneIds.length) {
     const { data: markers } = await supabaseAdmin
       .from('ar_markers')
-      .select('ar_scene_id, marker_code')
+      .select('ar_scene_id, marker_asset_id, marker_code')
       .in('ar_scene_id', sceneIds);
-    codeByScene = Object.fromEntries((markers ?? []).map((marker) => [marker.ar_scene_id, marker.marker_code]));
+    codeByPair = Object.fromEntries((markers ?? []).map((marker) => [`${marker.ar_scene_id}:${marker.marker_asset_id}`, marker.marker_code]));
   }
 
   return rows.map((row) => ({
     id: row.id,
-    markerCode: codeByScene[row.ar_scene_id] || null,
+    markerCode: codeByPair[`${row.ar_scene_id}:${row.marker_asset_id}`] || null,
     legend: {
       id: row.legend.id,
       title: row.legend.title,
@@ -62,7 +63,7 @@ export async function getMobileArScenes() {
       scale: row.scene.scale || null,
       position: row.scene.position || null,
       rotation: row.scene.rotation || null,
-      animationConfig: normalizeModelAnimationConfig(row.scene.interaction_config?.animation),
+      animationConfig: normalizeModelAnimationConfig(row.scene.interaction_config?.animation || row.scene.model.metadata?.animation),
     },
   }));
 }

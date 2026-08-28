@@ -281,6 +281,20 @@ const withAnimationConfig = (interactionConfig, animationConfig) => ({
   animation: normalizeModelAnimationConfig(animationConfig),
 });
 
+const loadSceneLinks = async (legendId, sceneIds) => {
+  if (!sceneIds.length) return { physical: new Set(), story: new Set() };
+  const { data, error } = await supabaseAdmin.from('interactive_hotspots')
+    .select('ar_scene_id, target_type').eq('legend_id', legendId).in('ar_scene_id', sceneIds);
+  if (error) throw new HotspotError('Could not validate model associations.', 500, { reason: error.message });
+  return {
+    physical: new Set((data || []).filter((row) => row.target_type === 'physical_edition').map((row) => row.ar_scene_id)),
+    story: new Set((data || []).filter((row) => row.target_type !== 'physical_edition').map((row) => row.ar_scene_id)),
+  };
+};
+
+const sceneScope = (scene, links) => scene.interaction_config?.scope
+  || (links.physical.has(scene.id) && !links.story.has(scene.id) && !scene.page_id ? 'physical' : 'story');
+
 // Create (or reuse) the AR scene that links a 3D model to a legend. Runs with the
 // service role so it bypasses the ar_scenes RLS INSERT policy, which requires
 // is_page_creator(page_id) and therefore rejects scenes tied to a rendered PDF page
@@ -291,19 +305,26 @@ export const createScene = async ({ legendId, userId, roles, payload = {} }) => 
 
   const modelAssetId = payload.model_asset_id;
   if (!modelAssetId) throw new HotspotError('model_asset_id is required.', 400);
-  await assertAssetInLegend(legendId, modelAssetId);
+  const modelAsset = await assertAssetInLegend(legendId, modelAssetId, 'model_3d');
+  const scope = payload.scope || 'story';
+  if (!['story', 'physical'].includes(scope)) throw new HotspotError('Invalid model scope.', 400);
+  if (payload.page_id) await assertPageInLegend(legendId, payload.page_id);
+  const requestedAnimationConfig = payload.animation_config !== undefined
+    ? payload.animation_config
+    : modelAsset.metadata?.animation;
 
-  // Idempotent: reuse the scene already linked to this model instead of duplicating.
+  // Reuse within the same experience; mobile settings must not alter the digital story.
   const { data: existingRows, error: existingError } = await supabaseAdmin
     .from('ar_scenes')
     .select(SCENE_COLUMNS)
     .eq('model_asset_id', modelAssetId)
-    .limit(1);
+    .order('created_at', { ascending: true });
   if (existingError) throw new HotspotError('Could not load AR scene.', 500, { reason: existingError.message });
-  if (existingRows && existingRows.length > 0) {
-    const existing = existingRows[0];
-    if (payload.animation_config === undefined) return existing;
-    const interactionConfig = withAnimationConfig(existing.interaction_config, payload.animation_config);
+  const links = await loadSceneLinks(legendId, (existingRows || []).map((scene) => scene.id));
+  const existing = (existingRows || []).find((scene) => sceneScope(scene, links) === scope);
+  if (existing) {
+    if (requestedAnimationConfig === undefined) return existing;
+    const interactionConfig = withAnimationConfig({ ...existing.interaction_config, scope }, requestedAnimationConfig);
     const { data: updated, error: updateError } = await supabaseAdmin
       .from('ar_scenes')
       .update({ interaction_config: interactionConfig })
@@ -321,9 +342,9 @@ export const createScene = async ({ legendId, userId, roles, payload = {} }) => 
     model_asset_id: modelAssetId,
     status: 'draft',
     created_by: userId,
-    interaction_config: payload.animation_config === undefined
-      ? {}
-      : withAnimationConfig({}, payload.animation_config),
+    interaction_config: requestedAnimationConfig === undefined
+      ? { scope }
+      : withAnimationConfig({ scope }, requestedAnimationConfig),
   };
 
   const { data, error } = await supabaseAdmin
@@ -467,8 +488,9 @@ export const linkPhysicalEditionMarker = async ({ legendId, userId, roles, paylo
 // it can read scenes with a null page_id (rendered-PDF models), which the ar_scenes
 // RLS SELECT policy (keyed on is_page_creator(page_id)) would hide from the frontend.
 // Each scene's name is set to the model file name so the selector is human-readable.
-export const listScenes = async ({ legendId, userId, roles }) => {
+export const listScenes = async ({ legendId, userId, roles, scope = 'story' }) => {
   await getLegendAccessContext({ legendId, userId, roles });
+  if (!['story', 'physical'].includes(scope)) throw new HotspotError('Invalid model scope.', 400);
 
   const { data: assets, error: assetsError } = await supabaseAdmin
     .from('assets')
@@ -486,6 +508,7 @@ export const listScenes = async ({ legendId, userId, roles }) => {
     .in('model_asset_id', modelAssetIds)
     .order('created_at', { ascending: false });
   if (error) throw new HotspotError('Could not load scenes.', 500, { reason: error.message });
+  const links = await loadSceneLinks(legendId, (scenes || []).map((scene) => scene.id));
 
   // Decorate each model asset with a loadable URL so the editor can render the real
   // model instead of a "3D" placeholder. Keyed by asset id to attach to its scene.
@@ -495,12 +518,14 @@ export const listScenes = async ({ legendId, userId, roles }) => {
 
   return (scenes ?? [])
     .filter((scene) => String(scene.status || '').toLowerCase() !== 'archived')
+    .filter((scene) => sceneScope(scene, links) === scope || (scope === 'physical' && links.physical.has(scene.id)))
     .map((scene) => {
       const asset = assetById.get(String(scene.model_asset_id)) || null;
       return {
         ...scene,
         name: asset?.metadata?.original_name || asset?.metadata?.filename || scene.name || 'Modelo 3D',
         assets: asset,
+        animationConfig: normalizeModelAnimationConfig(scene.interaction_config?.animation || asset?.metadata?.animation),
       };
     });
 };
@@ -707,6 +732,7 @@ export const createPhysicalMarker = async ({ legendId, userId, roles, payload = 
     payload: {
       model_asset_id: modelAssetId,
       name: payload.label || 'Modelo (libro fisico)',
+      scope: 'physical',
       animation_config: payload.animation_config,
     },
   });
@@ -783,6 +809,7 @@ export const updatePhysicalMarker = async ({ legendId, hotspotId, userId, roles,
       payload: {
         model_asset_id: modelAssetId,
         name: payload.label || 'Modelo (libro fisico)',
+        scope: 'physical',
         animation_config: payload.animation_config,
       },
     });
