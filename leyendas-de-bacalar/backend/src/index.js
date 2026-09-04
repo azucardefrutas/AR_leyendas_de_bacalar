@@ -7,6 +7,7 @@ import { notFound } from './middlewares/notFound.js';
 import { rateLimit } from './middlewares/rateLimit.js';
 import { securityHeaders } from './middlewares/securityHeaders.js';
 import routes from './routes/index.js';
+import { trackHttpTelemetry } from './services/httpTelemetry.service.js';
 import { logger } from './utils/logger.js';
 
 const app = express();
@@ -49,6 +50,7 @@ app.use(express.json({ limit: '1mb' }));
 // Global anti-flood rate limit (defense-in-depth; the code-redemption route keeps its
 // own stricter per-user brute-force limit). Generous for real users, stops hammering.
 app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 600 }));
+app.use(trackHttpTelemetry);
 
 app.use(routes);
 

@@ -35,6 +35,12 @@ function formatPercent(value) {
   return Number.isFinite(value) ? `${value.toFixed(1)} %` : 'Calculando';
 }
 
+function formatMemory(memory) {
+  if (!Number.isFinite(memory?.rssMb)) return 'Sin dato';
+  if (!Number.isFinite(memory?.limitMb)) return `${memory.rssMb} MB`;
+  return `${memory.rssMb} de ${memory.limitMb} MB`;
+}
+
 function formatUptime(totalSeconds) {
   if (!Number.isFinite(totalSeconds)) return 'Sin dato';
   const days = Math.floor(totalSeconds / 86_400);
@@ -70,6 +76,25 @@ function Metric({ label, value }) {
     <div className="admin-telemetry-metric">
       <span>{label}</span>
       <strong>{value}</strong>
+    </div>
+  );
+}
+
+function UsageMetric({ label, value, percent, warningAt = 80, criticalAt = 90 }) {
+  const normalizedPercent = Number.isFinite(percent)
+    ? Math.min(100, Math.max(0, percent))
+    : 0;
+  const condition = normalizedPercent >= criticalAt
+    ? 'critical'
+    : (normalizedPercent >= warningAt ? 'warning' : 'healthy');
+
+  return (
+    <div className="admin-telemetry-metric admin-telemetry-usage">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      <div className={`admin-telemetry-bar is-${condition}`} aria-hidden="true">
+        <i style={{ width: `${normalizedPercent}%` }} />
+      </div>
     </div>
   );
 }
@@ -130,6 +155,7 @@ function AdminSystemTelemetry() {
             second: '2-digit',
           }),
           backend: roundTripMs,
+          appP95: nextTelemetry.backend?.http?.p95LatencyMs ?? null,
           frontend: nextTelemetry.frontend?.latencyMs ?? null,
           supabase: nextTelemetry.supabase?.database?.latencyMs ?? null,
         },
@@ -201,13 +227,32 @@ function AdminSystemTelemetry() {
             <TelemetryCard
               icon="server"
               title="Backend / Render"
-              subtitle={telemetry.backend.region ? `Region ${telemetry.backend.region}` : 'API de Leyendas'}
+              subtitle={telemetry.backend.compute?.planLabel
+                ? `${telemetry.backend.compute.planLabel} · ${telemetry.backend.compute.cpuLimit} CPU · ${telemetry.backend.compute.memoryLimitMb / 1024} GB`
+                : (telemetry.backend.region ? `Region ${telemetry.backend.region}` : 'API de Leyendas')}
               status={telemetry.backend.status}
             >
               <Metric label="Respuesta hasta el navegador" value={formatLatency(telemetry.backend.roundTripMs)} />
               <Metric label="Tiempo encendido" value={formatUptime(telemetry.backend.uptimeSeconds)} />
-              <Metric label="Memoria del proceso" value={`${telemetry.backend.memory.rssMb} MB`} />
-              <Metric label="CPU del proceso" value={formatPercent(telemetry.backend.cpuPercent)} />
+              <UsageMetric
+                label="Memoria / limite del plan"
+                value={`${formatMemory(telemetry.backend.memory)} (${formatPercent(telemetry.backend.memory?.usagePercent)})`}
+                percent={telemetry.backend.memory?.usagePercent}
+              />
+              <UsageMetric
+                label="CPU / limite del plan"
+                value={`${formatPercent(telemetry.backend.cpuPercent)} de ${telemetry.backend.compute?.cpuLimit || '?'} CPU`}
+                percent={telemetry.backend.cpuPercent}
+                warningAt={70}
+                criticalAt={85}
+              />
+              <Metric label="Solicitudes ultimos 5 min" value={telemetry.backend.http?.requestsLast5Minutes ?? 'Sin dato'} />
+              <Metric label="Solicitudes por minuto" value={Number.isFinite(telemetry.backend.http?.requestsPerMinute) ? telemetry.backend.http.requestsPerMinute : 'Sin dato'} />
+              <Metric label="Latencia interna p95" value={formatLatency(telemetry.backend.http?.p95LatencyMs)} />
+              <Metric label="Errores del servidor (5xx)" value={`${telemetry.backend.http?.serverErrors ?? 0} · ${telemetry.backend.http?.errorRatePercent ?? 0} %`} />
+              <Metric label="Respuestas rechazadas (4xx)" value={telemetry.backend.http?.clientErrors ?? 0} />
+              <Metric label="Solicitudes activas" value={telemetry.backend.http?.activeRequests ?? 'Sin dato'} />
+              <Metric label="Retraso del proceso p95" value={formatLatency(telemetry.backend.eventLoop?.p95Ms)} />
             </TelemetryCard>
 
             <TelemetryCard
@@ -223,6 +268,12 @@ function AdminSystemTelemetry() {
             </TelemetryCard>
           </div>
 
+          {telemetry.backend.compute?.planLabel === 'Standard' && (
+            <p className="admin-telemetry-plan-note">
+              Plan confirmado por el servidor: Render Standard, 1 CPU y 2 GB. La latencia p95 y los errores se calculan dentro de esta aplicacion; las metricas HTTP avanzadas del panel de Render pertenecen a Workspace Pro.
+            </p>
+          )}
+
           <div className="admin-telemetry-chart">
             <div>
               <strong>Latencia reciente</strong>
@@ -237,6 +288,7 @@ function AdminSystemTelemetry() {
                   <Tooltip contentStyle={{ borderRadius: 14, borderColor: '#DBE4EF' }} />
                   <Legend />
                   <Line type="monotone" dataKey="backend" name="Render" stroke="#152659" strokeWidth={3} dot={false} connectNulls />
+                  <Line type="monotone" dataKey="appP95" name="Aplicacion p95" stroke="#F97316" strokeWidth={3} dot={false} connectNulls />
                   <Line type="monotone" dataKey="frontend" name="Vercel" stroke="#049DD9" strokeWidth={3} dot={false} connectNulls />
                   <Line type="monotone" dataKey="supabase" name="Supabase" stroke="#10B981" strokeWidth={3} dot={false} connectNulls />
                 </LineChart>

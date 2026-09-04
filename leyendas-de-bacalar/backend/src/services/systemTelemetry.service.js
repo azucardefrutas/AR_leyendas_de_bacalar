@@ -1,14 +1,20 @@
-import { performance } from 'node:perf_hooks';
+import { monitorEventLoopDelay, performance } from 'node:perf_hooks';
 
 import { env } from '../config/env.js';
+import { getHttpTelemetrySnapshot } from './httpTelemetry.service.js';
 
 const PROBE_TIMEOUT_MS = 5_000;
 const BYTES_PER_MEGABYTE = 1024 * 1024;
+const RENDER_COMPUTE_BY_CPU = new Map([
+  [0.1, { planId: 'free', planLabel: 'Free', memoryLimitMb: 512, paid: false }],
+  [0.5, { planId: '0.5c-512mb', planLabel: 'Starter', memoryLimitMb: 512, paid: true }],
+  [1, { planId: '1c-2g', planLabel: 'Standard', memoryLimitMb: 2_048, paid: true }],
+]);
 
-let previousCpuSample = {
-  measuredAt: process.hrtime.bigint(),
-  usage: process.cpuUsage(),
-};
+const eventLoopDelay = monitorEventLoopDelay({ resolution: 20 });
+eventLoopDelay.enable();
+
+let previousCpuSample = null;
 
 function round(value, decimals = 0) {
   if (!Number.isFinite(value)) return null;
@@ -26,12 +32,19 @@ function hostnameFromUrl(value) {
 
 function getProcessCpuPercent() {
   const measuredAt = process.hrtime.bigint();
+  const currentUsage = process.cpuUsage();
+
+  if (!previousCpuSample) {
+    previousCpuSample = { measuredAt, usage: currentUsage };
+    return null;
+  }
+
   const usage = process.cpuUsage(previousCpuSample.usage);
   const elapsedMicroseconds = Number(measuredAt - previousCpuSample.measuredAt) / 1_000;
 
   previousCpuSample = {
     measuredAt,
-    usage: process.cpuUsage(),
+    usage: currentUsage,
   };
 
   if (elapsedMicroseconds <= 0) return null;
@@ -39,24 +52,83 @@ function getProcessCpuPercent() {
   return round(Math.min(100, Math.max(0, (usedMicroseconds / elapsedMicroseconds) * 100)), 1);
 }
 
+function getRenderCompute() {
+  const cpuLimit = Number(process.env.RENDER_CPU_COUNT);
+  const knownCompute = RENDER_COMPUTE_BY_CPU.get(cpuLimit);
+
+  if (!process.env.RENDER || !knownCompute) {
+    return {
+      provider: process.env.RENDER ? 'Render' : 'Local',
+      planId: null,
+      planLabel: null,
+      cpuLimit: Number.isFinite(cpuLimit) && cpuLimit > 0 ? cpuLimit : null,
+      memoryLimitMb: null,
+      paid: null,
+    };
+  }
+
+  return {
+    provider: 'Render',
+    ...knownCompute,
+    cpuLimit,
+  };
+}
+
+function getResourceCondition({ cpuPercent, memoryUsagePercent }) {
+  if (cpuPercent >= 85 || memoryUsagePercent >= 90) return 'critical';
+  if (cpuPercent >= 70 || memoryUsagePercent >= 80) return 'warning';
+  return 'healthy';
+}
+
+function getEventLoopMetrics() {
+  const toMilliseconds = (nanoseconds) => round(nanoseconds / 1_000_000, 1);
+  const metrics = {
+    meanMs: toMilliseconds(eventLoopDelay.mean),
+    p95Ms: toMilliseconds(eventLoopDelay.percentile(95)),
+    maxMs: toMilliseconds(eventLoopDelay.max),
+  };
+  eventLoopDelay.reset();
+  return metrics;
+}
+
 function getProcessMetrics() {
   const memory = process.memoryUsage();
+  const compute = getRenderCompute();
   const heapUsagePercent = memory.heapTotal > 0
     ? (memory.heapUsed / memory.heapTotal) * 100
     : null;
+  const rssMb = round(memory.rss / BYTES_PER_MEGABYTE, 1);
+  const memoryUsagePercent = compute.memoryLimitMb
+    ? (rssMb / compute.memoryLimitMb) * 100
+    : null;
+  const cpuPercent = getProcessCpuPercent();
+  const resourceCondition = getResourceCondition({ cpuPercent, memoryUsagePercent });
+  const http = getHttpTelemetrySnapshot();
 
   return {
-    status: 'operational',
+    status: resourceCondition === 'healthy' && http.status === 'operational'
+      ? 'operational'
+      : 'degraded',
+    condition: resourceCondition === 'critical' || http.condition === 'critical'
+      ? 'critical'
+      : (resourceCondition === 'warning' || http.condition === 'warning' ? 'warning' : 'healthy'),
     uptimeSeconds: Math.round(process.uptime()),
-    cpuPercent: getProcessCpuPercent(),
+    cpuPercent,
+    compute,
     memory: {
-      rssMb: round(memory.rss / BYTES_PER_MEGABYTE, 1),
+      rssMb,
       heapUsedMb: round(memory.heapUsed / BYTES_PER_MEGABYTE, 1),
       heapTotalMb: round(memory.heapTotal / BYTES_PER_MEGABYTE, 1),
       heapUsagePercent: round(heapUsagePercent, 1),
+      limitMb: compute.memoryLimitMb,
+      usagePercent: round(memoryUsagePercent, 1),
     },
+    http,
+    eventLoop: getEventLoopMetrics(),
     runtime: process.version,
     region: process.env.RENDER_REGION || null,
+    serviceName: process.env.RENDER_SERVICE_NAME || null,
+    commit: process.env.RENDER_GIT_COMMIT?.slice(0, 7) || null,
   };
 }
 

@@ -14,7 +14,25 @@ const telemetry = {
     status: 'operational',
     uptimeSeconds: 7_200,
     cpuPercent: 8.4,
-    memory: { rssMb: 200, heapUsedMb: 80, heapTotalMb: 120, heapUsagePercent: 66.7 },
+    compute: { planId: '1c-2g', planLabel: 'Standard', cpuLimit: 1, memoryLimitMb: 2_048, paid: true },
+    memory: {
+      rssMb: 200,
+      heapUsedMb: 80,
+      heapTotalMb: 120,
+      heapUsagePercent: 66.7,
+      limitMb: 2_048,
+      usagePercent: 9.8,
+    },
+    http: {
+      requestsLast5Minutes: 24,
+      requestsPerMinute: 4.8,
+      p95LatencyMs: 84,
+      serverErrors: 0,
+      clientErrors: 2,
+      errorRatePercent: 0,
+      activeRequests: 0,
+    },
+    eventLoop: { p95Ms: 20.2 },
   },
   frontend: {
     status: 'operational',
@@ -50,7 +68,10 @@ describe('AdminSystemTelemetry', () => {
     expect(screen.getByText('Supabase')).toBeInTheDocument();
     expect(screen.getByText('www.bacalarlegends-ar.com')).toBeInTheDocument();
     expect(screen.getByText('project-ref.supabase.co')).toBeInTheDocument();
-    expect(screen.getByText('200 MB')).toBeInTheDocument();
+    expect(screen.getByText('Standard · 1 CPU · 2 GB')).toBeInTheDocument();
+    expect(screen.getByText('200 de 2048 MB (9.8 %)')).toBeInTheDocument();
+    expect(screen.getByText('Solicitudes ultimos 5 min')).toBeInTheDocument();
+    expect(screen.getByText(/Plan confirmado por el servidor/)).toBeInTheDocument();
     expect(screen.getAllByText('Operativo').length).toBeGreaterThanOrEqual(3);
 
     await waitFor(() => expect(getAdminSystemTelemetry).toHaveBeenCalledTimes(1));
