@@ -124,6 +124,15 @@ describe('Protección de rutas autenticadas', () => {
     assert.equal(body.error, 'Unauthorized.');
   });
 
+  test('GET /api/v1/admin/telemetry sin sesión responde 401', async () => {
+    const response = await fetch(`${baseUrl}/api/v1/admin/telemetry`);
+    assert.equal(response.status, 401);
+
+    const body = await response.json();
+    assert.equal(body.ok, false);
+    assert.equal(body.error, 'Unauthorized.');
+  });
+
   test('rechaza un esquema de autorización distinto de Bearer', async () => {
     const response = await fetch(`${baseUrl}/api/v1/auth/me`, {
       headers: { Authorization: 'Token abc123' },

@@ -12,6 +12,7 @@ import {
   setUserStatus,
 } from '../services/admin.service.js';
 import { getAllSettings, updateSettings } from '../services/systemSettings.service.js';
+import { collectSystemTelemetry } from '../services/systemTelemetry.service.js';
 
 const router = Router();
 const requireAdmin = [requireAuth, requireRole(['admin'])];
@@ -21,6 +22,18 @@ router.get('/stats', requireAdmin, async (req, res, next) => {
   try {
     const stats = await getAdminDashboardStats();
     res.json({ ok: true, stats });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Live operational snapshot for the admin dashboard. No credentials, provider tokens,
+// user records, or probe response bodies are returned to the browser.
+router.get('/telemetry', requireAdmin, async (_req, res, next) => {
+  try {
+    const telemetry = await collectSystemTelemetry();
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ ok: true, telemetry });
   } catch (error) {
     next(error);
   }

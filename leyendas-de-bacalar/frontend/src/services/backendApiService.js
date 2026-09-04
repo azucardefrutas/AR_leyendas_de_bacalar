@@ -295,6 +295,10 @@ export function getAdminStatsBackend() {
   return requestBackend('/api/v1/admin/stats', { operation: 'admin-stats' });
 }
 
+export function getAdminSystemTelemetry() {
+  return requestBackend('/api/v1/admin/telemetry', { operation: 'admin-system-telemetry' });
+}
+
 // System settings. Admin reads/writes every key; the public endpoint (no auth) returns
 // only the public-safe subset (announcement/maintenance/creator_registration) used by the
 // global banner and the creator sign-up gate.

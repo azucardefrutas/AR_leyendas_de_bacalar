@@ -8617,6 +8617,182 @@ pre {
   grid-template-columns: minmax(0, 1fr) minmax(300px, 0.85fr);
 }
 
+.admin-telemetry-panel {
+  display: grid;
+  gap: 16px;
+  border: 1px solid #dbe4ef;
+  border-radius: 24px;
+  padding: 20px;
+  background: linear-gradient(180deg, #ffffff, #f8fbfd);
+  box-shadow: 0 18px 50px rgba(21, 38, 89, 0.08);
+}
+
+.admin-telemetry-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.admin-telemetry-actions > span {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.admin-telemetry-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.admin-telemetry-card {
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  background: #ffffff;
+}
+
+.admin-telemetry-card > header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 11px;
+  align-items: center;
+  border-bottom: 1px solid #edf2f7;
+  padding: 15px;
+}
+
+.admin-telemetry-card h3,
+.admin-telemetry-card p {
+  margin: 0;
+}
+
+.admin-telemetry-card h3 {
+  color: #0f172a;
+  font-size: 0.98rem;
+}
+
+.admin-telemetry-card p {
+  overflow: hidden;
+  margin-top: 2px;
+  color: #64748b;
+  font-size: 0.74rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-telemetry-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  color: #047ea8;
+  background: #e7f8fc;
+}
+
+.admin-telemetry-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 6px 9px;
+  font-size: 0.7rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.admin-telemetry-status i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 4px currentColor;
+  opacity: 0.78;
+}
+
+.admin-telemetry-status.is-success { color: #047857; background: #ecfdf5; }
+.admin-telemetry-status.is-warning { color: #b45309; background: #fffbeb; }
+.admin-telemetry-status.is-danger { color: #b91c1c; background: #fef2f2; }
+
+.admin-telemetry-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1px;
+  background: #edf2f7;
+}
+
+.admin-telemetry-metric {
+  min-width: 0;
+  padding: 13px 15px;
+  background: #ffffff;
+}
+
+.admin-telemetry-metric span,
+.admin-telemetry-metric strong {
+  display: block;
+}
+
+.admin-telemetry-metric span {
+  color: #64748b;
+  font-size: 0.72rem;
+}
+
+.admin-telemetry-metric strong {
+  overflow: hidden;
+  margin-top: 4px;
+  color: #0f172a;
+  font-size: 0.92rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-telemetry-chart {
+  min-width: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 18px;
+  padding: 16px 12px 8px;
+  background: #ffffff;
+}
+
+.admin-telemetry-chart > div:first-child {
+  padding-inline: 4px;
+}
+
+.admin-telemetry-chart strong,
+.admin-telemetry-chart span {
+  display: block;
+}
+
+.admin-telemetry-chart strong { color: #0f172a; }
+.admin-telemetry-chart span,
+.admin-telemetry-chart > p {
+  color: #64748b;
+  font-size: 0.8rem;
+}
+
+.admin-telemetry-loading,
+.admin-telemetry-error {
+  border-radius: 14px;
+  padding: 14px;
+  font-weight: 700;
+}
+
+.admin-telemetry-loading { color: #334155; background: #f1f5f9; }
+.admin-telemetry-error { margin: 0; color: #9f1239; background: #fff1f2; }
+
+@media (max-width: 1100px) {
+  .admin-telemetry-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 700px) {
+  .admin-telemetry-panel { padding: 16px; }
+  .admin-telemetry-actions { width: 100%; align-items: stretch; flex-direction: column; }
+  .admin-telemetry-actions .btn { width: 100%; }
+  .admin-telemetry-card > header { grid-template-columns: auto minmax(0, 1fr); }
+  .admin-telemetry-status { grid-column: 1 / -1; justify-self: start; }
+  .admin-telemetry-metrics { grid-template-columns: 1fr; }
+}
+
 .admin-chart-card,
 .admin-activity-panel,
 .admin-summary-card {

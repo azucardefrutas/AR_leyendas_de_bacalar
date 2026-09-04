@@ -16,6 +16,7 @@ import {
   AdminStatCard,
 } from '../../components/ui/AdminPrimitives.jsx';
 import Button from '../../components/ui/Button.jsx';
+import AdminSystemTelemetry from '../../components/admin/AdminSystemTelemetry.jsx';
 import {
   getAdminDashboardStats,
   getCodeUsageStats,
@@ -135,6 +136,8 @@ function AdminDashboardPage() {
           />
         ))}
       </div>
+
+      <AdminSystemTelemetry />
 
       <div className="admin-dashboard-grid">
         <article className="admin-chart-card">
