@@ -95,15 +95,21 @@ export default function ArScene(props) {
                 const requested = appProps.playback?.sceneId === s.id ? appProps.playback.clip : null;
                 const name = requested || config.defaultClip || config.clips?.[0];
                 if (!name) return undefined;
+                // Un emote elegido en la ruleta puede sonar una sola vez o en bucle
+                // (toggle "Repetir" de la app -> playback.loop). El clip base sigue su
+                // propio ciclo (config.loop).
+                const loop = requested ? appProps.playback?.loop === true : config.loop !== 'once';
                 const requestedRun = requested
                   ? appProps.playback?.token !== suppressedPlaybackToken
                   : config.autoplay !== false;
                 return {
                   name,
                   run: requestedRun,
-                  loop: requested ? false : config.loop !== 'once',
+                  loop,
                   interruptible: true,
-                  onFinish: requested ? () => appProps.onEmoteEnd?.(s.id, appProps.playback?.token) : undefined,
+                  // Un emote de una sola vez avisa al terminar para volver al clip base.
+                  // En bucle no hay "fin", asi que no limpiamos el playback.
+                  onFinish: requested && !loop ? () => appProps.onEmoteEnd?.(s.id, appProps.playback?.token) : undefined,
                 };
               })()}
             />

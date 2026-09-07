@@ -5,6 +5,7 @@ import { AuthProvider } from './context/AuthContext.jsx';
 import { RolesProvider } from './context/RolesContext.jsx';
 import './styles/index.css';
 import './styles/readerExperience.css';
+import './styles/glassClay.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

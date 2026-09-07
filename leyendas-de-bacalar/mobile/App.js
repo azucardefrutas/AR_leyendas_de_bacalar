@@ -14,6 +14,7 @@ import Sidebar from './src/components/Sidebar.js';
 function Root() {
   const { colors, mode } = useTheme();
   const [session, setSession] = useState(null);
+  const [guest, setGuest] = useState(false); // "Continuar como invitado": escanear sin cuenta
   const [screen, setScreen] = useState('splash'); // splash | scan | login | history
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -33,7 +34,13 @@ function Root() {
       case 'splash':
         return <SplashScreen onDone={() => setScreen('scan')} />;
       case 'login':
-        return <LoginScreen onClose={() => setScreen('scan')} onLoggedIn={() => setScreen('scan')} />;
+        return (
+          <LoginScreen
+            onClose={() => setScreen('scan')}
+            onLoggedIn={() => { setGuest(false); setScreen('scan'); }}
+            onGuest={() => { setGuest(true); setScreen('scan'); }}
+          />
+        );
       case 'history':
         return <HistoryScreen session={session} onOpenSidebar={() => setSidebarOpen(true)} />;
       case 'scan':
@@ -41,8 +48,10 @@ function Root() {
         return (
           <ScanScreen
             session={session}
+            guest={guest}
             onOpenSidebar={() => setSidebarOpen(true)}
             onRequireLogin={() => setScreen('login')}
+            onContinueGuest={() => setGuest(true)}
           />
         );
     }

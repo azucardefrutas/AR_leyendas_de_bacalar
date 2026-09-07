@@ -13,10 +13,11 @@ import { useTheme } from '../theme.js';
 import { BrandText } from '../components/Brand.js';
 import { fetchArScenes } from '../lib/arScenes.js';
 import { recordScan, getScanHistory } from '../lib/scanHistory.js';
+import { getDeviceId } from '../lib/deviceId.js';
 import { openFloorAr } from '../lib/sceneViewer.js';
 import EmoteWheel from '../components/EmoteWheel.js';
 
-export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
+export default function ScanScreen({ session, guest = false, onOpenSidebar, onRequireLogin, onContinueGuest }) {
   const { colors } = useTheme();
   const uid = session?.user?.id;
   const navRef = useRef(null);
@@ -32,14 +33,23 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
   const [activeScene, setActiveScene] = useState(null);
   const [playback, setPlayback] = useState(null);
   const [emoteOpen, setEmoteOpen] = useState(false);
+  const [loopEmote, setLoopEmote] = useState(false); // "Repetir": el emote elegido suena en bucle
+  const [deviceId, setDeviceId] = useState(null); // ID anonimo del invitado (sin cuenta)
   const toastTimer = useRef(null);
+
+  // La coleccion escaneada se guarda por cuenta (uid) o, si es invitado, por un ID anonimo
+  // persistente del dispositivo.
+  const historyId = uid || deviceId;
+
+  useEffect(() => { getDeviceId().then(setDeviceId); }, []);
 
   useEffect(() => {
     if (permission && !permission.granted && permission.canAskAgain) requestPermission();
   }, [permission, requestPermission]);
 
   useEffect(() => {
-    if (!session) { setLoading(false); return undefined; }
+    // Con sesion O como invitado se cargan las escenas (el feed publico no exige login).
+    if (!session && !guest) { setLoading(false); return undefined; }
     let cancelled = false;
     setLoading(true); setLoadError('');
     (async () => {
@@ -53,14 +63,16 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
       }
     })();
     return () => { cancelled = true; };
-  }, [session]);
+  }, [session, guest]);
 
-  // Colección local del lector: SOLO los modelos que ÉL escaneó, separada por cuenta.
+  // Colección local del lector: SOLO los modelos que ÉL escaneó, separada por cuenta (o por
+  // ID anónimo si es invitado). Espera a tener un id para no leer un bucket equivocado.
   useEffect(() => {
+    if (!historyId) return undefined;
     let active = true;
-    getScanHistory(uid).then((h) => { if (active) setScanned(h); });
+    getScanHistory(historyId).then((h) => { if (active) setScanned(h); });
     return () => { active = false; };
-  }, [uid]);
+  }, [historyId]);
 
   const showToast = useCallback((m) => {
     setToast(m);
@@ -89,13 +101,13 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
 
   const onFound = useCallback((scene) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    // Guarda el modelo en la colección de ESTA cuenta y refresca la lista al vuelo.
-    recordScan(uid, scene).then(setScanned).catch(() => {});
+    // Guarda el modelo en la colección de ESTA cuenta/invitado y refresca la lista al vuelo.
+    recordScan(historyId, scene).then(setScanned).catch(() => {});
     setActiveScene(scene);
     setPlayback(null);
     setEmoteOpen(false);
     showToast(`Escaneado: ${scene.name || 'modelo'}`);
-  }, [uid, showToast]);
+  }, [historyId, showToast]);
 
   const onLost = useCallback((scene) => {
     setActiveScene((current) => (current?.id === scene.id ? null : current));
@@ -104,9 +116,22 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
 
   const playEmote = useCallback((clip) => {
     if (!activeScene?.animationConfig?.clips?.includes(clip)) return;
-    setPlayback({ sceneId: activeScene.id, clip, token: `${Date.now()}-${clip}` });
+    setPlayback({ sceneId: activeScene.id, clip, token: `${Date.now()}-${clip}`, loop: loopEmote });
     Haptics.selectionAsync().catch(() => {});
-  }, [activeScene]);
+  }, [activeScene, loopEmote]);
+
+  const toggleLoop = useCallback(() => {
+    Haptics.selectionAsync().catch(() => {});
+    setLoopEmote((on) => {
+      const next = !on;
+      // Si hay un emote sonando, lo reiniciamos con el nuevo modo (token nuevo) para que
+      // empiece a repetirse, o se detenga al terminar, segun el toggle.
+      setPlayback((current) => (current
+        ? { ...current, loop: next, token: `${Date.now()}-${current.clip}` }
+        : current));
+      return next;
+    });
+  }, []);
 
   const onEmoteEnd = useCallback((sceneId, token) => {
     setPlayback((current) => current?.sceneId === sceneId && current?.token === token ? null : current);
@@ -156,9 +181,11 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
     }
   }
 
-  if (!session) {
-    return <Gate colors={colors} onOpenSidebar={onOpenSidebar} icon="login" title="Inicia sesión para escanear"
-      text="Con tu cuenta cargamos los marcadores y modelos de tus leyendas." cta="Iniciar sesión" onCta={onRequireLogin} />;
+  if (!session && !guest) {
+    return <Gate colors={colors} onOpenSidebar={onOpenSidebar} icon="qr-code-scanner" title="Escanea leyendas en AR"
+      text="Inicia sesión para guardar tu colección, o continúa como invitado para escanear al instante."
+      cta="Iniciar sesión" onCta={onRequireLogin}
+      secondaryCta="Continuar como invitado" onSecondary={onContinueGuest} />;
   }
   if (permission && !permission.granted) {
     return <Gate colors={colors} onOpenSidebar={onOpenSidebar} icon="photo-camera" title="Permiso de cámara"
@@ -207,10 +234,18 @@ export default function ScanScreen({ session, onOpenSidebar, onRequireLogin }) {
       {activeScene && (
         <View style={styles.emoteTray}>
           {activeScene.animationConfig?.clips?.length > 0 ? (
-            <Pressable style={styles.emoteButton} onPress={() => setEmoteOpen(true)} accessibilityRole="button" accessibilityLabel="Abrir rueda de emotes">
-              <MaterialIcons name="animation" size={22} color="#fff" />
-              <Text style={styles.emoteButtonText}>Emotes · {activeScene.animationConfig.clips.length}</Text>
-            </Pressable>
+            <>
+              <Pressable style={[styles.loopButton, loopEmote && styles.loopButtonOn]} onPress={toggleLoop}
+                accessibilityRole="switch" accessibilityState={{ checked: loopEmote }}
+                accessibilityLabel={loopEmote ? 'Desactivar repeticion del emote' : 'Repetir el emote en bucle'}>
+                <MaterialIcons name="loop" size={19} color={loopEmote ? '#04222a' : '#fff'} />
+                <Text style={[styles.loopButtonText, loopEmote && styles.loopButtonTextOn]}>Repetir</Text>
+              </Pressable>
+              <Pressable style={styles.emoteButton} onPress={() => setEmoteOpen(true)} accessibilityRole="button" accessibilityLabel="Abrir rueda de emotes">
+                <MaterialIcons name="animation" size={22} color="#fff" />
+                <Text style={styles.emoteButtonText}>Emotes · {activeScene.animationConfig.clips.length}</Text>
+              </Pressable>
+            </>
           ) : <Text style={styles.modelStatus}>{activeScene.animationConfig?.inspected ? 'Modelo estatico' : 'Animaciones sin analizar'}</Text>}
         </View>
       )}
@@ -284,7 +319,7 @@ function Shutter({ onPress, colors }) {
   );
 }
 
-function Gate({ colors, onOpenSidebar, icon, title, text, cta, onCta }) {
+function Gate({ colors, onOpenSidebar, icon, title, text, cta, onCta, secondaryCta, onSecondary }) {
   return (
     <View style={[styles.gate, { backgroundColor: colors.bg }]}>
       <View style={styles.topBar} pointerEvents="box-none">
@@ -299,6 +334,13 @@ function Gate({ colors, onOpenSidebar, icon, title, text, cta, onCta }) {
             <LinearGradient colors={colors.primaryGrad} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gateBtn}>
               <Text style={styles.gateBtnT}>{cta}</Text>
             </LinearGradient>
+          </Pressable>
+        ) : null}
+        {secondaryCta && onSecondary ? (
+          <Pressable onPress={onSecondary} style={[styles.gateGhostBtn, { borderColor: colors.line || 'rgba(255,255,255,0.28)' }]}
+            accessibilityRole="button" accessibilityLabel={secondaryCta}>
+            <MaterialIcons name="person-outline" size={18} color={colors.text} />
+            <Text style={[styles.gateGhostT, { color: colors.text }]}>{secondaryCta}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -321,9 +363,13 @@ const styles = StyleSheet.create({
   recBadge: { position: 'absolute', top: 96, alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(0,52,59,0.6)', paddingVertical: 5, paddingHorizontal: 12, borderRadius: 999 },
   recDot: { width: 9, height: 9, borderRadius: 999, backgroundColor: '#E24B4A' },
   recTxt: { color: '#fff', fontWeight: '700', fontSize: 12, letterSpacing: 1 },
-  emoteTray: { position: 'absolute', right: 14, bottom: 126 },
+  emoteTray: { position: 'absolute', right: 14, bottom: 126, alignItems: 'flex-end', gap: 8 },
   emoteButton: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, borderRadius: 8, backgroundColor: '#076f7d', borderWidth: 1, borderColor: '#83dfe3' },
   emoteButtonText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  loopButton: { minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, borderRadius: 8, backgroundColor: 'rgba(0,30,39,0.82)', borderWidth: 1, borderColor: '#83dfe3' },
+  loopButtonOn: { backgroundColor: '#83dfe3', borderColor: '#eafcff' },
+  loopButtonText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  loopButtonTextOn: { color: '#04222a' },
   modelStatus: { color: '#fff', backgroundColor: 'rgba(0,30,39,0.8)', padding: 10, borderRadius: 6, fontSize: 12 },
   dock: { position: 'absolute', left: 0, right: 0, bottom: 30, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 26 },
   act: { alignItems: 'center', gap: 5, width: 78 },
@@ -344,4 +390,6 @@ const styles = StyleSheet.create({
   gateText: { fontSize: 14, textAlign: 'center', maxWidth: 300 },
   gateBtn: { marginTop: 10, borderRadius: 16, paddingVertical: 13, paddingHorizontal: 30 },
   gateBtnT: { color: '#fff', fontWeight: '800', letterSpacing: 0.5 },
+  gateGhostBtn: { marginTop: 12, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 16, paddingVertical: 12, paddingHorizontal: 24 },
+  gateGhostT: { fontWeight: '700', fontSize: 14.5 },
 });

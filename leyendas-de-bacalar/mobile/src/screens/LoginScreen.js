@@ -12,7 +12,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase.js';
 // Ícono de la app (la imagen del usuario).
 const appIcon = require('../../assets/app-icon.png');
 
-export default function LoginScreen({ onClose, onLoggedIn }) {
+export default function LoginScreen({ onClose, onLoggedIn, onGuest }) {
   const { colors } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -88,9 +88,18 @@ export default function LoginScreen({ onClose, onLoggedIn }) {
             gradient={colors.primaryGrad}
           />
 
-          <Pressable onPress={onClose} hitSlop={8} style={styles.ghostWrap}>
-            <Text style={[styles.ghost, { color: colors.primary }]}>Explorar sin cuenta ›</Text>
+          <Pressable
+            onPress={onGuest || onClose}
+            style={[styles.guestBtn, { borderColor: colors.cardBrd, backgroundColor: colors.surface }]}
+            accessibilityRole="button"
+            accessibilityLabel="Continuar como invitado"
+          >
+            <MaterialIcons name="person-outline" size={19} color={colors.primary} />
+            <Text style={[styles.guestBtnText, { color: colors.text }]}>Continuar como invitado</Text>
           </Pressable>
+          <Text style={[styles.guestHint, { color: colors.faint }]}>
+            Escanea y mira los modelos sin cuenta. Inicia sesión para guardar tu colección.
+          </Text>
         </GlassCard>
       </KeyboardAvoidingView>
     </View>
@@ -109,6 +118,10 @@ const styles = StyleSheet.create({
   },
   input: { flex: 1, fontSize: 16, paddingVertical: 2 },
   error: { color: '#E24B4A', fontSize: 13, textAlign: 'center', marginTop: 10 },
-  ghostWrap: { marginTop: 14, alignSelf: 'center' },
-  ghost: { fontSize: 13.5, fontWeight: '600' },
+  guestBtn: {
+    marginTop: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, borderWidth: 1, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 14,
+  },
+  guestBtnText: { fontSize: 15, fontWeight: '700' },
+  guestHint: { fontSize: 12, textAlign: 'center', marginTop: 8, lineHeight: 16 },
 });

@@ -1,0 +1,169 @@
+/* ============================================================================
+   Glassmorphism + Claymorphism — SOLO paneles de creador y admin.
+   Scopeado a .creator-shell y .admin-shell para NO tocar el lector/publico.
+   - Glass: superficies traslucidas con blur + saturacion y borde luminoso.
+   - Clay:  superficies "infladas" con sombra doble (oscura afuera, luz adentro),
+            inputs "hundidos" y botones mullidos con rebote al presionar.
+   Se carga DESPUES de index.css, asi que gana en empates de especificidad.
+   ============================================================================ */
+
+.creator-shell,
+.admin-shell {
+  --gc-radius: 26px;
+  --gc-radius-sm: 16px;
+  --gc-glass: linear-gradient(160deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.05));
+  --gc-glass-strong: linear-gradient(160deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.06));
+  --gc-border: rgba(255, 255, 255, 0.22);
+  --gc-blur: blur(22px) saturate(150%);
+  /* Sombra clay: profundidad oscura + luz superior interna + halo suave. */
+  --gc-clay: 0 20px 44px rgba(2, 16, 26, 0.42), 0 6px 14px rgba(2, 16, 26, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -10px 26px rgba(2, 16, 26, 0.14);
+  --gc-clay-press: 0 8px 18px rgba(2, 16, 26, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+  --gc-inset: inset 2px 2px 6px rgba(2, 16, 26, 0.42),
+    inset -2px -2px 6px rgba(255, 255, 255, 0.06);
+}
+
+/* Ambiente suave detras de los paneles (glow de laguna). Como fondo del propio shell
+   (no ::before), asi no interviene en el apilado (z-index) de los hijos. */
+.creator-shell,
+.admin-shell {
+  background-image:
+    radial-gradient(38rem 26rem at 78% 8%, rgba(48, 207, 242, 0.12), transparent 70%),
+    radial-gradient(34rem 24rem at 6% 92%, rgba(23, 184, 201, 0.10), transparent 70%);
+  background-attachment: fixed;
+}
+
+/* --- Tarjetas y paneles: vidrio esmerilado inflado --- */
+.creator-shell .card,
+.admin-shell .card,
+.creator-shell .creator-panel > .card,
+.creator-shell .stat-card,
+.admin-shell .stat-card,
+.creator-shell .pm-form-card,
+.creator-shell .pm-list-card,
+.creator-shell .pm-legend-card,
+.creator-shell .creator-editorial-card,
+.creator-shell .creator-empty-card {
+  border-radius: var(--gc-radius);
+  border: 1px solid var(--gc-border);
+  background: var(--gc-glass);
+  -webkit-backdrop-filter: var(--gc-blur);
+  backdrop-filter: var(--gc-blur);
+  box-shadow: var(--gc-clay);
+}
+
+/* El realce interno superior (borde de luz) que define el look clay/glass. */
+.creator-shell .card,
+.admin-shell .card,
+.creator-shell .stat-card,
+.admin-shell .stat-card {
+  position: relative;
+}
+
+/* --- Botones clay: mullidos, con rebote --- */
+.creator-shell .btn,
+.admin-shell .btn {
+  border-radius: var(--gc-radius-sm);
+  box-shadow: var(--gc-clay);
+  transition: transform 0.14s ease, box-shadow 0.14s ease, filter 0.14s ease;
+}
+
+.creator-shell .btn:hover:not(:disabled),
+.admin-shell .btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+}
+
+.creator-shell .btn:active:not(:disabled),
+.admin-shell .btn:active:not(:disabled) {
+  transform: translateY(1px) scale(0.985);
+  box-shadow: var(--gc-clay-press);
+}
+
+.creator-shell .btn-ghost,
+.admin-shell .btn-ghost {
+  background: var(--gc-glass);
+  border: 1px solid var(--gc-border);
+  -webkit-backdrop-filter: var(--gc-blur);
+  backdrop-filter: var(--gc-blur);
+  box-shadow: var(--gc-clay-press);
+}
+
+/* --- Campos: "hundidos" (clay inset) --- */
+.creator-shell .input,
+.creator-shell .select,
+.creator-shell .field input,
+.creator-shell .field select,
+.creator-shell .field textarea,
+.creator-shell .standalone-input,
+.admin-shell .input,
+.admin-shell .select,
+.admin-shell .field input,
+.admin-shell .field select,
+.admin-shell .field textarea {
+  border-radius: var(--gc-radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: var(--gc-inset);
+  transition: box-shadow 0.16s ease, border-color 0.16s ease;
+}
+
+.creator-shell .input:focus,
+.creator-shell .select:focus,
+.creator-shell .field input:focus,
+.creator-shell .field select:focus,
+.creator-shell .field textarea:focus,
+.admin-shell .input:focus,
+.admin-shell .field input:focus,
+.admin-shell .field select:focus {
+  outline: none;
+  border-color: rgba(48, 207, 242, 0.55);
+  box-shadow: var(--gc-inset), 0 0 0 3px rgba(48, 207, 242, 0.16);
+}
+
+/* --- Drop zones de marcador/modelo: vidrio con borde punteado suave --- */
+.creator-shell .pm-drop {
+  border-radius: var(--gc-radius-sm);
+  background: var(--gc-glass);
+  -webkit-backdrop-filter: var(--gc-blur);
+  backdrop-filter: var(--gc-blur);
+  box-shadow: var(--gc-inset);
+}
+
+.creator-shell .pm-drop.is-filled {
+  box-shadow: var(--gc-clay-press);
+}
+
+/* --- Tabla admin: filas de vidrio --- */
+.admin-shell .admin-table,
+.creator-shell .admin-table {
+  border-radius: var(--gc-radius);
+  overflow: hidden;
+}
+
+.admin-shell .admin-table tbody tr,
+.creator-shell .admin-table tbody tr {
+  transition: background 0.15s ease;
+}
+
+.admin-shell .admin-table tbody tr:hover,
+.creator-shell .admin-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+/* --- Barras laterales: panel esmerilado --- */
+.creator-shell .creator-sidebar,
+.admin-shell .admin-sidebar {
+  -webkit-backdrop-filter: var(--gc-blur);
+  backdrop-filter: var(--gc-blur);
+  box-shadow: 0 18px 44px rgba(2, 16, 26, 0.38);
+}
+
+/* Respeto por usuarios con reduccion de movimiento. */
+@media (prefers-reduced-motion: reduce) {
+  .creator-shell .btn,
+  .admin-shell .btn {
+    transition: none;
+  }
+}
