@@ -26,7 +26,7 @@ function CreatorAccessGuard() {
   }, []);
 
   if (statusLoading) {
-    return <LoadingState message="Verificando permisos de creador..." />;
+    return <LoadingState fullscreen message="Verificando permisos de creador..." />;
   }
 
   if (!accessStatus?.canAccessCreatorPanel) {

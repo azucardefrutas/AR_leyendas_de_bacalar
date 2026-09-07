@@ -73,7 +73,7 @@ export default function SiteAccessGuard() {
     hasLoadedRef.current = true;
   }, [loadAccess, location.pathname]);
 
-  if (state.loading) return <LoadingState message="Verificando disponibilidad..." />;
+  if (state.loading) return <LoadingState fullscreen message="Verificando disponibilidad..." />;
 
   const decision = getSiteAccessDecision({
     mode: state.access?.mode,

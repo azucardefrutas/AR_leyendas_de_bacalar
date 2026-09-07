@@ -31,7 +31,7 @@ function RedirectAuthenticatedRoute() {
   const [searchParams] = useSearchParams();
 
   if (authLoading || (isAuthenticated && rolesLoading)) {
-    return <LoadingState message="Preparando tu sesion..." />;
+    return <LoadingState fullscreen message="Preparando tu sesion..." />;
   }
 
   if (isAuthenticated) {

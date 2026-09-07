@@ -10,7 +10,7 @@ function RoleAwareHomeRoute() {
   const { roles, activeRole, loading: rolesLoading } = useRoles();
 
   if (authLoading || (isAuthenticated && rolesLoading)) {
-    return <LoadingState message="Cargando inicio..." />;
+    return <LoadingState fullscreen message="Cargando inicio..." />;
   }
 
   if (isAuthenticated && roles.includes('admin')) {

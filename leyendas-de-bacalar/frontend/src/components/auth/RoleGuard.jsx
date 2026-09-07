@@ -11,7 +11,7 @@ function RoleGuard({ allowedRoles = [] }) {
   const isAdmin = roleNames.includes('admin');
 
   if (loading) {
-    return <LoadingState message="Verificando permisos..." />;
+    return <LoadingState fullscreen message="Verificando permisos..." />;
   }
 
   if (allowedRoleNames.includes('admin') && import.meta.env.DEV) {

@@ -9,7 +9,7 @@ function ProtectedRoute() {
   const location = useLocation();
 
   if (loading) {
-    return <LoadingState message="Verificando sesion..." />;
+    return <LoadingState fullscreen message="Verificando sesion..." />;
   }
 
   if (!isAuthenticated) {
