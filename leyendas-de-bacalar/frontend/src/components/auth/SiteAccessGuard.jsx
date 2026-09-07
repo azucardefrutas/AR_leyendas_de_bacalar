@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
 
 import { getPublicSystemSettings } from '../../services/backendApiService.js';
@@ -48,19 +48,29 @@ function RestrictedSite({ mode, message, onRetry, unavailable = false }) {
 export default function SiteAccessGuard() {
   const location = useLocation();
   const [state, setState] = useState({ loading: true, access: null, error: '' });
+  const hasLoadedRef = useRef(false);
 
-  const loadAccess = useCallback(async () => {
-    setState((current) => ({ ...current, loading: true, error: '' }));
+  const loadAccess = useCallback(async ({ silent = false } = {}) => {
+    // Solo la PRIMERA carga bloquea con el preloader. Las revalidaciones (al cambiar de
+    // ruta) corren en silencio para no tapar la pantalla ni parpadear.
+    if (!silent) setState((current) => ({ ...current, loading: true, error: '' }));
     try {
       const response = await getPublicSystemSettings();
       setState({ loading: false, access: normalizeSiteAccess(response?.settings?.site_access), error: '' });
     } catch {
-      setState({ loading: false, access: null, error: 'La plataforma no respondio. Intenta nuevamente.' });
+      // En una revalidacion silenciosa conservamos el acceso ya conocido: un chequeo de
+      // fondo que falle NO debe echar al usuario ni mostrar el error a media navegacion.
+      setState((current) => ({
+        loading: false,
+        access: current.access,
+        error: current.access ? '' : 'La plataforma no respondio. Intenta nuevamente.',
+      }));
     }
   }, []);
 
   useEffect(() => {
-    loadAccess();
+    loadAccess({ silent: hasLoadedRef.current });
+    hasLoadedRef.current = true;
   }, [loadAccess, location.pathname]);
 
   if (state.loading) return <LoadingState message="Verificando disponibilidad..." />;

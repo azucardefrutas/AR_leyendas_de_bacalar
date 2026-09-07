@@ -1,0 +1,48 @@
+/* Preloader de libro (LoadingState). Suave, de marca, respeta prefers-reduced-motion.
+   Reemplaza el "texto sobre fondo azul" que se sentía tosco al cambiar de página. */
+.book-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 28px 20px;
+  min-height: 140px;
+  width: 100%;
+  text-align: center;
+}
+
+.book-loader-book {
+  display: inline-flex;
+  color: var(--reader-accent, #30cff2);
+  filter: drop-shadow(0 8px 16px rgba(48, 207, 242, 0.35));
+  animation: book-loader-float 1.5s ease-in-out infinite;
+}
+
+/* El glifo del libro late suavemente (páginas "vivas") mientras el conjunto flota. */
+.book-loader-book .app-icon {
+  animation: book-loader-breathe 1.5s ease-in-out infinite;
+}
+
+@keyframes book-loader-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+
+@keyframes book-loader-breathe {
+  0%, 100% { opacity: 0.9; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.07); }
+}
+
+.book-loader-msg {
+  margin: 0;
+  opacity: 0.92;
+  letter-spacing: 0.01em;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book-loader-book,
+  .book-loader-book .app-icon {
+    animation: none;
+  }
+}
