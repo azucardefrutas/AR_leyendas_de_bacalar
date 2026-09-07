@@ -8,3 +8,5 @@ dist/
 .gradle/
 .env*.local
 *.log
+.claude/
+.agents/
