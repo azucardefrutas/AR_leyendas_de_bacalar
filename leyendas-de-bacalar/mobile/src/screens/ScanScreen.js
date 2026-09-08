@@ -252,7 +252,8 @@ export default function ScanScreen({ session, guest = false, onOpenSidebar, onRe
 
       {activeScene?.animationConfig?.clips?.length > 0 && (
         <EmoteWheel key={activeScene.id} visible={emoteOpen} title={activeScene.name}
-          clips={activeScene.animationConfig.clips} selectedClip={playback?.clip}
+          clips={activeScene.animationConfig.clips} labels={activeScene.animationConfig.labels}
+          selectedClip={playback?.clip}
           onSelect={playEmote} onClose={() => setEmoteOpen(false)} />
       )}
 

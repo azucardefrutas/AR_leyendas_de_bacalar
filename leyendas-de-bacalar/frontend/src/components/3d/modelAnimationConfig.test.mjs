@@ -13,6 +13,7 @@ test('normalizes and deduplicates embedded model clips', () => {
     trigger: 'tap',
   }), {
     clips: [' Idle ', 'Wave', 'Dance'],
+    labels: {},
     defaultClip: 'Wave',
     inspected: true,
     autoplay: true,
@@ -30,6 +31,7 @@ test('keeps static models inactive and clamps unsafe values', () => {
     trigger: 'invalid',
   }, 'marker-found'), {
     clips: [],
+    labels: {},
     defaultClip: '',
     inspected: false,
     autoplay: false,
@@ -37,6 +39,14 @@ test('keeps static models inactive and clamps unsafe values', () => {
     speed: 2,
     trigger: 'marker-found',
   });
+});
+
+test('construye labels solo para clips renombrados y descarta los demas', () => {
+  const cfg = normalizeAnimationConfig({
+    clips: ['Running', 'Walking', 'Alert'],
+    labels: { Running: '  Correr  ', Walking: 'Walking', Alert: '', Jumping: 'Saltar' },
+  }, 'marker-found');
+  assert.deepEqual(cfg.labels, { Running: 'Correr' });
 });
 
 test('distinguishes an inspected static file from missing legacy metadata', () => {

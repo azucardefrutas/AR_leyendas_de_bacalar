@@ -1,9 +1,23 @@
+// Nombre visible (renombrable) de cada emote: `labels` mapea id_real -> "Nombre bonito".
+// La ruleta muestra el label; al tocarlo se reproduce el clip real. Solo se guardan los
+// labels que difieren del nombre real (el resto cae al nombre real).
+function buildLabels(raw, clips) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  const out = {};
+  for (const clip of clips) {
+    const label = typeof src[clip] === 'string' ? src[clip].trim().slice(0, 60) : '';
+    if (label && label !== clip) out[clip] = label;
+  }
+  return out;
+}
+
 export function normalizeAnimationConfig(value = {}) {
   if (!value || typeof value !== 'object') value = {};
   const clips = [...new Set((Array.isArray(value.clips) ? value.clips : [])
     .filter((clip) => typeof clip === 'string' && clip.trim()))].slice(0, 32);
   return {
     clips,
+    labels: buildLabels(value.labels, clips),
     defaultClip: clips.includes(value.defaultClip) ? value.defaultClip : (clips[0] || ''),
     inspected: value.inspected === true || clips.length > 0,
     autoplay: clips.length > 0 && value.autoplay !== false,

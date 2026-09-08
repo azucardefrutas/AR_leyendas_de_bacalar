@@ -31,6 +31,16 @@ export default function ModelAnimationSettings({ modelUrl, value, onChange, cont
     if (JSON.stringify(next) !== JSON.stringify(config)) onChange(next);
   }, [config, fallbackTrigger, onChange, value]);
 
+  // Renombra un emote: guarda un label id_real -> "Nombre bonito". Si queda vacío o igual
+  // al nombre real, se quita el label (cae al nombre real). Los nombres viajan a la app.
+  const setLabel = useCallback((clip, text) => {
+    const labels = { ...config.labels };
+    const trimmed = text.trim();
+    if (!trimmed || trimmed === clip) delete labels[clip];
+    else labels[clip] = text.slice(0, 60);
+    onChange({ ...config, labels });
+  }, [config, onChange]);
+
   if (!modelUrl) return null;
 
   return (
@@ -68,13 +78,33 @@ export default function ModelAnimationSettings({ modelUrl, value, onChange, cont
 
         {inspection === 'animated' && (
           <>
-            <div className="model-animation-clips" aria-label="Emotes detectados">
-              {config.clips.map((clip) => <span key={clip}>{clip}</span>)}
-            </div>
+            {context === 'marker' ? (
+              <div className="model-animation-renames" aria-label="Nombres de los emotes">
+                <span className="model-animation-renames-hint">Renombra cada animación como saldrá en la ruleta de la app:</span>
+                {config.clips.map((clip) => (
+                  <label key={clip} className="model-animation-rename">
+                    <span className="model-animation-rename-id" title={clip}>{clip}</span>
+                    <input
+                      type="text"
+                      className="input"
+                      value={config.labels[clip] ?? clip}
+                      maxLength={60}
+                      placeholder={clip}
+                      aria-label={`Nombre del emote ${clip}`}
+                      onChange={(event) => setLabel(clip, event.target.value)}
+                    />
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <div className="model-animation-clips" aria-label="Emotes detectados">
+                {config.clips.map((clip) => <span key={clip}>{clip}</span>)}
+              </div>
+            )}
             <label className="field">
               <span>Animacion inicial</span>
               <select value={config.defaultClip} onChange={(event) => onChange({ ...config, defaultClip: event.target.value })}>
-                {config.clips.map((clip) => <option key={clip} value={clip}>{clip}</option>)}
+                {config.clips.map((clip) => <option key={clip} value={clip}>{config.labels[clip] || clip}</option>)}
               </select>
             </label>
             <div className="model-animation-row">

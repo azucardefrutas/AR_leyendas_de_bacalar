@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { getEmoteWheelPage } from '../lib/emoteWheelLayout.js';
 
-export default function EmoteWheel({ clips = [], selectedClip, title, visible, onSelect, onClose }) {
+export default function EmoteWheel({ clips = [], labels = {}, selectedClip, title, visible, onSelect, onClose }) {
   const [page, setPage] = useState(0);
   const { width } = useWindowDimensions();
   const size = Math.min(340, width - 24);
@@ -17,12 +17,12 @@ export default function EmoteWheel({ clips = [], selectedClip, title, visible, o
           <Text style={styles.modelName}>{title}</Text>
           <View style={[styles.wheel, { width: size, height: size }]}>
             {layout.items.map(({ clip, ...position }) => (
-              <Pressable key={clip} accessibilityRole="button" accessibilityLabel={`Reproducir ${clip}`}
+              <Pressable key={clip} accessibilityRole="button" accessibilityLabel={`Reproducir ${labels[clip] || clip}`}
                 accessibilityState={{ selected: selectedClip === clip }}
                 style={[styles.emote, position, selectedClip === clip && styles.selected]}
                 onPress={() => { onSelect(clip); onClose(); }}>
                 <MaterialIcons name="play-arrow" size={23} color="#fff" />
-                <Text style={styles.label} numberOfLines={2}>{clip}</Text>
+                <Text style={styles.label} numberOfLines={2}>{labels[clip] || clip}</Text>
               </Pressable>
             ))}
             <Pressable style={styles.close} onPress={onClose} accessibilityRole="button" accessibilityLabel="Cerrar emotes">

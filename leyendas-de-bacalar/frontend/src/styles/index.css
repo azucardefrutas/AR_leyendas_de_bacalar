@@ -12088,6 +12088,18 @@ body.ar-viewer-open .site-header {
 }
 .model-animation-status.is-animated { background: #ecfdf5; color: #065f46; }
 .model-animation-clips { display: flex; flex-wrap: wrap; gap: 6px; }
+.model-animation-renames { display: grid; gap: 8px; }
+.model-animation-renames-hint { font-size: 0.78rem; color: rgba(234, 251, 255, 0.7); }
+.model-animation-rename { display: grid; gap: 3px; }
+.model-animation-rename-id {
+  font-size: 0.66rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: rgba(234, 251, 255, 0.5);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.model-animation-rename input { width: 100%; }
 .model-animation-clips span,
 .pm-emote-count {
   display: inline-flex;
