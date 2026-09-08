@@ -3,7 +3,10 @@ const MB = 1024 * 1024;
 // Scanned-book PDFs are commonly 30-50 MB, so 25 MB was rejecting valid documents.
 const MAX_SOURCE_DOCUMENT_BYTES = 50 * MB;
 const MAX_IMAGE_BYTES = 10 * MB;
-const MAX_MODEL_3D_BYTES = 50 * MB;
+// Modelos 3D animados (GLB con varias animaciones + texturas embebidas) pueden pesar mas;
+// el usuario autorizo subir el tope a 80 MB. Debe ir alineado con el file_size_limit del
+// bucket 'legend-assets' en Supabase Storage y con model_3d.maxBytes del frontend.
+const MAX_MODEL_3D_BYTES = 80 * MB;
 
 const PURPOSES = {
   source_document: {

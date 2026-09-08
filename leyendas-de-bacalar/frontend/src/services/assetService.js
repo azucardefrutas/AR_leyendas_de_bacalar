@@ -86,7 +86,8 @@ const FILE_RULES_BY_TYPE = {
   model_3d: {
     extensions: ['glb', 'gltf'],
     mimeTypes: ['model/gltf-binary', 'model/gltf+json', 'application/octet-stream', ''],
-    maxBytes: 50 * MB,
+    // 80 MB: alineado con MAX_MODEL_3D_BYTES (backend) y el file_size_limit del bucket.
+    maxBytes: 80 * MB,
     bucket: STORAGE_BUCKETS.assets,
     folder: 'models',
     dbAssetType: 'model_3d',
