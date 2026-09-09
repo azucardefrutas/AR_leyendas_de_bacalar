@@ -46,6 +46,7 @@ function SiteNavbar() {
     { to: '/reader/library', label: 'Estanteria', icon: 'shelves' },
     { to: '/catalog', label: 'Biblioteca', icon: 'local_library' },
     { to: '/escanear', label: 'Escanear AR', icon: 'qr_code_scanner' },
+    { to: '/ver-modelos', label: 'Ver en AR', icon: 'view_in_ar' },
     { to: '/descargar', label: 'Descargar app', icon: 'download_for_offline' },
     { to: creatorPath, label: 'Creador', icon: 'edit_square' },
     ...(isAuthenticated ? [{ to: '/reader/redeem', label: 'Canjear codigo', icon: 'redeem' }] : []),

@@ -12201,6 +12201,18 @@ body.ar-viewer-open .site-header {
 .marker-scanner-stage canvas { z-index: 1; background: transparent !important; }
 /* Ocultar el botón "VR"/"AR" que inyecta A-Frame. */
 .a-enter-vr, .a-enter-ar, .a-orientation-modal { display: none !important; }
+
+/* Ver modelos en tu espacio (/ver-modelos) — AR nativo de Google via model-viewer. */
+.ar-models-page { padding: 20px 16px 44px; max-width: 920px; margin: 0 auto; }
+.ar-models-sub { color: var(--muted); font-size: 0.9rem; margin: 4px 0 0; max-width: 520px; }
+.ar-models-list { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+.ar-models-item { width: 100%; min-height: 56px; display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 14px; border: 1px solid var(--line); background: rgba(255, 255, 255, 0.06); color: var(--text); font-weight: 700; cursor: pointer; text-transform: capitalize; text-align: left; transition: background 0.14s ease, transform 0.14s ease; }
+.ar-models-item:hover { background: rgba(48, 207, 242, 0.14); transform: translateY(-1px); }
+.ar-models-item .material-symbols-rounded { color: var(--reader-accent, #30cff2); }
+.ar-models-item:focus-visible { outline: 2px solid var(--bacalar-cyan); outline-offset: 2px; }
+.ar-models-viewer { display: grid; gap: 12px; margin-top: 12px; }
+.ar-models-viewer .ar-floor-viewer { display: flex; flex-direction: column; height: min(70vh, 560px); border-radius: 18px; overflow: hidden; border: 1px solid var(--line); }
+.ar-models-empty { color: var(--muted); text-align: center; padding: 24px; }
 .model-animation-clips span,
 .pm-emote-count {
   display: inline-flex;
