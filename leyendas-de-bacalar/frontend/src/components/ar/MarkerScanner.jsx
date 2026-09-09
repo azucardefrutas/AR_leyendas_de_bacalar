@@ -22,16 +22,26 @@ function loadCrossOriginImage(url) {
   });
 }
 
+// Cache en memoria del .mind ya compilado (dura la sesion): detener/reiniciar no recompila.
+const mindBufferCache = new Map();
+
 // Compila TODAS las imagenes de marcador a un unico .mind (blob URL). El indice del target
 // coincide con el orden del arreglo.
 async function compileMarkersToMind(imageUrls, onProgress) {
-  const mod = await import(/* @vite-ignore */ MINDAR_COMPILER_SRC);
-  const Compiler = mod?.Compiler || (typeof window !== 'undefined' ? window.MINDAR?.IMAGE?.Compiler : null);
-  if (!Compiler) throw new Error('El compilador de MindAR no esta disponible.');
-  const images = await Promise.all(imageUrls.map(loadCrossOriginImage));
-  const compiler = new Compiler();
-  await compiler.compileImageTargets(images, (p) => onProgress?.(p));
-  const buffer = await compiler.exportData();
+  const key = imageUrls.slice().sort().join('|');
+  let buffer = mindBufferCache.get(key);
+  if (!buffer) {
+    const mod = await import(/* @vite-ignore */ MINDAR_COMPILER_SRC);
+    const Compiler = mod?.Compiler || (typeof window !== 'undefined' ? window.MINDAR?.IMAGE?.Compiler : null);
+    if (!Compiler) throw new Error('El compilador de MindAR no esta disponible.');
+    const images = await Promise.all(imageUrls.map(loadCrossOriginImage));
+    const compiler = new Compiler();
+    await compiler.compileImageTargets(images, (p) => onProgress?.(p));
+    buffer = await compiler.exportData();
+    mindBufferCache.set(key, buffer);
+  } else {
+    onProgress?.(1);
+  }
   return URL.createObjectURL(new Blob([buffer]));
 }
 
@@ -45,7 +55,9 @@ function webScale(scale) {
 }
 
 function MarkerScanner({ scenes = [] }) {
-  const stageRef = useRef(null);
+  // Contenedor IMPERATIVO exclusivo para A-Frame/MindAR: React nunca le pone hijos, para
+  // que no choque con el DOM que inyecta el motor (evita "removeChild is not a child").
+  const mountRef = useRef(null);
   const sceneRef = useRef(null);
   const compiledUrlRef = useRef(null);
   const modelRefs = useRef([]);
@@ -64,11 +76,12 @@ function MarkerScanner({ scenes = [] }) {
     const sceneEl = sceneRef.current;
     if (sceneEl) {
       try { sceneEl.systems?.['mindar-image']?.stop?.(); } catch { /* MindAR pudo no iniciar */ }
-      sceneEl.parentNode?.removeChild(sceneEl);
+      // Solo removemos el nodo que NOSOTROS creamos, envuelto en try/catch (A-Frame pudo
+      // haberlo movido). Nunca tocamos nodos de React.
+      try { sceneEl.parentNode?.removeChild(sceneEl); } catch { /* ya removido */ }
       sceneRef.current = null;
     }
     modelRefs.current = [];
-    if (stageRef.current) stageRef.current.innerHTML = '';
     if (compiledUrlRef.current) {
       URL.revokeObjectURL(compiledUrlRef.current);
       compiledUrlRef.current = null;
@@ -110,7 +123,7 @@ function MarkerScanner({ scenes = [] }) {
       await loadExternalScript(AFRAME_SRC, { globalCheck: () => (typeof window !== 'undefined' ? window.AFRAME : null) });
       await loadExternalScript(MINDAR_AFRAME_SRC, { globalCheck: () => window.AFRAME?.components?.['mindar-image'] });
       await loadExternalScript(AFRAME_EXTRAS_SRC, { globalCheck: () => window.AFRAME?.components?.['animation-mixer'] });
-      if (!stageRef.current) return;
+      if (!mountRef.current) return;
 
       // 3) Montar la escena AR. Renderer afinado para WebGL fluido (sin tirones).
       const sceneEl = document.createElement('a-scene');
@@ -171,8 +184,7 @@ function MarkerScanner({ scenes = [] }) {
         sceneEl.appendChild(target);
       });
 
-      stageRef.current.innerHTML = '';
-      stageRef.current.appendChild(sceneEl);
+      mountRef.current.appendChild(sceneEl);
       sceneRef.current = sceneEl;
       setStatus('scanning');
     } catch (startError) {
@@ -195,17 +207,18 @@ function MarkerScanner({ scenes = [] }) {
 
   return (
     <div className="marker-scanner">
-      <div ref={stageRef} className="marker-scanner-stage">
+      <div className="marker-scanner-stage">
+        <div ref={mountRef} className="marker-scanner-canvas" aria-hidden="true" />
         {status !== 'scanning' && (
           <div className="marker-scanner-placeholder">
             <span>Realidad aumentada</span>
             <strong>Escanear marcadores</strong>
             <p>
               {status === 'compiling'
-                ? `Preparando marcadores... ${progress}%`
+                ? `Preparando el reconocimiento… ${progress}% (solo la primera vez)`
                 : status === 'loading'
-                  ? 'Cargando motor AR...'
-                  : `Apunta la cámara a un marcador impreso. ${usable.length} disponibles.`}
+                  ? 'Abriendo cámara…'
+                  : 'Toca “Iniciar cámara” y apunta a un marcador impreso.'}
             </p>
           </div>
         )}

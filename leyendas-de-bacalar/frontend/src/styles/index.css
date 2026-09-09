@@ -12124,6 +12124,7 @@ body.ar-viewer-open .site-header {
 .scan-markers-tip { margin-top: 14px; font-size: 0.85rem; color: var(--muted); text-align: center; }
 .marker-scanner { display: grid; gap: 12px; }
 .marker-scanner-stage { position: relative; width: 100%; aspect-ratio: 3 / 4; max-height: 72vh; border-radius: 18px; overflow: hidden; background: #04121a; border: 1px solid var(--line); }
+.marker-scanner-canvas { position: absolute; inset: 0; }
 .marker-scanner-stage a-scene, .marker-scanner-stage canvas, .marker-scanner-stage video { position: absolute; inset: 0; width: 100% !important; height: 100% !important; object-fit: cover; }
 .marker-scanner-placeholder { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 6px; padding: 24px; color: #eafbff; }
 .marker-scanner-placeholder span { font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.7; }

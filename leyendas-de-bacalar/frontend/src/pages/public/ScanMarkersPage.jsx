@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import MarkerScanner from '../../components/ar/MarkerScanner.jsx';
-import ArPermissionHelp from '../../components/ar/ArPermissionHelp.jsx';
 import LoadingState from '../../components/ui/LoadingState.jsx';
 
 // Escaner de marcadores desde la WEB (para cualquiera, sin iniciar sesion). Usa el mismo
@@ -51,29 +50,17 @@ function ScanMarkersPage() {
   return (
     <main className="scan-markers-page">
       <div className="scan-markers-header">
-        <div>
-          <p className="creator-kicker">Realidad aumentada · sin cuenta</p>
-          <h1>Escanear marcadores</h1>
-          <p>Apunta la cámara a un marcador impreso del libro y el modelo cobra vida. Funciona desde el navegador del celular.</p>
-        </div>
+        <h1>Escanear</h1>
         <Link className="btn btn-ghost" to="/">Salir</Link>
       </div>
 
       {loading ? (
-        <LoadingState message="Cargando marcadores..." />
+        <LoadingState message="Cargando..." />
       ) : error ? (
         <p className="error-message">{error}</p>
       ) : (
-        <div className="scan-markers-grid">
-          <MarkerScanner scenes={scenes} />
-          <ArPermissionHelp />
-        </div>
+        <MarkerScanner scenes={scenes} />
       )}
-
-      <p className="scan-markers-tip">
-        Consejo: usa buena luz, apunta de frente y sostén firme 1-2 segundos. Los modelos con
-        animación pesan más y pueden tardar unos segundos en aparecer.
-      </p>
     </main>
   );
 }
