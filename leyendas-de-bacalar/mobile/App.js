@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useFonts } from 'expo-font';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './src/lib/supabase.js';
 import { ThemeProvider, useTheme } from './src/theme.js';
 import SplashScreen from './src/screens/SplashScreen.js';
@@ -24,6 +25,18 @@ function Root() {
     return () => data.subscription.unsubscribe();
   }, []);
 
+  // Recuerda el modo invitado: si ya entró como invitado antes, no vuelve a mostrar la
+  // puerta de acceso en cada apertura de la app.
+  useEffect(() => {
+    AsyncStorage.getItem('leyendas.ar.guest').then((v) => { if (v === '1') setGuest(true); }).catch(() => {});
+  }, []);
+
+  const continueAsGuest = () => {
+    setGuest(true);
+    AsyncStorage.setItem('leyendas.ar.guest', '1').catch(() => {});
+    setScreen('scan');
+  };
+
   async function logout() {
     try { await supabase.auth.signOut(); } catch { /* sesión ya cerrada */ }
     setScreen('scan');
@@ -38,7 +51,7 @@ function Root() {
           <LoginScreen
             onClose={() => setScreen('scan')}
             onLoggedIn={() => { setGuest(false); setScreen('scan'); }}
-            onGuest={() => { setGuest(true); setScreen('scan'); }}
+            onGuest={continueAsGuest}
           />
         );
       case 'history':
@@ -51,7 +64,7 @@ function Root() {
             guest={guest}
             onOpenSidebar={() => setSidebarOpen(true)}
             onRequireLogin={() => setScreen('login')}
-            onContinueGuest={() => setGuest(true)}
+            onContinueGuest={continueAsGuest}
           />
         );
     }

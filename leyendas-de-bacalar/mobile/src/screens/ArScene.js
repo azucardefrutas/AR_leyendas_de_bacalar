@@ -5,6 +5,7 @@ import {
   ViroARTrackingTargets,
   Viro3DObject,
   ViroAmbientLight,
+  ViroDirectionalLight,
   ViroSpotLight,
 } from '@reactvision/react-viro';
 
@@ -53,7 +54,14 @@ export default function ArScene(props) {
 
   return (
     <ViroARScene>
-      <ViroAmbientLight color="#ffffff" intensity={900} />
+      {/* Iluminacion envolvente: ambiente fuerte + luces direccionales desde varios angulos
+          para que el modelo se vea parejo (sin caras negras) aunque el material sea oscuro
+          o algo metalico. El spot mantiene la sombra bajo el modelo. */}
+      <ViroAmbientLight color="#ffffff" intensity={1400} />
+      <ViroDirectionalLight color="#ffffff" direction={[0, -1, -0.4]} intensity={900} />
+      <ViroDirectionalLight color="#ffffff" direction={[0.6, -0.2, 0.5]} intensity={600} />
+      <ViroDirectionalLight color="#ffffff" direction={[-0.6, -0.2, 0.5]} intensity={600} />
+      <ViroDirectionalLight color="#ffffff" direction={[0, 0.4, -0.8]} intensity={400} />
       <ViroSpotLight
         innerAngle={5}
         outerAngle={45}
