@@ -21,7 +21,10 @@ class CreatorLegendError extends Error {
 }
 
 const ACCESS_TYPES = ['free', 'paid', 'subscription', 'code_required', 'mixed'];
-const EDITABLE_STATUSES = ['draft', 'rejected'];
+// 'published' es editable por el DUEÑO (creator) directamente: los cambios se guardan y se
+// ven en vivo, sin pasar por revisión de nuevo. El flujo draft -> revisión -> publicar sigue
+// igual para versiones no publicadas. La propiedad la valida getLegendAccessContext.
+const EDITABLE_STATUSES = ['draft', 'rejected', 'published'];
 const hasRole = (roles, role) => Array.isArray(roles) && roles.includes(role);
 
 function slugify(value = '') {

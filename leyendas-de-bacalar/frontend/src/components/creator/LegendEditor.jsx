@@ -563,6 +563,8 @@ function LegendEditor({ legendId }) {
   );
   const canEdit = canEditVersion(version);
   const isReviewLocked = !canEdit;
+  // Publicada: editable por el dueño en VIVO (no se re-envía a revisión).
+  const isPublished = String(version?.status) === 'published';
   const declarationsAccepted = Object.values(declarations).every(Boolean);
   const primarySourceDocument = getPrimarySourceDocument(existingResources.documents);
   // Editor mode: a real source document => PDF/CONALITEG flow; otherwise the manual
@@ -882,6 +884,10 @@ function LegendEditor({ legendId }) {
   }
 
   async function handleSubmitReview() {
+    if (isPublished) {
+      setError(new Error('Esta leyenda ya esta publicada. Tus cambios se guardan y se ven en vivo; no necesitas enviarla a revision.'));
+      return;
+    }
     if (reviewError) {
       setError(reviewError);
       setActiveTab('review');
@@ -983,9 +989,11 @@ function LegendEditor({ legendId }) {
           <Button variant="ghost" onClick={activeTab === 'content' ? handleSavePages : handleSaveGeneral} disabled={saving || isReviewLocked}>
             {saving ? 'Guardando...' : 'Guardar'}
           </Button>
-          <Button onClick={handleSubmitReview} disabled={saving || submitting || isReviewLocked}>
-            {submitting ? 'Enviando...' : 'Enviar a revision'}
-          </Button>
+          {!isPublished && (
+            <Button onClick={handleSubmitReview} disabled={saving || submitting || isReviewLocked}>
+              {submitting ? 'Enviando...' : 'Enviar a revision'}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1007,6 +1015,12 @@ function LegendEditor({ legendId }) {
         <Card className="creator-editor-alert">
           <strong>Esta version esta en {getLegendDisplayStatus(version.status).label}.</strong>
           <span>La edicion queda bloqueada hasta que vuelva a borrador o sea rechazada.</span>
+        </Card>
+      )}
+      {isPublished && (
+        <Card className="creator-editor-alert">
+          <strong>Estas editando una leyenda publicada.</strong>
+          <span>Tus cambios se guardan y se ven en vivo. No hace falta enviarla a revision.</span>
         </Card>
       )}
 
@@ -1514,9 +1528,11 @@ function LegendEditor({ legendId }) {
           {reviewError && <p className="error-message">{reviewError.message}</p>}
           <div className="creator-review-actions">
             <Button type="button" variant="ghost" onClick={() => setActiveTab('content')}>Volver al contenido</Button>
-            <Button type="button" onClick={handleSubmitReview} disabled={submitting || isReviewLocked || Boolean(reviewError)}>
-              {submitting ? 'Enviando...' : 'Enviar a revision'}
-            </Button>
+            {!isPublished && (
+              <Button type="button" onClick={handleSubmitReview} disabled={submitting || isReviewLocked || Boolean(reviewError)}>
+                {submitting ? 'Enviando...' : 'Enviar a revision'}
+              </Button>
+            )}
           </div>
         </Card>
       )}

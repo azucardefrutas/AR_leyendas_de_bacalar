@@ -163,7 +163,12 @@ const toApiPage = (row) => ({
   editorStats: row.editor_stats || {},
 });
 
-async function assertDraftVersion(legendId, versionId) {
+// Versiones editables por el dueño: borrador (flujo normal) y PUBLICADA (edición en vivo:
+// el dueño actualiza datos/contenido/modelos de su leyenda publicada y se refleja al
+// instante). Las versiones en revisión/enviadas siguen bloqueadas.
+const EDITABLE_VERSION_STATUSES = new Set(['draft', 'published']);
+
+async function assertEditableVersion(legendId, versionId) {
   const { data: version, error } = await supabaseAdmin
     .from('legend_versions')
     .select('id, legend_id, status')
@@ -173,15 +178,15 @@ async function assertDraftVersion(legendId, versionId) {
   if (!version || String(version.legend_id) !== String(legendId)) {
     throw new EditorContentError('Versión no encontrada para esta leyenda.', 404);
   }
-  if (version.status && version.status !== 'draft') {
-    throw new EditorContentError('La versión ya no está en borrador.', 409);
+  if (version.status && !EDITABLE_VERSION_STATUSES.has(version.status)) {
+    throw new EditorContentError('La versión no se puede editar en su estado actual.', 409);
   }
   return version;
 }
 
 export async function getEditorPages({ legendId, versionId, userId, roles }) {
   await getLegendAccessContext({ legendId, userId, roles });
-  await assertDraftVersion(legendId, versionId);
+  await assertEditableVersion(legendId, versionId);
   const { data, error } = await supabaseAdmin
     .from('legend_pages')
     .select('id, page_number, title, text_content, editor_data, rendered_html, content_format, editor_version, editor_stats')
@@ -231,7 +236,7 @@ export async function resolveEditorImageUrl({ legendId, userId, roles, url }) {
 
 export async function saveEditorPages({ legendId, versionId, userId, roles, pages = [] }) {
   await getLegendAccessContext({ legendId, userId, roles });
-  await assertDraftVersion(legendId, versionId);
+  await assertEditableVersion(legendId, versionId);
   if (!Array.isArray(pages)) throw new EditorContentError('pages debe ser un arreglo.');
 
   const deletedIds = pages.filter((page) => page._delete && page.id).map((page) => page.id);

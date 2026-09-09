@@ -55,7 +55,10 @@ export {
 } from './creatorLegendState.js';
 
 const ACCESS_TYPES = ['free', 'paid', 'subscription', 'code_required', 'mixed'];
-const EDITABLE_VERSION_STATUSES = ['draft', 'rejected'];
+// 'published' es editable por el dueño: puede actualizar datos/contenido/modelos de su
+// leyenda publicada y se ve en vivo (el backend valida propiedad y evita re-enviar a
+// revisión). Las versiones en revisión/enviadas siguen bloqueadas.
+const EDITABLE_VERSION_STATUSES = ['draft', 'rejected', 'published'];
 const DELETE_DRAFT_GENERIC_MESSAGE = 'No pudimos eliminar el borrador. Revisa si ya fue enviado a revision o si tiene relaciones protegidas.';
 const DELETE_CREATOR_LEGEND_GENERIC_MESSAGE = 'No pudimos eliminar la historia. Revisa si esta en revision, aprobada, publicada o tiene relaciones protegidas.';
 const CREATOR_LEGENDS_DEFAULT_LIMIT = 120;
