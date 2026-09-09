@@ -167,6 +167,19 @@ export function getLegendGenreNames(legend = {}) {
 export function getLegendCardActions(legend = {}, { allowDelete = true, allowDuplicate = true } = {}) {
   const actions = [getCreatorLegendPrimaryAction(legend)];
 
+  // Una leyenda PUBLICADA puede actualizarse en vivo por su dueño (datos, contenido y
+  // modelos; el slug queda bloqueado en el editor). La acción primaria de publicada es
+  // "Ver", así que agregamos "Actualizar" para abrir el editor. Abre la misma ruta de
+  // edición (/creator/legends/:id/edit) vía onEdit.
+  if (getCreatorLegendStatusKey(legend) === 'published') {
+    actions.push({
+      key: 'update',
+      type: 'edit',
+      label: 'Actualizar',
+      variant: 'primary',
+    });
+  }
+
   if (allowDuplicate) {
     actions.push({
       key: 'duplicate',
