@@ -77,6 +77,7 @@ function HomePage() {
             </p>
             <div className="actions-row">
               <Link to="/catalog"><Button className="btn-hero">Explorar biblioteca</Button></Link>
+              <Link to="/escanear"><Button variant="ghost">Escanear marcador</Button></Link>
               <Link to={redeemPath}><Button variant="ghost">Canjear codigo</Button></Link>
             </div>
           </div>

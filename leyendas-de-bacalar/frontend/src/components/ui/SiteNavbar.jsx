@@ -45,6 +45,7 @@ function SiteNavbar() {
     { to: '/', label: 'Inicio', icon: 'home', end: true },
     { to: '/reader/library', label: 'Estanteria', icon: 'shelves' },
     { to: '/catalog', label: 'Biblioteca', icon: 'local_library' },
+    { to: '/escanear', label: 'Escanear AR', icon: 'qr_code_scanner' },
     { to: '/descargar', label: 'Descargar app', icon: 'download_for_offline' },
     { to: creatorPath, label: 'Creador', icon: 'edit_square' },
     ...(isAuthenticated ? [{ to: '/reader/redeem', label: 'Canjear codigo', icon: 'redeem' }] : []),
@@ -80,6 +81,11 @@ function SiteNavbar() {
           {/* Solo el icono de DESCARGA en el navbar. Las redes (UPB / Facebook / TikTok)
               siguen en el footer y en el menu movil: asi el lado derecho deja de pesar
               3.5x mas que el izquierdo y el logo puede quedar centrado de verdad. */}
+          <div className="site-social" aria-label="Escanear marcador AR">
+            <NavLink to="/escanear" className="site-download-link" aria-label="Escanear marcador AR" title="Escanear marcador AR">
+              <span className="material-symbols-rounded" aria-hidden="true">qr_code_scanner</span>
+            </NavLink>
+          </div>
           <div className="site-social" aria-label="Descargar la app movil">
             <NavLink to="/descargar" className="site-download-link" aria-label="Descargar la app móvil" title="Descargar la app móvil">
               <span className="material-symbols-rounded" aria-hidden="true">download_for_offline</span>
