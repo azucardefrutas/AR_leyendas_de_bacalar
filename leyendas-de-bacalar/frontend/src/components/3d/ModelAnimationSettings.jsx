@@ -14,8 +14,14 @@ export default function ModelAnimationSettings({ modelUrl, value, onChange, cont
   }, [context, fallbackTrigger, value]);
   const [inspection, setInspection] = useState(modelUrl ? 'loading' : 'idle');
   const [previewPlaying, setPreviewPlaying] = useState(true);
+  // Borrador local de los nombres que se están escribiendo, para que borrar el texto NO lo
+  // reponga solo (el config solo guarda los labels ya confirmados).
+  const [labelDrafts, setLabelDrafts] = useState({});
 
-  useEffect(() => setInspection(modelUrl ? 'loading' : 'idle'), [modelUrl]);
+  useEffect(() => {
+    setInspection(modelUrl ? 'loading' : 'idle');
+    setLabelDrafts({});
+  }, [modelUrl]);
 
   const handleDetected = useCallback((detectedClips) => {
     const clips = [...new Set((detectedClips || []).filter(Boolean))];
@@ -31,15 +37,25 @@ export default function ModelAnimationSettings({ modelUrl, value, onChange, cont
     if (JSON.stringify(next) !== JSON.stringify(config)) onChange(next);
   }, [config, fallbackTrigger, onChange, value]);
 
-  // Renombra un emote: guarda un label id_real -> "Nombre bonito". Si queda vacío o igual
-  // al nombre real, se quita el label (cae al nombre real). Los nombres viajan a la app.
-  const setLabel = useCallback((clip, text) => {
+  // Renombra un emote: guarda un label id_real -> "Nombre bonito". Se escribe libremente
+  // (incluido vacío) apoyándose en `labelDrafts`, así borrar el texto NO lo repone solo. En
+  // el config solo se guardan los labels que difieren del nombre real (vacío = usar el real).
+  const onLabelChange = useCallback((clip, text) => {
+    setLabelDrafts((drafts) => ({ ...drafts, [clip]: text }));
     const labels = { ...config.labels };
     const trimmed = text.trim();
     if (!trimmed || trimmed === clip) delete labels[clip];
     else labels[clip] = text.slice(0, 60);
     onChange({ ...config, labels });
   }, [config, onChange]);
+
+  // El input muestra lo que el usuario está escribiendo (borrador) o el label guardado; si
+  // no hay ninguno, queda vacío (el nombre real se ve como caption arriba y de placeholder).
+  const labelValue = (clip) => (
+    Object.prototype.hasOwnProperty.call(labelDrafts, clip)
+      ? labelDrafts[clip]
+      : (config.labels[clip] ?? '')
+  );
 
   if (!modelUrl) return null;
 
@@ -49,7 +65,7 @@ export default function ModelAnimationSettings({ modelUrl, value, onChange, cont
         <Suspense fallback={<div className="model-animation-loading">Analizando modelo...</div>}>
           <Model3DViewer
             modelUrl={modelUrl}
-            animationConfig={{ ...config, autoplay: previewPlaying, trigger: 'load' }}
+            animationConfig={{ ...config, autoplay: previewPlaying, trigger: 'load', loop: 'repeat' }}
             onAnimationsDetected={handleDetected}
             onModelError={() => setInspection('error')}
             embedded
@@ -87,11 +103,11 @@ export default function ModelAnimationSettings({ modelUrl, value, onChange, cont
                     <input
                       type="text"
                       className="input"
-                      value={config.labels[clip] ?? clip}
+                      value={labelValue(clip)}
                       maxLength={60}
-                      placeholder={clip}
+                      placeholder="Nombre para la ruleta (opcional)"
                       aria-label={`Nombre del emote ${clip}`}
-                      onChange={(event) => setLabel(clip, event.target.value)}
+                      onChange={(event) => onLabelChange(clip, event.target.value)}
                     />
                   </label>
                 ))}
