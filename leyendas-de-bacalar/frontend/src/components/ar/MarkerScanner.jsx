@@ -129,7 +129,9 @@ function MarkerScanner({ scenes = [] }) {
       const sceneEl = document.createElement('a-scene');
       sceneEl.setAttribute('embedded', '');
       sceneEl.setAttribute('color-space', 'sRGB');
-      sceneEl.setAttribute('renderer', 'colorManagement: true; physicallyCorrectLights: true; antialias: true; precision: mediump; highRefreshRate: true');
+      // alpha: true -> el canvas 3D es TRANSPARENTE y se ve el video de la camara detras
+      // (sin esto el fondo negro tapa la camara). antialias/mediump = fluido.
+      sceneEl.setAttribute('renderer', 'colorManagement: true; alpha: true; antialias: true; precision: mediump');
       sceneEl.setAttribute('vr-mode-ui', 'enabled: false');
       sceneEl.setAttribute('device-orientation-permission-ui', 'enabled: false');
       sceneEl.setAttribute(
@@ -206,7 +208,7 @@ function MarkerScanner({ scenes = [] }) {
   const hasEmotes = Boolean(active && active.clips.length > 0);
 
   return (
-    <div className="marker-scanner">
+    <div className={`marker-scanner${status === 'scanning' ? ' is-immersive' : ''}`}>
       <div className="marker-scanner-stage">
         <div ref={mountRef} className="marker-scanner-canvas" aria-hidden="true" />
         {status !== 'scanning' && (

@@ -12177,6 +12177,30 @@ body.ar-viewer-open .site-header {
 .marker-scanner-emote:hover { background: rgba(48, 207, 242, 0.14); transform: translateY(-1px); }
 .marker-scanner-emote.is-active { background: #087f8c; border-color: #77e4e8; color: #ffffff; }
 .marker-scanner-emote:focus-visible { outline: 2px solid var(--bacalar-cyan); outline-offset: 2px; }
+
+/* Pantalla completa inmersiva al escanear (tipo Google Lens): la cámara llena la pantalla,
+   los overlays flotan encima. */
+.marker-scanner.is-immersive {
+  position: fixed; inset: 0; z-index: 2000; margin: 0; background: #000;
+  display: flex; flex-direction: column;
+}
+.marker-scanner.is-immersive .marker-scanner-stage {
+  flex: 1; width: 100%; max-height: none; border-radius: 0; border: 0;
+  aspect-ratio: auto; background: transparent;
+}
+.marker-scanner.is-immersive .marker-scanner-controls {
+  position: fixed; top: max(14px, env(safe-area-inset-top)); right: 14px; z-index: 2002;
+}
+.marker-scanner.is-immersive .marker-scanner-emotes {
+  position: fixed; left: 12px; right: 12px; bottom: max(18px, env(safe-area-inset-bottom)); z-index: 2002;
+  background: rgba(4, 18, 26, 0.74); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  padding: 10px 12px; border-radius: 16px;
+}
+/* El video de la cámara (MindAR) debe verse detrás del canvas transparente. */
+.marker-scanner-stage video { z-index: 0; }
+.marker-scanner-stage canvas { z-index: 1; background: transparent !important; }
+/* Ocultar el botón "VR"/"AR" que inyecta A-Frame. */
+.a-enter-vr, .a-enter-ar, .a-orientation-modal { display: none !important; }
 .model-animation-clips span,
 .pm-emote-count {
   display: inline-flex;
