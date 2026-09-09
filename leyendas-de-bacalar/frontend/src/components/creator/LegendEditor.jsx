@@ -1044,7 +1044,8 @@ function LegendEditor({ legendId }) {
             </label>
             <label className="field" htmlFor="legend-slug">
               <span>Slug</span>
-              <input id="legend-slug" className="standalone-input" value={form.slug} onChange={(event) => updateField('slug', event.target.value)} disabled={isReviewLocked} required />
+              <input id="legend-slug" className="standalone-input" value={form.slug} onChange={(event) => updateField('slug', event.target.value)} disabled={isReviewLocked || isPublished} required />
+              {isPublished && <small className="field-hint">El identificador (slug) no se puede cambiar en una leyenda publicada, para no romper los enlaces existentes.</small>}
             </label>
             <label className="field" htmlFor="legend-short">
               <span>Sinopsis breve</span>
