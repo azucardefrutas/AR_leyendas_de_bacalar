@@ -12100,6 +12100,22 @@ body.ar-viewer-open .site-header {
   white-space: nowrap;
 }
 .model-animation-rename input { width: 100%; }
+.model-animation-rename-row { display: flex; align-items: center; gap: 8px; }
+.model-animation-rename-row input { flex: 1; min-width: 0; }
+.model-animation-rename-play {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #0e7490;
+  background: #fff;
+  cursor: pointer;
+}
+.model-animation-rename-play:hover { background: #ecfeff; }
+.model-animation-rename-play.is-active { background: #0e7490; color: #fff; border-color: #0e7490; }
 .model-animation-clips span,
 .pm-emote-count {
   display: inline-flex;

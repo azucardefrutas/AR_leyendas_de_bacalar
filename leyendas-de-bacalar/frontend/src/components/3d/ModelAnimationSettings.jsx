@@ -17,10 +17,13 @@ export default function ModelAnimationSettings({ modelUrl, value, onChange, cont
   // Borrador local de los nombres que se están escribiendo, para que borrar el texto NO lo
   // reponga solo (el config solo guarda los labels ya confirmados).
   const [labelDrafts, setLabelDrafts] = useState({});
+  // Clip que se está previsualizando ahora (independiente de la "Animación inicial").
+  const [previewClip, setPreviewClip] = useState(null);
 
   useEffect(() => {
     setInspection(modelUrl ? 'loading' : 'idle');
     setLabelDrafts({});
+    setPreviewClip(null);
   }, [modelUrl]);
 
   const handleDetected = useCallback((detectedClips) => {
@@ -65,7 +68,7 @@ export default function ModelAnimationSettings({ modelUrl, value, onChange, cont
         <Suspense fallback={<div className="model-animation-loading">Analizando modelo...</div>}>
           <Model3DViewer
             modelUrl={modelUrl}
-            animationConfig={{ ...config, autoplay: previewPlaying, trigger: 'load', loop: 'repeat' }}
+            animationConfig={{ ...config, defaultClip: previewClip || config.defaultClip, autoplay: previewPlaying, trigger: 'load', loop: 'repeat' }}
             onAnimationsDetected={handleDetected}
             onModelError={() => setInspection('error')}
             embedded
@@ -100,15 +103,26 @@ export default function ModelAnimationSettings({ modelUrl, value, onChange, cont
                 {config.clips.map((clip) => (
                   <label key={clip} className="model-animation-rename">
                     <span className="model-animation-rename-id" title={clip}>{clip}</span>
-                    <input
-                      type="text"
-                      className="input"
-                      value={labelValue(clip)}
-                      maxLength={60}
-                      placeholder="Nombre para la ruleta (opcional)"
-                      aria-label={`Nombre del emote ${clip}`}
-                      onChange={(event) => onLabelChange(clip, event.target.value)}
-                    />
+                    <div className="model-animation-rename-row">
+                      <button
+                        type="button"
+                        className={`model-animation-rename-play${previewClip === clip ? ' is-active' : ''}`}
+                        title={`Previsualizar ${clip}`}
+                        aria-label={`Previsualizar la animación ${clip}`}
+                        onClick={() => { setPreviewClip(clip); setPreviewPlaying(true); }}
+                      >
+                        <AppIcon name="play_arrow" size={18} />
+                      </button>
+                      <input
+                        type="text"
+                        className="input"
+                        value={labelValue(clip)}
+                        maxLength={60}
+                        placeholder="Nombre para la ruleta (opcional)"
+                        aria-label={`Nombre del emote ${clip}`}
+                        onChange={(event) => onLabelChange(clip, event.target.value)}
+                      />
+                    </div>
                   </label>
                 ))}
               </div>
