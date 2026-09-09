@@ -82,3 +82,5 @@ const styles = StyleSheet.create({
   arBtn: { borderRadius: 999, paddingVertical: 9, paddingHorizontal: 15 },
   arTxt: { color: '#fff', fontWeight: '700', fontSize: 13 },
 });
+
+
