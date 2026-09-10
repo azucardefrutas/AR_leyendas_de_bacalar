@@ -3,11 +3,22 @@ import Button from '../ui/Button.jsx';
 import AppIcon from '../ui/AppIcon.jsx';
 import { loadExternalScript } from '../../lib/loadExternalScript.js';
 
-// Visor de "mundo real" (Google Scene Viewer / WebXR) reutilizado del apartado /ver-modelos:
-// una vez identificado el modelo por su marcador, se puede COLOCAR en el espacio (mesa/piso),
-// mover, agrandar y caminar alrededor — ya independiente del marcador. Carga perezosa para no
-// traer model-viewer si no se usa.
+// Visores de "mundo real" para SOLTAR el modelo del marcador (mover/agrandar/rodear). Se elige
+// por dispositivo: si hay WebXR AR, se usa la experiencia INTEGRADA (WebXrArViewer: tocar para
+// colocar, sin salir del navegador); si no, cae al visor NATIVO (FloorArViewer con Scene Viewer/
+// Quick Look). Carga perezosa para no traer three/model-viewer si no se usan.
 const FloorArViewer = lazy(() => import('./FloorArViewer.jsx'));
+const WebXrArViewer = lazy(() => import('./WebXrArViewer.jsx'));
+
+// Chequeo ligero de soporte WebXR AR (sin importar three): decide que visor abrir.
+async function webXrArSupported() {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.xr?.isSessionSupported) return false;
+    return await navigator.xr.isSessionSupported('immersive-ar');
+  } catch {
+    return false;
+  }
+}
 
 // Escaner MULTI-marcador para la web (invitados incluidos). Misma idea que la app movil
 // (marcador -> modelo -> ruleta de emotes) pero en el navegador con MindAR sobre A-Frame.
@@ -156,12 +167,19 @@ function MarkerScanner({ scenes = [] }) {
     setActiveClip(clip);
   }
 
-  // Abre el modelo reconocido en AR de mundo real (Scene Viewer / WebXR): se coloca en el
-  // espacio y se puede mover/agrandar/rodear, ya sin depender del marcador.
-  function openPlacement() {
+  // Abre el modelo reconocido en AR de mundo real: se coloca en el espacio y se puede mover/
+  // agrandar/rodear, ya sin depender del marcador. Elige WebXR integrado si el equipo lo soporta;
+  // si no, el visor nativo (Scene Viewer / Quick Look).
+  async function openPlacement() {
     const scene = usable[active?.index];
     if (!scene?.modelUrl) return;
-    setPlaceScene({ modelUrl: scene.modelUrl, name: active?.name || scene.name || 'Modelo 3D', scale: scene.scale });
+    const xr = await webXrArSupported();
+    setPlaceScene({
+      modelUrl: scene.modelUrl,
+      name: active?.name || scene.name || 'Modelo 3D',
+      scale: scene.scale,
+      mode: xr ? 'xr' : 'floor',
+    });
   }
 
   async function start() {
@@ -200,16 +218,18 @@ function MarkerScanner({ scenes = [] }) {
       sceneEl.setAttribute('renderer', 'colorManagement: true; alpha: true; antialias: true; precision: mediump');
       sceneEl.setAttribute('vr-mode-ui', 'enabled: false');
       sceneEl.setAttribute('device-orientation-permission-ui', 'enabled: false');
-      // Tracker afinado para precision y estabilidad "tipo Google Lens":
-      //  - maxTrack: 1  -> enfoca UN marcador a la vez (mas FPS, engancha mas rapido y estable).
-      //  - filterMinCF: 0.0001 (10x menor que el default 0.001) -> mata el temblor cuando el
-      //    marcador esta quieto; filterBeta: 1000 mantiene la respuesta rapida al mover el telefono
-      //    (filtro One-Euro: suave en reposo, agil en movimiento).
+      // Tracker afinado para ESTABILIDAD (que no tambalee) tipo Google Lens. Filtro One-Euro:
+      // cutoff = filterMinCF + filterBeta*velocidad. El TEMBLOR con el marcador quieto ocurre a
+      // velocidad ~0, asi que lo gobierna filterMinCF -> lo bajamos fuerte para alisarlo.
+      //  - maxTrack: 1        -> enfoca UN marcador (mas FPS, engancha mas rapido y estable).
+      //  - filterMinCF: 0.00001 (100x menor que el default) -> mata el tambaleo en reposo.
+      //  - filterBeta: 300    -> sigue respondiendo al mover el telefono, sin amplificar el
+      //                          micro-temblor de la mano (el default 1000 lo dejaba pasar).
       //  - warmupTolerance: 3 -> engancha rapido sin falsos positivos.
-      //  - missTolerance: 8 -> no se cae ni parpadea ante desenfoques o tapones breves.
+      //  - missTolerance: 10  -> no se cae ni parpadea ante desenfoques o tapones breves.
       sceneEl.setAttribute(
         'mindar-image',
-        `imageTargetSrc: ${targetSrc}; autoStart: true; maxTrack: 1; filterMinCF: 0.0001; filterBeta: 1000; warmupTolerance: 3; missTolerance: 8; uiScanning: no; uiLoading: no; uiError: no;`,
+        `imageTargetSrc: ${targetSrc}; autoStart: true; maxTrack: 1; filterMinCF: 0.00001; filterBeta: 300; warmupTolerance: 3; missTolerance: 10; uiScanning: no; uiLoading: no; uiError: no;`,
       );
       sceneEl.style.width = '100%';
       sceneEl.style.height = '100%';
@@ -367,9 +387,21 @@ function MarkerScanner({ scenes = [] }) {
         <p className="marker-scanner-note">Aún no hay marcadores publicados para escanear.</p>
       )}
 
-      {/* Colocar en el espacio: AR de mundo real (Scene Viewer / WebXR) sobre pantalla completa.
-          El modelo queda fijo en el espacio y se puede mover, agrandar y rodear, sin marcador. */}
-      {placeScene && (
+      {/* Colocar en el espacio: WebXR integrado (equipo compatible) — tocas para colocar y se
+          queda fijo en el espacio; lo mueves, agrandas y rodeas, sin marcador. */}
+      {placeScene && placeScene.mode === 'xr' && (
+        <Suspense fallback={<div className="marker-place-overlay"><div className="marker-place-loading">Cargando AR…</div></div>}>
+          <WebXrArViewer
+            modelUrl={placeScene.modelUrl}
+            name={placeScene.name}
+            onClose={() => setPlaceScene(null)}
+            onUnsupported={() => setPlaceScene((p) => (p ? { ...p, mode: 'floor' } : p))}
+          />
+        </Suspense>
+      )}
+
+      {/* Respaldo: AR nativo de mundo real (Scene Viewer / Quick Look) en equipos sin WebXR. */}
+      {placeScene && placeScene.mode === 'floor' && (
         <div className="marker-place-overlay" role="dialog" aria-label={`Colocar ${placeScene.name} en tu espacio`}>
           <div className="marker-place-head">
             <strong>{placeScene.name}</strong>

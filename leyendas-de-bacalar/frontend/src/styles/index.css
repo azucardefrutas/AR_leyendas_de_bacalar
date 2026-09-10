@@ -12251,6 +12251,40 @@ body.ar-viewer-open .site-header {
 }
 .mv-ar-button:hover { background: #0a97a6; }
 
+/* Visor WebXR integrado: tocar para colocar el modelo en el mundo real; controles sobre la cámara. */
+.webxr-ar { position: fixed; inset: 0; z-index: 2100; }
+.webxr-ar-launch {
+  position: fixed; inset: 0; z-index: 2103; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 14px; text-align: center;
+  padding: 32px 24px; background: #05131a; color: #eafbff;
+}
+.webxr-ar-launch strong { font-size: 1.2rem; font-weight: 800; }
+.webxr-ar-launch p { max-width: 320px; margin: 0; color: #cfe9ef; font-size: 0.95rem; }
+.webxr-ar-launch-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+.webxr-ar-btn {
+  min-height: 48px; padding: 0 20px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(255, 255, 255, 0.08); color: #fff; font-weight: 700; font-size: 0.95rem; cursor: pointer;
+}
+.webxr-ar-btn.is-primary { border: 0; background: linear-gradient(135deg, #0ea5b7, #087f8c); box-shadow: 0 8px 22px rgba(8, 127, 140, 0.4); }
+.webxr-ar-btn:disabled { opacity: 0.6; cursor: default; }
+
+/* Overlay DOM sobre el passthrough durante la sesión WebXR. El contenedor deja pasar los toques
+   (pointer-events: none) para que el tap coloque el modelo; solo los botones capturan el toque. */
+.webxr-ar-overlay {
+  position: fixed; inset: 0; z-index: 2102; display: flex; flex-direction: column;
+  justify-content: space-between; pointer-events: none;
+}
+.webxr-ar-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: max(12px, env(safe-area-inset-top)) 16px 0; pointer-events: auto;
+}
+.webxr-ar-name { padding: 6px 12px; border-radius: 999px; background: rgba(4, 18, 26, 0.7); color: #fff; font-weight: 700; font-size: 0.9rem; }
+.webxr-ar-close { width: 44px; height: 44px; border-radius: 999px; border: 0; cursor: pointer; background: rgba(4, 18, 26, 0.7); color: #fff; font-size: 1.1rem; font-weight: 800; }
+.webxr-ar-hint { align-self: center; margin: 0 0 6px; padding: 8px 14px; border-radius: 999px; background: rgba(4, 18, 26, 0.6); color: #eafbff; font-size: 0.85rem; text-align: center; max-width: 90%; }
+.webxr-ar-controls { display: flex; gap: 12px; justify-content: center; align-items: center; padding: 0 16px max(18px, env(safe-area-inset-bottom)); pointer-events: auto; }
+.webxr-ar-ctrl { width: 60px; height: 60px; border-radius: 999px; border: 0; cursor: pointer; background: rgba(8, 127, 140, 0.92); color: #fff; font-size: 1.5rem; font-weight: 800; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); }
+.webxr-ar-ctrl:active { transform: scale(0.94); }
+
 /* Ver modelos en tu espacio (/ver-modelos) — AR nativo de Google via model-viewer. */
 .ar-models-page { padding: 20px 16px 44px; max-width: 920px; margin: 0 auto; }
 .ar-models-sub { color: var(--muted); font-size: 0.9rem; margin: 4px 0 0; max-width: 520px; }
