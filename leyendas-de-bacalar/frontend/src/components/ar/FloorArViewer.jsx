@@ -56,6 +56,14 @@ function FloorArViewer({ modelUrl, name = 'Modelo 3D', onView }) {
         el.style.width = '100%';
         el.style.height = '100%';
         el.style.backgroundColor = 'transparent';
+        // Boton AR propio y claro. model-viewer solo lo muestra cuando el AR esta disponible
+        // en el dispositivo (Android/WebXR/Scene Viewer); en desktop/no-AR queda oculto.
+        const arBtn = document.createElement('button');
+        arBtn.setAttribute('slot', 'ar-button');
+        arBtn.className = 'mv-ar-button';
+        arBtn.type = 'button';
+        arBtn.textContent = 'Ver en tu espacio';
+        el.appendChild(arBtn);
         el.addEventListener('load', () => {
           if (!notifiedRef.current) {
             notifiedRef.current = true;

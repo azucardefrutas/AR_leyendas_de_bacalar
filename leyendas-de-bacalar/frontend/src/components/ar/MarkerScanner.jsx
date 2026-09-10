@@ -1,6 +1,13 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import Button from '../ui/Button.jsx';
+import AppIcon from '../ui/AppIcon.jsx';
 import { loadExternalScript } from '../../lib/loadExternalScript.js';
+
+// Visor de "mundo real" (Google Scene Viewer / WebXR) reutilizado del apartado /ver-modelos:
+// una vez identificado el modelo por su marcador, se puede COLOCAR en el espacio (mesa/piso),
+// mover, agrandar y caminar alrededor — ya independiente del marcador. Carga perezosa para no
+// traer model-viewer si no se usa.
+const FloorArViewer = lazy(() => import('./FloorArViewer.jsx'));
 
 // Escaner MULTI-marcador para la web (invitados incluidos). Misma idea que la app movil
 // (marcador -> modelo -> ruleta de emotes) pero en el navegador con MindAR sobre A-Frame.
@@ -115,6 +122,8 @@ function MarkerScanner({ scenes = [] }) {
   const [progress, setProgress] = useState(0);
   const [active, setActive] = useState(null); // { index, name, clips, labels }
   const [activeClip, setActiveClip] = useState('');
+  // Modelo a "colocar en el espacio" (mundo real, sin marcador): { modelUrl, name, scale }.
+  const [placeScene, setPlaceScene] = useState(null);
 
   const usable = useMemo(
     () => scenes.filter((s) => s.markerImageUrl && s.modelUrl),
@@ -145,6 +154,14 @@ function MarkerScanner({ scenes = [] }) {
     if (!el) return;
     el.setAttribute('animation-mixer', `clip: ${clip}; loop: repeat; crossFadeDuration: 0.2`);
     setActiveClip(clip);
+  }
+
+  // Abre el modelo reconocido en AR de mundo real (Scene Viewer / WebXR): se coloca en el
+  // espacio y se puede mover/agrandar/rodear, ya sin depender del marcador.
+  function openPlacement() {
+    const scene = usable[active?.index];
+    if (!scene?.modelUrl) return;
+    setPlaceScene({ modelUrl: scene.modelUrl, name: active?.name || scene.name || 'Modelo 3D', scale: scene.scale });
   }
 
   async function start() {
@@ -308,6 +325,14 @@ function MarkerScanner({ scenes = [] }) {
         )}
       </div>
 
+      {/* CTA: soltar el modelo del marcador y colocarlo en el mundo real (mover/agrandar/rodear). */}
+      {active && (
+        <button type="button" className="marker-scanner-place" onClick={openPlacement}>
+          <AppIcon name="view_in_ar" size={20} />
+          Colocar en mi espacio
+        </button>
+      )}
+
       {/* Ruleta de emotes (adaptada a web) para modelos con animación. */}
       {hasEmotes && (
         <div className="marker-scanner-emotes" role="group" aria-label="Emotes del modelo">
@@ -340,6 +365,24 @@ function MarkerScanner({ scenes = [] }) {
       {error && <p className="error-message">{error}</p>}
       {!usable.length && status === 'idle' && (
         <p className="marker-scanner-note">Aún no hay marcadores publicados para escanear.</p>
+      )}
+
+      {/* Colocar en el espacio: AR de mundo real (Scene Viewer / WebXR) sobre pantalla completa.
+          El modelo queda fijo en el espacio y se puede mover, agrandar y rodear, sin marcador. */}
+      {placeScene && (
+        <div className="marker-place-overlay" role="dialog" aria-label={`Colocar ${placeScene.name} en tu espacio`}>
+          <div className="marker-place-head">
+            <strong>{placeScene.name}</strong>
+            <Button type="button" variant="ghost" onClick={() => setPlaceScene(null)}>Cerrar</Button>
+          </div>
+          <Suspense fallback={<div className="marker-place-loading">Cargando visor AR…</div>}>
+            <FloorArViewer modelUrl={placeScene.modelUrl} name={placeScene.name} />
+          </Suspense>
+          <p className="marker-place-hint">
+            Toca <strong>Ver en tu espacio</strong>, apunta al piso o a una mesa y mueve el teléfono para colocarlo.
+            Luego <strong>pellizca para agrandar</strong> y arrástralo para moverlo.
+          </p>
+        </div>
       )}
     </div>
   );

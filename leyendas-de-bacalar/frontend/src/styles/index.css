@@ -12208,6 +12208,49 @@ body.ar-viewer-open .site-header {
 /* Ocultar el botón "VR"/"AR" que inyecta A-Frame. */
 .a-enter-vr, .a-enter-ar, .a-orientation-modal { display: none !important; }
 
+/* CTA "Colocar en mi espacio": suelta el modelo del marcador hacia el AR de mundo real. */
+.marker-scanner-place {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 48px; padding: 0 20px; border-radius: 999px; border: 0; cursor: pointer;
+  background: linear-gradient(135deg, #0ea5b7, #087f8c); color: #fff;
+  font-weight: 800; font-size: 0.95rem; box-shadow: 0 8px 22px rgba(8, 127, 140, 0.4);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.marker-scanner-place:hover { transform: translateY(-1px); box-shadow: 0 10px 26px rgba(8, 127, 140, 0.5); }
+.marker-scanner-place:focus-visible { outline: 2px solid var(--bacalar-cyan); outline-offset: 2px; }
+/* En pantalla completa flota centrado, justo encima de la ruleta de emotes. */
+.marker-scanner.is-immersive .marker-scanner-place {
+  position: fixed; left: 50%; transform: translateX(-50%);
+  bottom: calc(max(18px, env(safe-area-inset-bottom)) + 84px); z-index: 2003;
+}
+.marker-scanner.is-immersive .marker-scanner-place:hover { transform: translateX(-50%) translateY(-1px); }
+
+/* Overlay AR de mundo real (Scene Viewer / WebXR) al colocar el modelo en el espacio. */
+.marker-place-overlay {
+  position: fixed; inset: 0; z-index: 2100; background: #05131a;
+  display: flex; flex-direction: column;
+}
+.marker-place-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: max(12px, env(safe-area-inset-top)) 16px 12px; color: #eafbff;
+}
+.marker-place-head strong { font-weight: 800; font-size: 1.05rem; }
+.marker-place-overlay .ar-floor-viewer { flex: 1; min-height: 0; }
+.marker-place-loading { flex: 1; display: grid; place-content: center; color: #eafbff; }
+.marker-place-hint {
+  margin: 0; padding: 12px 16px max(14px, env(safe-area-inset-bottom));
+  text-align: center; color: #cfe9ef; font-size: 0.9rem;
+}
+
+/* Boton AR propio de model-viewer (slot ar-button): claro y centrado. */
+.mv-ar-button {
+  position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+  min-height: 48px; padding: 0 22px; border-radius: 999px; border: 0; cursor: pointer;
+  background: #087f8c; color: #fff; font-weight: 800; font-size: 0.95rem;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+}
+.mv-ar-button:hover { background: #0a97a6; }
+
 /* Ver modelos en tu espacio (/ver-modelos) — AR nativo de Google via model-viewer. */
 .ar-models-page { padding: 20px 16px 44px; max-width: 920px; margin: 0 auto; }
 .ar-models-sub { color: var(--muted); font-size: 0.9rem; margin: 4px 0 0; max-width: 520px; }
