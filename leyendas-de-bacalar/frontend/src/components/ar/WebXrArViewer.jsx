@@ -29,6 +29,7 @@ function WebXrArViewer({ modelUrl, name = 'Modelo 3D', onClose, onUnsupported })
 
   const [phase, setPhase] = useState('checking'); // checking | ready | starting | running | placed | error | unsupported
   const [error, setError] = useState('');
+  const [modelReady, setModelReady] = useState(false); // el GLB termino de cargar dentro de la sesion.
 
   // --- Deteccion de soporte (si no hay, avisamos al padre para caer al visor nativo). ---
   useEffect(() => {
@@ -102,9 +103,36 @@ function WebXrArViewer({ modelUrl, name = 'Modelo 3D', onClose, onUnsupported })
   async function startAr() {
     if (phase === 'starting' || phase === 'running' || phase === 'placed') return;
     setError('');
+    setModelReady(false);
     setPhase('starting');
+
+    if (typeof navigator === 'undefined' || !navigator.xr?.requestSession) {
+      onUnsupported?.();
+      return;
+    }
+
+    // 1) Pedir la sesion AR PRIMERO, con la activacion del toque aun fresca. (Si cargaramos el
+    //    GLB antes, la activacion podria expirar y requestSession fallaria.) Si la configuracion
+    //    no es soportada en este equipo/navegador, caemos al visor NATIVO (Scene Viewer), que
+    //    tambien permite mover/agrandar con los dedos.
+    let session;
     try {
-      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: false });
+      session = await navigator.xr.requestSession('immersive-ar', {
+        requiredFeatures: ['hit-test'],
+        optionalFeatures: ['dom-overlay'],
+        domOverlay: overlayRef.current ? { root: overlayRef.current } : undefined,
+      });
+    } catch (sessionError) {
+      if (onUnsupported) { onUnsupported(); return; }
+      setError(sessionError?.message || 'Este dispositivo no soporta la Realidad Aumentada WebXR.');
+      setPhase('error');
+      return;
+    }
+
+    try {
+      sessionRef.current = session;
+
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setPixelRatio(window.devicePixelRatio || 1);
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -130,37 +158,6 @@ function WebXrArViewer({ modelUrl, name = 'Modelo 3D', onClose, onUnsupported })
       scene.add(reticle);
       reticleRef.current = reticle;
 
-      // Cargar el GLB y normalizar tamano (~40 cm de lado mayor); centrado y apoyado en el piso.
-      const gltf = await new GLTFLoader().loadAsync(modelUrl);
-      const model = gltf.scene;
-      const holder = new THREE.Group();
-      holder.add(model);
-      let box = new THREE.Box3().setFromObject(model);
-      const size = box.getSize(new THREE.Vector3());
-      const maxDim = Math.max(size.x, size.y, size.z) || 1;
-      const fit = 0.4 / maxDim;
-      model.scale.setScalar(fit);
-      box = new THREE.Box3().setFromObject(model);
-      const center = box.getCenter(new THREE.Vector3());
-      model.position.set(-center.x, -box.min.y, -center.z); // base al origen del holder, centrado x/z
-      holder.userData.baseScale = 1;
-      holder.visible = false;
-      scene.add(holder);
-      holderRef.current = holder;
-
-      if (gltf.animations?.length) {
-        const mixer = new THREE.AnimationMixer(model);
-        mixer.clipAction(gltf.animations[0]).reset().play();
-        mixerRef.current = mixer;
-      }
-
-      // Iniciar sesion WebXR AR con hit-test y overlay DOM (para los botones).
-      const session = await navigator.xr.requestSession('immersive-ar', {
-        requiredFeatures: ['hit-test'],
-        optionalFeatures: ['dom-overlay', 'local-floor'],
-        domOverlay: overlayRef.current ? { root: overlayRef.current } : undefined,
-      });
-      sessionRef.current = session;
       renderer.xr.setReferenceSpaceType('local');
       await renderer.xr.setSession(session);
       setPhase('running');
@@ -183,6 +180,7 @@ function WebXrArViewer({ modelUrl, name = 'Modelo 3D', onClose, onUnsupported })
 
       session.addEventListener('end', () => {
         cleanup();
+        setModelReady(false);
         setPhase('ready');
         onClose?.();
       });
@@ -202,9 +200,33 @@ function WebXrArViewer({ modelUrl, name = 'Modelo 3D', onClose, onUnsupported })
         if (mixerRef.current) mixerRef.current.update(dt);
         renderer.render(scene, camera);
       });
+
+      // 2) Cargar el GLB con la sesion YA corriendo (mientras, el usuario ve el reticulo).
+      const gltf = await new GLTFLoader().loadAsync(modelUrl);
+      const model = gltf.scene;
+      const holder = new THREE.Group();
+      holder.add(model);
+      let box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z) || 1;
+      model.scale.setScalar(0.4 / maxDim); // ~40 cm de lado mayor
+      box = new THREE.Box3().setFromObject(model);
+      const center = box.getCenter(new THREE.Vector3());
+      model.position.set(-center.x, -box.min.y, -center.z); // base al origen del holder, centrado x/z
+      holder.userData.baseScale = 1;
+      holder.visible = false;
+      scene.add(holder);
+      holderRef.current = holder;
+
+      if (gltf.animations?.length) {
+        const mixer = new THREE.AnimationMixer(model);
+        mixer.clipAction(gltf.animations[0]).reset().play();
+        mixerRef.current = mixer;
+      }
+      setModelReady(true);
     } catch (startError) {
       cleanup();
-      setError(startError?.message || 'No se pudo iniciar la Realidad Aumentada WebXR.');
+      setError(startError?.message || 'No se pudo iniciar la Realidad Aumentada.');
       setPhase('error');
     }
   }
@@ -259,9 +281,11 @@ function WebXrArViewer({ modelUrl, name = 'Modelo 3D', onClose, onUnsupported })
         </div>
 
         <p className="webxr-ar-hint">
-          {phase === 'placed'
-            ? 'Pellizca o usa + / − para agrandar. Toca otra vez para reubicar.'
-            : 'Mueve el teléfono hasta ver el círculo y toca para colocar.'}
+          {!modelReady
+            ? 'Cargando modelo…'
+            : phase === 'placed'
+              ? 'Pellizca o usa + / − para agrandar. Toca otra vez para reubicar.'
+              : 'Mueve el teléfono hasta ver el círculo y toca para colocar.'}
         </p>
 
         <div className="webxr-ar-controls">

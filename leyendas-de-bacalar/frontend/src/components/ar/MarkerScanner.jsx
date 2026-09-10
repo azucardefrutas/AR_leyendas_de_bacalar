@@ -198,7 +198,13 @@ function MarkerScanner({ scenes = [] }) {
       setStatus('compiling');
       const targetSrc = await compileMarkersToMind(
         usable.map((s) => s.markerImageUrl),
-        (p) => setProgress(Math.round((p || 0) * 100)),
+        // MindAR ya reporta el progreso en 0..100 (no 0..1). Aceptamos ambas escalas y SIEMPRE
+        // acotamos a 0..100 para que nunca se vea un porcentaje raro (p. ej. 1000%).
+        (p) => {
+          const raw = Number(p) || 0;
+          const pct = raw <= 1 ? raw * 100 : raw;
+          setProgress(Math.max(0, Math.min(100, Math.round(pct))));
+        },
       );
       compiledUrlRef.current = targetSrc;
 
