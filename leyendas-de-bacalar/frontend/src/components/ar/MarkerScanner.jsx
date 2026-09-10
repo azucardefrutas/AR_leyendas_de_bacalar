@@ -178,6 +178,7 @@ function MarkerScanner({ scenes = [] }) {
       modelUrl: scene.modelUrl,
       name: active?.name || scene.name || 'Modelo 3D',
       scale: scene.scale,
+      clip: scene.animationConfig?.defaultClip || scene.animationConfig?.clips?.[0] || '',
       mode: xr ? 'xr' : 'floor',
     });
   }
@@ -400,6 +401,7 @@ function MarkerScanner({ scenes = [] }) {
           <WebXrArViewer
             modelUrl={placeScene.modelUrl}
             name={placeScene.name}
+            clip={placeScene.clip}
             onClose={() => setPlaceScene(null)}
             onUnsupported={() => setPlaceScene((p) => (p ? { ...p, mode: 'floor' } : p))}
           />

@@ -43,6 +43,9 @@ function FloorArViewer({ modelUrl, name = 'Modelo 3D', onView }) {
         el.setAttribute('auto-rotate', '');
         el.setAttribute('touch-action', 'pan-y');
         el.setAttribute('shadow-intensity', '1');
+        // Reproduce las animaciones del GLB (en bucle) tanto en la vista previa como al colocar
+        // en AR. Sin esto el modelo se ve estatico aunque tenga animaciones.
+        el.setAttribute('autoplay', '');
         el.setAttribute('ar', '');
         el.setAttribute('ar-modes', 'webxr scene-viewer quick-look');
         el.setAttribute('ar-scale', 'auto');

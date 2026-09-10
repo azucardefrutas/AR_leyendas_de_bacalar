@@ -17,7 +17,7 @@ async function isWebXrArSupported() {
   }
 }
 
-function WebXrArViewer({ modelUrl, name = 'Modelo 3D', onClose, onUnsupported }) {
+function WebXrArViewer({ modelUrl, name = 'Modelo 3D', clip = '', onClose, onUnsupported }) {
   const overlayRef = useRef(null);
   const rendererRef = useRef(null);
   const sessionRef = useRef(null);
@@ -69,6 +69,22 @@ function WebXrArViewer({ modelUrl, name = 'Modelo 3D', onClose, onUnsupported })
     el.addEventListener('beforexrselect', suppress);
     return () => el.removeEventListener('beforexrselect', suppress);
   }, []);
+
+  // Pellizco con DOS dedos para escalar. El overlay tiene pointer-events:none (para que el tap
+  // de un dedo llegue a WebXR y coloque el modelo), por eso escuchamos el touch a nivel de
+  // window: un pellizco de dos dedos nunca genera el "select" de un tap, asi que no interfiere
+  // con la colocacion. Los botones +/- siguen siendo la via garantizada para agrandar/achicar.
+  useEffect(() => {
+    if (phase !== 'running' && phase !== 'placed') return undefined;
+    window.addEventListener('touchmove', onTouchMove, { passive: true });
+    window.addEventListener('touchend', onTouchEnd, { passive: true });
+    window.addEventListener('touchcancel', onTouchEnd, { passive: true });
+    return () => {
+      window.removeEventListener('touchmove', onTouchMove);
+      window.removeEventListener('touchend', onTouchEnd);
+      window.removeEventListener('touchcancel', onTouchEnd);
+    };
+  }, [phase, onTouchMove, onTouchEnd]);
 
   // --- Escalar / girar el modelo colocado (botones del overlay). ---
   const scaleBy = useCallback((factor) => {
@@ -219,8 +235,11 @@ function WebXrArViewer({ modelUrl, name = 'Modelo 3D', onClose, onUnsupported })
       holderRef.current = holder;
 
       if (gltf.animations?.length) {
+        // Reproduce el clip por defecto (el mismo que la app) si viene indicado; si no, el 1o.
+        // Loop infinito por defecto -> nunca se "fatiga" ni se detiene.
+        const chosen = (clip && gltf.animations.find((a) => a.name === clip)) || gltf.animations[0];
         const mixer = new THREE.AnimationMixer(model);
-        mixer.clipAction(gltf.animations[0]).reset().play();
+        mixer.clipAction(chosen).reset().play();
         mixerRef.current = mixer;
       }
       setModelReady(true);
@@ -272,8 +291,6 @@ function WebXrArViewer({ modelUrl, name = 'Modelo 3D', onClose, onUnsupported })
       <div
         className={`webxr-ar-overlay${inSession ? ' is-active' : ''}`}
         ref={overlayRef}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
       >
         <div className="webxr-ar-top">
           <span className="webxr-ar-name">{name}</span>
