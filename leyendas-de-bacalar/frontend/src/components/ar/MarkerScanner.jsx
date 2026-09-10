@@ -245,6 +245,16 @@ function MarkerScanner({ scenes = [] }) {
       mountRef.current.appendChild(sceneEl);
       sceneRef.current = sceneEl;
       setStatus('scanning');
+
+      // Al pasar a pantalla completa (clase is-immersive), el contenedor cambia de tamano.
+      // MindAR/A-Frame dimensionan el video y el lienzo con el tamano del contenedor en el
+      // momento de arrancar, asi que pedimos un recalculo (resize) DESPUES de que el layout
+      // fullscreen ya aplico, para que la camara llene la pantalla sin franjas negras. Varios
+      // disparos cubren el arranque de la camara (que tarda unos ms en dar dimensiones).
+      const nudgeResize = () => { try { window.dispatchEvent(new Event('resize')); } catch { /* noop */ } };
+      requestAnimationFrame(nudgeResize);
+      setTimeout(nudgeResize, 250);
+      setTimeout(nudgeResize, 800);
     } catch (startError) {
       teardown();
       setStatus('error');

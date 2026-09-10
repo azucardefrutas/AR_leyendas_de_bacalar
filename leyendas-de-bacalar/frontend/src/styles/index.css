@@ -12125,7 +12125,13 @@ body.ar-viewer-open .site-header {
 .marker-scanner { display: grid; gap: 12px; }
 .marker-scanner-stage { position: relative; width: 100%; aspect-ratio: 3 / 4; max-height: 72vh; border-radius: 18px; overflow: hidden; background: #04121a; border: 1px solid var(--line); }
 .marker-scanner-canvas { position: absolute; inset: 0; }
-.marker-scanner-stage a-scene, .marker-scanner-stage canvas, .marker-scanner-stage video { position: absolute; inset: 0; width: 100% !important; height: 100% !important; object-fit: cover; }
+/* El video de la camara y el lienzo 3D deben LLENAR el escenario. MindAR posiciona el video
+   con top/left/width/height/transform en px (calculados con el contenedor de ese instante), lo
+   que deja franjas NEGRAS al pasar a pantalla completa. Forzamos inset:0 + 100% + transform:none
+   con !important para anular ese posicionamiento, y object-fit: cover para que el video cubra
+   todo el area recortando el sobrante (sin deformar, sin negro). */
+.marker-scanner-stage a-scene, .marker-scanner-stage canvas, .marker-scanner-stage video { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; transform: none !important; }
+.marker-scanner-stage video { object-fit: cover !important; }
 .marker-scanner-placeholder { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; gap: 6px; padding: 24px; color: #eafbff; }
 .marker-scanner-placeholder span { font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.7; }
 .marker-scanner-placeholder strong { font-size: 1.15rem; }
