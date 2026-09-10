@@ -16941,6 +16941,26 @@ table {
   line-height: 1;
 }
 
+/* Guia COMPACTA: pildoras pequenas (emoji + palabra) en una sola fila. Ocupa poco y no tapa
+   el modelo. Resalta el gesto activo. */
+.gesture-ar__tips.is-compact {
+  gap: 8px;
+  width: auto;
+  max-width: calc(100% - 24px);
+  flex-wrap: wrap;
+}
+.gesture-ar__tips.is-compact li {
+  flex: 0 0 auto;
+  max-width: none;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+.gesture-ar__tips.is-compact .gesture-ar__emoji { font-size: 1.15rem; }
+.gesture-ar__tip-label { font-weight: 700; letter-spacing: 0.01em; }
+
 .gesture-ar__notice {
   position: absolute;
   top: 50%;

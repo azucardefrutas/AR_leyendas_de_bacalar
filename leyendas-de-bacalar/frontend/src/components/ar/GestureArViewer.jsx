@@ -28,10 +28,10 @@ const CALIB_KEY = 'leyendas.gestureAr.calibration';
 const ONBOARD_KEY = 'leyendas.gestureAr.onboarded';
 const DEFAULT_CALIB = { rot: 1, move: 1, zoom: 1, pinch: 0.07, smooth: 0.22 };
 const GESTURE_GUIDE = [
-  { key: 'rotate', emoji: '🤏', title: 'Girar', desc: 'Pellizca (pulgar + índice) y mueve la mano.' },
-  { key: 'move', emoji: '✊', title: 'Mover', desc: 'Cierra el puño y arrástralo por la pantalla.' },
-  { key: 'scale', emoji: '🙌', title: 'Acercar / alejar', desc: 'Con dos manos, júntalas o sepáralas.' },
-  { key: 'idle', emoji: '✋', title: 'Soltar', desc: 'Abre la mano para dejarlo donde está.' },
+  { key: 'rotate', emoji: '🤏', title: 'Girar', short: 'Girar', desc: 'Pellizca (pulgar + índice), con el resto de la mano abierta, y muévela.' },
+  { key: 'move', emoji: '✊', title: 'Mover', short: 'Mover', desc: 'Cierra el puño y arrástralo por la pantalla.' },
+  { key: 'scale', emoji: '🙌', title: 'Acercar / alejar', short: 'Zoom', desc: 'Con dos manos, júntalas o sepáralas.' },
+  { key: 'idle', emoji: '✋', title: 'Soltar', short: 'Soltar', desc: 'Abre la mano para dejarlo donde está.' },
 ];
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -53,11 +53,6 @@ function extendedFingers(hand, tips) {
   }
   return count;
 }
-// Los 4 dedos (indice/medio/anular/menique).
-function fingersExtended(hand) {
-  return extendedFingers(hand, [8, 12, 16, 20]);
-}
-
 function loadCalibration() {
   if (typeof window === 'undefined') return { ...DEFAULT_CALIB };
   try {
@@ -134,6 +129,7 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
     // Histeresis: `stable` es el gesto confirmado; `pend`/`pendN` cuentan frames del nuevo
     // gesto antes de aceptarlo (evita que puño/pellizco/mano-abierta se peleen).
     stable: 'idle', pend: null, pendN: 0,
+    pinching: false, // Schmitt trigger del pellizco (ON/OFF con umbrales distintos, sin titileo).
     startCx: 0, startCy: 0, startRotX: 0, startRotY: 0, startPosX: 0, startPosY: 0, startDist: 0, startScale: 1,
   });
   const [status, setStatus] = useState('loading');
@@ -157,6 +153,7 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
     // 1) Que gesto INTENTA hacer el usuario en este frame (sin aplicarlo aun).
     let want = 'idle';
     let twoHandDist = 0;
+    if (count !== 1) g.pinching = false; // el pellizco solo tiene sentido con una mano
     if (count >= 2) {
       want = 'scale';
       twoHandDist = distance(palmMirrored(hands[0]), palmMirrored(hands[1])) || 1e-3;
@@ -164,13 +161,17 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
       const hand = hands[0];
       const size = distance(hand[0], hand[9]) || 1e-4;              // tamano de la mano
       const pinchDist = distance(hand[4], hand[8]) / size;          // pulgar-indice, normalizado
-      const ext = fingersExtended(hand);                            // 0-4
-      const otherExt = extendedFingers(hand, [12, 16, 20]);         // medio/anular/menique
-      // 🤏 Pellizco = pulgar+indice juntos Y al menos otro dedo extendido -> NO es un puño.
-      if (pinchDist < cal.pinch * 6 && otherExt >= 1) want = 'rotate';
-      // ✊ Puno = todos los dedos cerrados.
-      else if (ext === 0) want = 'move';
-      else want = 'idle';                                           // ✋ mano abierta
+      const otherExt = extendedFingers(hand, [12, 16, 20]);         // medio/anular/menique (0-3)
+      // Pellizco con histeresis (Schmitt): ENTRA cuando los dedos casi se tocan y SALE solo al
+      // separarse bien -> nada de titileo entre "girar" y "soltar" en el borde.
+      g.pinching = g.pinching ? pinchDist < cal.pinch * 8 : pinchDist < cal.pinch * 5;
+      // Gestos MUTUAMENTE EXCLUYENTES (no pueden chocar):
+      //  🤏 Girar  = pellizco (pulgar+indice) CON el resto de la mano abierta (otherExt >= 1).
+      //  ✊ Mover  = puno: medio/anular/menique CERRADOS (otherExt === 0); pulgar/indice dan igual.
+      //  ✋ Soltar = mano abierta (sin pellizco y con dedos extendidos).
+      if (g.pinching && otherExt >= 1) want = 'rotate';
+      else if (otherExt === 0) want = 'move';
+      else want = 'idle';
     }
 
     // 2) Histeresis: un gesto nuevo debe mantenerse 2 frames para aceptarse (evita que se
@@ -341,18 +342,23 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
             : 'Preparando…'}
         </span>
         <div className="gesture-ar__actions">
+          <button type="button" onClick={() => setShowGuide(true)} title="Cómo se usa" aria-label="Cómo se usa">
+            <AppIcon name="help" size={20} />
+          </button>
           <button type="button" onClick={onClose} title="Cerrar" aria-label="Cerrar">
             <AppIcon name="close" size={20} />
           </button>
         </div>
       </header>
 
+      {/* Guia persistente COMPACTA: solo emoji + palabra (la explicacion completa vive en el
+          onboarding y en el boton "?"). Resalta el gesto activo. Ocupa poco y no tapa el modelo. */}
       {tracking && !showGuide && (
-        <ul className="gesture-ar__tips" aria-label="Guía de señas">
+        <ul className="gesture-ar__tips is-compact" aria-label="Guía de señas">
           {GESTURE_GUIDE.map((g) => (
             <li key={g.key} className={activeGesture === g.key ? 'is-active' : ''}>
               <span className="gesture-ar__emoji" aria-hidden="true">{g.emoji}</span>
-              <span><strong>{g.title}.</strong> {g.desc}</span>
+              <span className="gesture-ar__tip-label">{g.short}</span>
             </li>
           ))}
         </ul>
