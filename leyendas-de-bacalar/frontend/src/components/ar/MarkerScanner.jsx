@@ -116,6 +116,7 @@ function webScale(scale) {
 function MarkerScanner({ scenes = [] }) {
   // Contenedor IMPERATIVO exclusivo para A-Frame/MindAR: React nunca le pone hijos, para
   // que no choque con el DOM que inyecta el motor (evita "removeChild is not a child").
+  const rootRef = useRef(null); // raiz del escaner: se pide pantalla completa real aqui.
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
   const compiledUrlRef = useRef(null);
@@ -147,9 +148,29 @@ function MarkerScanner({ scenes = [] }) {
       URL.revokeObjectURL(compiledUrlRef.current);
       compiledUrlRef.current = null;
     }
+    exitFullscreen();
   }
 
+  // Limpieza SOLO al desmontar (teardown detiene MindAR, libera el blob y sale de pantalla
+  // completa). Intencional: no queremos re-ejecutarlo cuando teardown cambie de identidad.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => () => teardown(), []);
+
+  // Pantalla completa REAL al escanear: en movil OCULTA las barras del navegador (que si no
+  // tapan la ruleta de emotes y el boton "Colocar en mi espacio"). Debe pedirse dentro del gesto
+  // del usuario (el toque de "Iniciar camara"), por eso se llama ANTES de start().
+  function enterFullscreen() {
+    const el = rootRef.current;
+    if (!el) return;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    try { req?.call(el); } catch { /* iOS Safari no soporta fullscreen de elementos no-video */ }
+  }
+  function exitFullscreen() {
+    if (typeof document === 'undefined') return;
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) return;
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    try { exit?.call(document); } catch { /* noop */ }
+  }
 
   // Reproduce un clip concreto (emote) en el modelo activo, en bucle.
   function playClip(clip) {
@@ -306,7 +327,7 @@ function MarkerScanner({ scenes = [] }) {
   const hasEmotes = Boolean(active && active.clips.length > 0);
 
   return (
-    <div className={`marker-scanner${status === 'scanning' ? ' is-immersive' : ''}`}>
+    <div ref={rootRef} className={`marker-scanner${status === 'scanning' ? ' is-immersive' : ''}`}>
       <div className="marker-scanner-stage">
         <div ref={mountRef} className="marker-scanner-canvas" aria-hidden="true" />
         {status !== 'scanning' && (
@@ -369,7 +390,7 @@ function MarkerScanner({ scenes = [] }) {
 
       <div className="marker-scanner-controls">
         {status !== 'scanning' ? (
-          <Button type="button" onClick={start} disabled={busy || !usable.length}>
+          <Button type="button" onClick={() => { enterFullscreen(); start(); }} disabled={busy || !usable.length}>
             {busy ? 'Preparando...' : 'Iniciar cámara'}
           </Button>
         ) : (

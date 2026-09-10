@@ -12123,7 +12123,8 @@ body.ar-viewer-open .site-header {
 .scan-markers-grid { display: grid; gap: 16px; }
 .scan-markers-tip { margin-top: 14px; font-size: 0.85rem; color: var(--muted); text-align: center; }
 .marker-scanner { display: grid; gap: 12px; }
-.marker-scanner-stage { position: relative; width: 100%; aspect-ratio: 3 / 4; max-height: 72vh; border-radius: 18px; overflow: hidden; background: #04121a; border: 1px solid var(--line); }
+/* dvh = altura VISIBLE real del movil (descontando barras del navegador); vh como respaldo. */
+.marker-scanner-stage { position: relative; width: 100%; aspect-ratio: 3 / 4; max-height: 72vh; max-height: 72dvh; border-radius: 18px; overflow: hidden; background: #04121a; border: 1px solid var(--line); }
 .marker-scanner-canvas { position: absolute; inset: 0; }
 /* El video de la camara y el lienzo 3D deben LLENAR el escenario. MindAR posiciona el video
    con top/left/width/height/transform en px (calculados con el contenedor de ese instante), lo
@@ -12207,6 +12208,15 @@ body.ar-viewer-open .site-header {
 .marker-scanner-stage canvas { z-index: 1; background: transparent !important; }
 /* Ocultar el botón "VR"/"AR" que inyecta A-Frame. */
 .a-enter-vr, .a-enter-ar, .a-orientation-modal { display: none !important; }
+/* Pantalla completa REAL (Fullscreen API): la raiz llena la pantalla, sin barras del navegador
+   que tapen los controles; fondo negro. */
+.marker-scanner:fullscreen { width: 100vw; height: 100vh; height: 100dvh; margin: 0; background: #000; }
+.marker-scanner:-webkit-full-screen { width: 100vw; height: 100vh; background: #000; }
+/* Horizontal en pantallas bajas: la ruleta de emotes no ocupa todo el ancho para no encimarse
+   con el boton "Colocar en mi espacio". */
+@media (orientation: landscape) and (max-height: 520px) {
+  .marker-scanner.is-immersive .marker-scanner-emotes { left: 10px; right: auto; max-width: 62%; }
+}
 
 /* CTA "Colocar en mi espacio": suelta el modelo del marcador hacia el AR de mundo real. */
 .marker-scanner-place {
