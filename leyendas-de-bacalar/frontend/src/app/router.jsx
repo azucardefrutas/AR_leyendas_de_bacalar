@@ -1,5 +1,6 @@
 import { lazy } from "react";
 import { createBrowserRouter, Navigate } from 'react-router-dom';
+import RouteErrorBoundary from './RouteErrorBoundary.jsx';
 // Guards + layouts stay static: they are tiny and form the persistent shell that
 // must render instantly (and a Suspense boundary inside each layout shell handles
 // the lazy page chunks below, so the navbar/sidebar stays visible while loading).
@@ -72,6 +73,7 @@ const SettingsPage = lazy(() => import('../pages/reader/SettingsPage.jsx'));
 export const router = createBrowserRouter([
   {
     element: <SiteAccessGuard />,
+    errorElement: <RouteErrorBoundary />,
     children: [
       {
         element: <PublicLayout />,
@@ -166,6 +168,7 @@ export const router = createBrowserRouter([
   },
   {
     element: <ProtectedRoute />,
+    errorElement: <RouteErrorBoundary />,
     children: [
       {
         element: <RoleGuard allowedRoles={['admin']} />,
