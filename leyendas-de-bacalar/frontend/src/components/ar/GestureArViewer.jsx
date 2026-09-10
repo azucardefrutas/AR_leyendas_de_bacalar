@@ -42,15 +42,20 @@ const clampNum = (value, min, max, fallback) => {
 const distance = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 // Palm center ≈ middle-finger MCP (landmark 9). x is mirrored to match the selfie view.
 const palmMirrored = (hand) => ({ x: 1 - hand[9].x, y: hand[9].y });
-// How many of the four fingers (index/middle/ring/pinky) point away from the palm.
-function fingersExtended(hand) {
+// Cuantos de los dedos indicados apuntan lejos de la palma (extendidos). Normalizado por
+// el tamano de la mano -> invariante a que tan cerca este de la camara.
+function extendedFingers(hand, tips) {
   const wrist = hand[0];
   const size = distance(wrist, hand[9]) || 1e-4;
   let count = 0;
-  for (const tip of [8, 12, 16, 20]) {
+  for (const tip of tips) {
     if (distance(hand[tip], wrist) / size > EXTEND_RATIO) count += 1;
   }
   return count;
+}
+// Los 4 dedos (indice/medio/anular/menique).
+function fingersExtended(hand) {
+  return extendedFingers(hand, [8, 12, 16, 20]);
 }
 
 function loadCalibration() {
@@ -126,6 +131,9 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
   const gestureRef = useRef({
     rotX: 0, rotY: 0, scale: 1, posX: 0, posY: 0, smooth: calibRef.current.smooth,
     active: null,
+    // Histeresis: `stable` es el gesto confirmado; `pend`/`pendN` cuentan frames del nuevo
+    // gesto antes de aceptarlo (evita que puño/pellizco/mano-abierta se peleen).
+    stable: 'idle', pend: null, pendN: 0,
     startCx: 0, startCy: 0, startRotX: 0, startRotY: 0, startPosX: 0, startPosY: 0, startDist: 0, startScale: 1,
   });
   const [status, setStatus] = useState('loading');
@@ -145,38 +153,55 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
     const g = gestureRef.current;
     const cal = calibRef.current;
     const count = hands.length;
-    let gesture = 'idle';
 
+    // 1) Que gesto INTENTA hacer el usuario en este frame (sin aplicarlo aun).
+    let want = 'idle';
+    let twoHandDist = 0;
     if (count >= 2) {
-      // Two hands → pinch-zoom: spreading them apart enlarges the model.
-      const d = distance(palmMirrored(hands[0]), palmMirrored(hands[1]));
-      if (g.active !== 'scale') { g.active = 'scale'; g.startDist = d || 1e-3; g.startScale = g.scale; }
-      else g.scale = clamp(g.startScale * (d / g.startDist) ** cal.zoom, MIN_SCALE, MAX_SCALE);
-      gesture = 'scale';
+      want = 'scale';
+      twoHandDist = distance(palmMirrored(hands[0]), palmMirrored(hands[1])) || 1e-3;
     } else if (count === 1) {
       const hand = hands[0];
-      const c = palmMirrored(hand);
-      if (distance(hand[4], hand[8]) < cal.pinch) {
-        // 🤏 Pinch → grab & turn: moving the hand rotates the model.
-        if (g.active !== 'rotate') { g.active = 'rotate'; g.startCx = c.x; g.startCy = c.y; g.startRotX = g.rotX; g.startRotY = g.rotY; }
-        else {
-          g.rotY = g.startRotY + (c.x - g.startCx) * ROT_GAIN * cal.rot;
-          g.rotX = clamp(g.startRotX + (c.y - g.startCy) * ROT_GAIN * cal.rot, -1.3, 1.3);
-        }
-        gesture = 'rotate';
-      } else if (fingersExtended(hand) <= 1) {
-        // ✊ Closed fist → drag the model anywhere on screen.
-        if (g.active !== 'move') { g.active = 'move'; g.startCx = c.x; g.startCy = c.y; g.startPosX = g.posX; g.startPosY = g.posY; }
-        else {
-          g.posX = clamp(g.startPosX + (c.x - g.startCx) * MOVE_GAIN * cal.move, -POS_LIMIT, POS_LIMIT);
-          g.posY = clamp(g.startPosY - (c.y - g.startCy) * MOVE_GAIN * cal.move, -POS_LIMIT, POS_LIMIT); // screen-y inverted
-        }
-        gesture = 'move';
-      } else {
-        g.active = null; // ✋ open hand → release, hold the current pose
+      const size = distance(hand[0], hand[9]) || 1e-4;              // tamano de la mano
+      const pinchDist = distance(hand[4], hand[8]) / size;          // pulgar-indice, normalizado
+      const ext = fingersExtended(hand);                            // 0-4
+      const otherExt = extendedFingers(hand, [12, 16, 20]);         // medio/anular/menique
+      // 🤏 Pellizco = pulgar+indice juntos Y al menos otro dedo extendido -> NO es un puño.
+      if (pinchDist < cal.pinch * 6 && otherExt >= 1) want = 'rotate';
+      // ✊ Puno = todos los dedos cerrados.
+      else if (ext === 0) want = 'move';
+      else want = 'idle';                                           // ✋ mano abierta
+    }
+
+    // 2) Histeresis: un gesto nuevo debe mantenerse 2 frames para aceptarse (evita que se
+    //    "peleen" pellizco/puno/mano-abierta cuando la deteccion titila). Soltar es inmediato.
+    if (want === g.stable) { g.pend = null; g.pendN = 0; }
+    else {
+      if (want === g.pend) g.pendN += 1; else { g.pend = want; g.pendN = 1; }
+      if (want === 'idle' || g.pendN >= 2) { g.stable = want; g.pend = null; g.pendN = 0; }
+    }
+    const gesture = g.stable;
+
+    // 3) Aplicar la manipulacion del gesto confirmado.
+    if (gesture === 'scale' && count >= 2) {
+      if (g.active !== 'scale') { g.active = 'scale'; g.startDist = twoHandDist; g.startScale = g.scale; }
+      else g.scale = clamp(g.startScale * (twoHandDist / g.startDist) ** cal.zoom, MIN_SCALE, MAX_SCALE);
+    } else if (gesture === 'rotate' && count === 1) {
+      const c = palmMirrored(hands[0]);
+      if (g.active !== 'rotate') { g.active = 'rotate'; g.startCx = c.x; g.startCy = c.y; g.startRotX = g.rotX; g.startRotY = g.rotY; }
+      else {
+        g.rotY = g.startRotY + (c.x - g.startCx) * ROT_GAIN * cal.rot;
+        g.rotX = clamp(g.startRotX + (c.y - g.startCy) * ROT_GAIN * cal.rot, -1.3, 1.3);
+      }
+    } else if (gesture === 'move' && count === 1) {
+      const c = palmMirrored(hands[0]);
+      if (g.active !== 'move') { g.active = 'move'; g.startCx = c.x; g.startCy = c.y; g.startPosX = g.posX; g.startPosY = g.posY; }
+      else {
+        g.posX = clamp(g.startPosX + (c.x - g.startCx) * MOVE_GAIN * cal.move, -POS_LIMIT, POS_LIMIT);
+        g.posY = clamp(g.startPosY - (c.y - g.startCy) * MOVE_GAIN * cal.move, -POS_LIMIT, POS_LIMIT); // pantalla-y invertida
       }
     } else {
-      g.active = null;
+      g.active = null; // ✋ soltar: mantiene la pose actual
     }
 
     const prev = hudRef.current;
@@ -216,8 +241,8 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
       try {
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            width: { ideal: 480 },
-            height: { ideal: 360 },
+            width: { ideal: 640 },
+            height: { ideal: 480 },
             frameRate: { ideal: TARGET_FPS, max: 30 },
             facingMode: 'user',
           },
@@ -242,9 +267,9 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
           baseOptions: { modelAssetPath: MODEL_PATH, delegate },
           runningMode: 'VIDEO',
           numHands: 2,
-          minHandDetectionConfidence: 0.55,
-          minHandPresenceConfidence: 0.55,
-          minTrackingConfidence: 0.55,
+          minHandDetectionConfidence: 0.6,
+          minHandPresenceConfidence: 0.5,
+          minTrackingConfidence: 0.5,
         });
         landmarkerRef.current = await build('GPU').catch(() => build('CPU'));
       } catch {
