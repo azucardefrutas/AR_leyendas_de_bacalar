@@ -46,6 +46,12 @@ function FloorArViewer({ modelUrl, name = 'Modelo 3D', onView }) {
         el.setAttribute('ar', '');
         el.setAttribute('ar-modes', 'webxr scene-viewer quick-look');
         el.setAttribute('ar-scale', 'auto');
+        el.setAttribute('ar-placement', 'floor');
+        // Entorno neutro + exposicion -> el modelo se ve bien iluminado (no oscuro) tanto
+        // en el visor como al colocarlo en AR.
+        el.setAttribute('environment-image', 'neutral');
+        el.setAttribute('exposure', '1.1');
+        el.setAttribute('camera-orbit', '0deg 80deg 110%');
         el.setAttribute('loading', 'eager');
         el.style.width = '100%';
         el.style.height = '100%';

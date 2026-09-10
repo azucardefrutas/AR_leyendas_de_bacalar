@@ -12213,6 +12213,8 @@ body.ar-viewer-open .site-header {
 .ar-models-viewer { display: grid; gap: 12px; margin-top: 12px; }
 .ar-models-viewer .ar-floor-viewer { display: flex; flex-direction: column; height: min(70vh, 560px); border-radius: 18px; overflow: hidden; border: 1px solid var(--line); }
 .ar-models-empty { color: var(--muted); text-align: center; padding: 24px; }
+.scan-markers-alt { text-align: center; margin-top: 14px; font-size: 0.9rem; color: var(--muted); }
+.scan-markers-alt a { color: var(--reader-accent, #30cff2); font-weight: 700; }
 .model-animation-clips span,
 .pm-emote-count {
   display: inline-flex;

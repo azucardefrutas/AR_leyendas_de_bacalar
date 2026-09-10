@@ -61,6 +61,10 @@ function ScanMarkersPage() {
       ) : (
         <MarkerScanner scenes={scenes} />
       )}
+
+      <p className="scan-markers-alt">
+        ¿Prefieres abrir la cámara y colocar el modelo en tu espacio? <Link to="/ver-modelos">Ver en AR</Link>
+      </p>
     </main>
   );
 }
