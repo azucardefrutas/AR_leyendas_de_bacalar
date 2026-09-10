@@ -47,7 +47,9 @@ function FloorArViewer({ modelUrl, name = 'Modelo 3D', onView }) {
         // en AR. Sin esto el modelo se ve estatico aunque tenga animaciones.
         el.setAttribute('autoplay', '');
         el.setAttribute('ar', '');
-        el.setAttribute('ar-modes', 'webxr scene-viewer quick-look');
+        // Scene Viewer PRIMERO en Android (AR nativo confiable); WebXR como 2a opcion. Asi se
+        // evita que un WebXR que dice estar disponible pero falla deje la experiencia rota.
+        el.setAttribute('ar-modes', 'scene-viewer webxr quick-look');
         el.setAttribute('ar-scale', 'auto');
         el.setAttribute('ar-placement', 'floor');
         // Entorno neutro + exposicion -> el modelo se ve bien iluminado (no oscuro) tanto

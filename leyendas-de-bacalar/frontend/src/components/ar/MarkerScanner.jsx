@@ -3,22 +3,14 @@ import Button from '../ui/Button.jsx';
 import AppIcon from '../ui/AppIcon.jsx';
 import { loadExternalScript } from '../../lib/loadExternalScript.js';
 
-// Visores de "mundo real" para SOLTAR el modelo del marcador (mover/agrandar/rodear). Se elige
-// por dispositivo: si hay WebXR AR, se usa la experiencia INTEGRADA (WebXrArViewer: tocar para
-// colocar, sin salir del navegador); si no, cae al visor NATIVO (FloorArViewer con Scene Viewer/
-// Quick Look). Carga perezosa para no traer three/model-viewer si no se usan.
+// Visor de "mundo real" para SOLTAR el modelo del marcador (mover/agrandar/rodear): el
+// componente oficial de Google `model-viewer` (FloorArViewer). El maneja WebXR -> Scene Viewer
+// -> Quick Look internamente y de forma ROBUSTA: en un equipo con WebXR real usa AR en el
+// navegador; si no, cae al AR nativo (Scene Viewer en Android). Antes teniamos un visor WebXR
+// propio, pero se atoraba en "session configuration not supported" cuando el equipo decia
+// soportar WebXR pero no podia crear la sesion (hit-test). Carga perezosa (no trae model-viewer
+// hasta que se usa).
 const FloorArViewer = lazy(() => import('./FloorArViewer.jsx'));
-const WebXrArViewer = lazy(() => import('./WebXrArViewer.jsx'));
-
-// Chequeo ligero de soporte WebXR AR (sin importar three): decide que visor abrir.
-async function webXrArSupported() {
-  try {
-    if (typeof navigator === 'undefined' || !navigator.xr?.isSessionSupported) return false;
-    return await navigator.xr.isSessionSupported('immersive-ar');
-  } catch {
-    return false;
-  }
-}
 
 // Escaner MULTI-marcador para la web (invitados incluidos). Misma idea que la app movil
 // (marcador -> modelo -> ruleta de emotes) pero en el navegador con MindAR sobre A-Frame.
@@ -167,19 +159,15 @@ function MarkerScanner({ scenes = [] }) {
     setActiveClip(clip);
   }
 
-  // Abre el modelo reconocido en AR de mundo real: se coloca en el espacio y se puede mover/
-  // agrandar/rodear, ya sin depender del marcador. Elige WebXR integrado si el equipo lo soporta;
-  // si no, el visor nativo (Scene Viewer / Quick Look).
-  async function openPlacement() {
+  // Abre el modelo reconocido en el visor de mundo real (model-viewer): muestra el modelo y, con
+  // el boton "Ver en tu espacio", lanza el AR nativo (Scene Viewer / WebXR / Quick Look) donde se
+  // coloca en el piso y se mueve/agranda/rodea, ya sin depender del marcador.
+  function openPlacement() {
     const scene = usable[active?.index];
     if (!scene?.modelUrl) return;
-    const xr = await webXrArSupported();
     setPlaceScene({
       modelUrl: scene.modelUrl,
       name: active?.name || scene.name || 'Modelo 3D',
-      scale: scene.scale,
-      clip: scene.animationConfig?.defaultClip || scene.animationConfig?.clips?.[0] || '',
-      mode: xr ? 'xr' : 'floor',
     });
   }
 
@@ -394,22 +382,10 @@ function MarkerScanner({ scenes = [] }) {
         <p className="marker-scanner-note">Aún no hay marcadores publicados para escanear.</p>
       )}
 
-      {/* Colocar en el espacio: WebXR integrado (equipo compatible) — tocas para colocar y se
-          queda fijo en el espacio; lo mueves, agrandas y rodeas, sin marcador. */}
-      {placeScene && placeScene.mode === 'xr' && (
-        <Suspense fallback={<div className="marker-place-overlay"><div className="marker-place-loading">Cargando AR…</div></div>}>
-          <WebXrArViewer
-            modelUrl={placeScene.modelUrl}
-            name={placeScene.name}
-            clip={placeScene.clip}
-            onClose={() => setPlaceScene(null)}
-            onUnsupported={() => setPlaceScene((p) => (p ? { ...p, mode: 'floor' } : p))}
-          />
-        </Suspense>
-      )}
-
-      {/* Respaldo: AR nativo de mundo real (Scene Viewer / Quick Look) en equipos sin WebXR. */}
-      {placeScene && placeScene.mode === 'floor' && (
+      {/* Colocar en el espacio: AR de mundo real con model-viewer (Google). Muestra el modelo 3D
+          y, con "Ver en tu espacio", lanza el AR nativo (Scene Viewer / WebXR / Quick Look) para
+          colocarlo en el piso, moverlo, agrandarlo y rodearlo, sin depender del marcador. */}
+      {placeScene && (
         <div className="marker-place-overlay" role="dialog" aria-label={`Colocar ${placeScene.name} en tu espacio`}>
           <div className="marker-place-head">
             <strong>{placeScene.name}</strong>
