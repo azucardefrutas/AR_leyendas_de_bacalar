@@ -25,23 +25,72 @@ function loadCrossOriginImage(url) {
 // Cache en memoria del .mind ya compilado (dura la sesion): detener/reiniciar no recompila.
 const mindBufferCache = new Map();
 
+// Cache PERSISTENTE del .mind en IndexedDB: sobrevive recargas y visitas futuras, asi la
+// 2a vez el reconocimiento es INSTANTANEO (sin recompilar). La clave es la firma de las URLs
+// de marcador ordenadas; si cambian los marcadores, la clave cambia y se recompila solo.
+const IDB_NAME = 'leyendas-ar';
+const IDB_STORE = 'mind-cache';
+
+function idbOpen() {
+  return new Promise((resolve, reject) => {
+    if (typeof indexedDB === 'undefined') { reject(new Error('sin-indexeddb')); return; }
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => { req.result.createObjectStore(IDB_STORE); };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error || new Error('idb-error'));
+  });
+}
+
+async function idbGet(key) {
+  try {
+    const db = await idbOpen();
+    return await new Promise((resolve) => {
+      const req = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).get(key);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+  } catch { return null; }
+}
+
+async function idbSet(key, value) {
+  try {
+    const db = await idbOpen();
+    await new Promise((resolve) => {
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(value, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    });
+  } catch { /* cache best-effort: si falla, solo recompila la proxima vez */ }
+}
+
 // Compila TODAS las imagenes de marcador a un unico .mind (blob URL). El indice del target
-// coincide con el orden del arreglo.
+// coincide con el orden del arreglo. Orden de busqueda: memoria -> IndexedDB -> compilar.
 async function compileMarkersToMind(imageUrls, onProgress) {
   const key = imageUrls.slice().sort().join('|');
-  let buffer = mindBufferCache.get(key);
-  if (!buffer) {
-    const mod = await import(/* @vite-ignore */ MINDAR_COMPILER_SRC);
-    const Compiler = mod?.Compiler || (typeof window !== 'undefined' ? window.MINDAR?.IMAGE?.Compiler : null);
-    if (!Compiler) throw new Error('El compilador de MindAR no esta disponible.');
-    const images = await Promise.all(imageUrls.map(loadCrossOriginImage));
-    const compiler = new Compiler();
-    await compiler.compileImageTargets(images, (p) => onProgress?.(p));
-    buffer = await compiler.exportData();
-    mindBufferCache.set(key, buffer);
-  } else {
+
+  const inMemory = mindBufferCache.get(key);
+  if (inMemory) {
     onProgress?.(1);
+    return URL.createObjectURL(new Blob([inMemory]));
   }
+
+  const cached = await idbGet(key);
+  if (cached) {
+    mindBufferCache.set(key, cached);
+    onProgress?.(1);
+    return URL.createObjectURL(new Blob([cached]));
+  }
+
+  const mod = await import(/* @vite-ignore */ MINDAR_COMPILER_SRC);
+  const Compiler = mod?.Compiler || (typeof window !== 'undefined' ? window.MINDAR?.IMAGE?.Compiler : null);
+  if (!Compiler) throw new Error('El compilador de MindAR no esta disponible.');
+  const images = await Promise.all(imageUrls.map(loadCrossOriginImage));
+  const compiler = new Compiler();
+  await compiler.compileImageTargets(images, (p) => onProgress?.(p));
+  const buffer = await compiler.exportData();
+  mindBufferCache.set(key, buffer);
+  idbSet(key, buffer); // best-effort, no bloquea el arranque
   return URL.createObjectURL(new Blob([buffer]));
 }
 
@@ -134,9 +183,16 @@ function MarkerScanner({ scenes = [] }) {
       sceneEl.setAttribute('renderer', 'colorManagement: true; alpha: true; antialias: true; precision: mediump');
       sceneEl.setAttribute('vr-mode-ui', 'enabled: false');
       sceneEl.setAttribute('device-orientation-permission-ui', 'enabled: false');
+      // Tracker afinado para precision y estabilidad "tipo Google Lens":
+      //  - maxTrack: 1  -> enfoca UN marcador a la vez (mas FPS, engancha mas rapido y estable).
+      //  - filterMinCF: 0.0001 (10x menor que el default 0.001) -> mata el temblor cuando el
+      //    marcador esta quieto; filterBeta: 1000 mantiene la respuesta rapida al mover el telefono
+      //    (filtro One-Euro: suave en reposo, agil en movimiento).
+      //  - warmupTolerance: 3 -> engancha rapido sin falsos positivos.
+      //  - missTolerance: 8 -> no se cae ni parpadea ante desenfoques o tapones breves.
       sceneEl.setAttribute(
         'mindar-image',
-        `imageTargetSrc: ${targetSrc}; autoStart: true; maxTrack: ${Math.min(usable.length, 2)}; uiScanning: no; uiLoading: no; uiError: no;`,
+        `imageTargetSrc: ${targetSrc}; autoStart: true; maxTrack: 1; filterMinCF: 0.0001; filterBeta: 1000; warmupTolerance: 3; missTolerance: 8; uiScanning: no; uiLoading: no; uiError: no;`,
       );
       sceneEl.style.width = '100%';
       sceneEl.style.height = '100%';
@@ -217,7 +273,7 @@ function MarkerScanner({ scenes = [] }) {
             <strong>Escanear marcadores</strong>
             <p>
               {status === 'compiling'
-                ? `Preparando el reconocimiento… ${progress}% (solo la primera vez)`
+                ? `Preparando el reconocimiento… ${progress}% (solo la primera vez en este dispositivo)`
                 : status === 'loading'
                   ? 'Abriendo cámara…'
                   : 'Toca “Iniciar cámara” y apunta a un marcador impreso.'}
