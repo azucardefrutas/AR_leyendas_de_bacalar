@@ -7,8 +7,10 @@ import AppIcon from '../ui/AppIcon.jsx';
 
 // Hand tracking runs 100% in the browser (WASM + GPU). No server, no Python: the
 // webcam frames never leave the device. We keep the frontend light on purpose —
-// downscaled input, GPU delegate, throttled to ~24fps, paused when the tab is
-// hidden, and everything torn down when the viewer closes.
+// 720p input (MediaPipe downsamples it internally to the model size, so detection
+// cost barely changes but the video looks crisp and landmarks are more accurate),
+// GPU delegate, detection throttled to ~24fps, paused when the tab is hidden, and
+// everything torn down when the viewer closes.
 // The WASM runtime and the hand model are SELF-HOSTED from our own origin
 // (frontend/public/mediapipe/…). BASE_URL keeps it correct under any deploy base.
 const BASE_URL = import.meta.env.BASE_URL || '/';
@@ -237,18 +239,19 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
         if (!cancelled) setStatus('unsupported');
         return;
       }
-      // 1) Webcam (downscaled to keep the pipeline light).
+      // 1) Webcam. Pedimos 720p: se ve NITIDO (no pixeleado) y MediaPipe detecta las manos con
+      //    mas detalle -> mas precision. No pesa casi nada extra porque el modelo internamente
+      //    reduce la imagen a su tamano de entrada; la deteccion sigue limitada a TARGET_FPS.
+      //    Si la camara no da 720p, el navegador entrega su mejor resolucion disponible.
+      const videoConstraints = {
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        frameRate: { ideal: 30, max: 30 },
+        facingMode: 'user',
+      };
       let stream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 640 },
-            height: { ideal: 480 },
-            frameRate: { ideal: TARGET_FPS, max: 30 },
-            facingMode: 'user',
-          },
-          audio: false,
-        });
+        stream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: false });
       } catch (mediaError) {
         if (!cancelled) setStatus(mediaError?.name === 'NotAllowedError' ? 'denied' : 'error');
         return;
@@ -268,9 +271,10 @@ export default function GestureArViewer({ modelUrl, name = 'Modelo 3D', onClose,
           baseOptions: { modelAssetPath: MODEL_PATH, delegate },
           runningMode: 'VIDEO',
           numHands: 2,
+          // Umbrales mas altos -> landmarks mas estables y menos "manos fantasma" (mas precision).
           minHandDetectionConfidence: 0.6,
-          minHandPresenceConfidence: 0.5,
-          minTrackingConfidence: 0.5,
+          minHandPresenceConfidence: 0.6,
+          minTrackingConfidence: 0.6,
         });
         landmarkerRef.current = await build('GPU').catch(() => build('CPU'));
       } catch {
