@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, Image, Pressable, StyleSheet, Animated, Dimensions, BackHandler } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../theme.js';
 import { BrandText } from './Brand.js';
@@ -23,6 +24,7 @@ function Item({ icon, label, active, onPress, colors }) {
 
 export default function Sidebar({ visible, onClose, current, onNavigate, session, onLogout }) {
   const { colors, mode, toggle } = useTheme();
+  const insets = useSafeAreaInsets();
   const tx = useRef(new Animated.Value(-WIDTH)).current;
   const fade = useRef(new Animated.Value(0)).current;
 
@@ -55,7 +57,7 @@ export default function Sidebar({ visible, onClose, current, onNavigate, session
       </Animated.View>
 
       <Animated.View style={[styles.panel, { width: WIDTH, backgroundColor: colors.surfaceSolid, transform: [{ translateX: tx }] }]}>
-        <View style={[styles.header, { backgroundColor: headerBg }]}>
+        <View style={[styles.header, { backgroundColor: headerBg, paddingTop: insets.top + 16 }]}>
           <Image source={logo} style={[styles.logo, logoTint && { tintColor: logoTint }]} resizeMode="contain" />
           <View>
             <BrandText size={22} color={brandColor} spacing={1.5}>LEYENDAS AR</BrandText>
@@ -91,7 +93,7 @@ export default function Sidebar({ visible, onClose, current, onNavigate, session
             </View>
           </Pressable>
 
-          <Text style={[styles.version, { color: colors.faint }]}>Leyendas de Bacalar · v1.1</Text>
+          <Text style={[styles.version, { color: colors.faint }]}>Leyendas de Bacalar · v1.2.0</Text>
         </View>
       </Animated.View>
     </View>
